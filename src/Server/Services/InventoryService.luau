@@ -23,6 +23,7 @@ local VALID_STATES = { Unopened = true, Dirty = true, InProgress = true, Restore
 local NOT_COUNTED = { Unopened = true, Displayed = true, Exhibited = true }
 
 local DataService, EconomyService, PlotService, CollectionBookService = nil, nil, nil, nil
+local DisplayService = nil -- optional: tests may run without it
 
 -- uids come from HttpService:GenerateGUID. Only letters, digits and dashes are allowed, because a "." would
 -- change the DataService path ("inventory.<uid>.state").
@@ -242,6 +243,9 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 	if not InventoryService.Remove(player, uid) then
 		return false, "removeFailed", nil
 	end
+	if DisplayService then
+		DisplayService.SyncSlots(player) -- the shelf is empty now: clear its ItemId / Golden / Stars attributes
+	end
 	local total = price + bonus + tip
 	EconomyService.AddCash(player, total, "Sale")
 	local sold = DataService.GetValue(player, "stats.sold") or 0
@@ -257,6 +261,7 @@ function InventoryService.Init(services)
 	EconomyService = services.EconomyService
 	PlotService = services.PlotService
 	CollectionBookService = services.CollectionBookService
+	DisplayService = services.DisplayService
 	log.info("Init")
 end
 
