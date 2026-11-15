@@ -281,12 +281,25 @@ end)
 ├── Base                 -- main body
 ├── DirtSpots/           -- Parts, each with a dirt Decal; code fades Decal.Transparency
 ├── RustSpots/           -- Parts with rust texture; NumberValue "Layers" optional
-├── Sockets/             -- invisible Parts named after the part that fits: "ArmL", "Wheel1"
+├── Sockets/             -- invisible Parts named after the part that fits: "LeftArm", "Wheel"
 ├── LooseParts/          -- Parts/Models named to match sockets (start placed on the tray)
 ├── PolishSurfaces/      -- Parts whose Reflectance/Material changes as shine increases
 └── TestPoint            -- Part where the Test UI appears (key, button, dial)
 ```
 Only folders used by that item's recipe are required.
+
+**Final MVP part names** (decided by Dev 1, Ace; not open for debate in the MVP). One name = one socket in `Sockets/` + one loose part in `LooseParts/`, spelled exactly like this. Config: `Shared/Config/Items.luau` (`parts = { ... }`).
+
+| Item | Step | Part name | Item | Step | Part name |
+|---|---|---|---|---|---|
+| ToyCar | Reassemble | `Wheel` | PocketWatch | Replace | `Gear` |
+| DeskLamp | Replace | `Bulb` | TubeRadio | Replace | `Tube` |
+| AlarmClock | Reassemble | `Bell` | RotaryPhone | Reassemble | `Handset` |
+| CassettePlayer | Replace | `Button` | Marionette | Reassemble | `Leg` |
+| MusicBox | Reassemble | `Dancer` | ShipInBottle | Reassemble | `Mast` |
+| RetroCamera | Replace | `Lens` | Jukebox | Replace | `Record` |
+| CopperKettle | Reassemble | `Lid` | Gramophone | Replace | `Horn` |
+| TinRobot | Reassemble | `LeftArm` | | | |
 
 ### C3. Each interaction in detail
 

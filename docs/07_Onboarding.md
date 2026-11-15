@@ -87,7 +87,7 @@ Always say "plan first, wait for go" (CLAUDE.md §6.2). If Claude proposes touch
 | Step | What to do | Prompt for Claude Code |
 |---|---|---|
 | 1 | Learn the design | `Read docs/01_GameDesign.md (restoration section) and docs/03_Architecture.md §11. Explain the Wipe interaction and the data flow in plain words with a small diagram. No code.` |
-| 2 | Write the contract | `Draft the Item Model Contract: exact part and folder names a restoration item model must have (DirtSpots etc.). Show it for Ace and Sean to review. Don't write code.` |
+| 2 | Read the contract | `Read the Item Model Contract in docs/01_GameDesign.md §C2 and the final part names table under it. Explain in plain words what folders and part names an item model needs, using the Rubber Duck and Toy Car as examples. Don't write code.` |
 | 3 | Test place | Create a new, empty Roblox place (not the main one). Add a baseplate and one simple item model that follows the contract. |
 | 4 | Build Wipe | `Feature: Wipe minigame prototype (Stage 4, Dev 2). Read CLAUDE.md, docs/STATUS.md, docs/03 §3 and §11. Goal: mouse or touch rubs dirt spots off one item. Done when: all spots clear, a progress bar fills, works with mouse and phone emulator. Plan first.` |
 | 5 | Test | Play and wipe the item, then use Device Emulator → a phone and repeat. |
@@ -105,7 +105,7 @@ Always say "plan first, wait for go" (CLAUDE.md §6.2). If Claude proposes touch
 | 4 | Copy to Plot6 | Duplicate it five times and rename to `Plot2` ... `Plot6`. |
 | 5 | Report | `Update docs/STATUS.md with what is built.` |
 
-### Open gap
-The **Item Model Contract** is referenced in the docs but not written down yet. Dwayne drafts it in step 2; Ace and Sean review it before real item models are built, because display slots depend on it.
+### Item Model Contract
+It is written in `docs/01_GameDesign.md` §C2, with the 15 final restoration part names under it (decided by Ace). Build item models exactly to it; ask Ace before changing a name.
 
 When stuck, paste the Output errors and use the "Fix a bug" template from CLAUDE.md §7.

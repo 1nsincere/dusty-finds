@@ -69,6 +69,7 @@ Design pillars: **satisfying hands-on restoration · exciting discovery · visib
 | `docs/05_Monetization_QA.md` | Monetization rules, testing checklists, release checklist |
 | `docs/06_Decisions.md` | Technical decisions (and why), assumptions, open questions |
 | `docs/07_Onboarding.md` | Setting up a new teammate's PC, Script Sync linking, first prompts |
+| `docs/08_Core_Loop_And_Testing.md` | What the server services do, who calls what, automated tests, DevTools, manual loop check |
 | `docs/STATUS.md` | What is built, in progress, and broken **right now**. Update it after every feature. |
 
 If a doc and the code disagree, **stop and tell us**. Do not silently pick one.

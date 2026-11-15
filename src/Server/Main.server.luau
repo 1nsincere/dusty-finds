@@ -24,6 +24,7 @@ local ORDER = {
 	"CustomerService",
 	"UpgradeService",
 	"ShopSocialService",
+	"DevTools", -- Studio only: does nothing on live servers
 }
 
 local servicesFolder = script.Parent:WaitForChild("Services")
