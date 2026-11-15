@@ -303,6 +303,11 @@ function DataService.Set(player: Player, path: string, value: any): boolean
 	return true
 end
 
+-- A fresh copy of the default player data. Only DevTools uses it (to reset a Studio test profile).
+function DataService.GetTemplate()
+	return deepCopy(TEMPLATE)
+end
+
 -- Call `callback(player)` once a player's profile is loaded (also for players already loaded).
 -- Services that need data at join (e.g. PlotService) should wait for this instead of polling.
 function DataService.OnPlayerLoaded(callback: (Player) -> ())
