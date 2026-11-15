@@ -139,6 +139,9 @@ function DevToolsCheck.run()
 		check("setLevel 5 clears xp", call("setLevel", player, 5) and data().level == 5 and data().xp == 0)
 		check("setLevel rejects 0 and 99", call("setLevel", player, 0) == false and call("setLevel", player, 99) == false and data().level == 5)
 
+		check("addXp adds progress", call("addXp", player, 10) and data().xp == 10 and data().level == 5)
+		check("addXp rejects bad amounts", call("addXp", player, -1) == false and call("addXp", player, 2.5) == false and data().xp == 10)
+
 		local itemOk, uid = call("giveItem", player, "TinRobot", "Restored", 3, true)
 		local item = data().inventory[uid]
 		check("giveItem: restored golden TinRobot with 3 stars", itemOk and item.state == "Restored" and item.stars == 3 and item.golden == true and item.itemId == "TinRobot")

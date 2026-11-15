@@ -36,11 +36,7 @@ end
 
 function InventoryService.GetCapacity(player: Player): number
 	local upgrades = DataService.GetValue(player, "upgrades") or {}
-	local level = upgrades.StorageRacks or 0
-	if level > 0 then
-		return Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
-	end
-	return Economy.StartingInventoryCapacity
+	return Formulas.inventoryCapacity(upgrades.StorageRacks or 0)
 end
 
 -- Number of items that use up capacity.
@@ -174,6 +170,9 @@ function InventoryService.Update(player: Player, uid: string, changes: { [string
 		if not DataService.Set(player, itemPath(uid) .. "." .. name, value) then
 			return false, "saveFailed"
 		end
+	end
+	if changes.state ~= nil or item.state == "Exhibited" then
+		CollectionBookService.RefreshRating(player) -- exhibits give rating points
 	end
 	return true, nil
 end

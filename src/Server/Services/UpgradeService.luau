@@ -15,7 +15,7 @@ local UpgradeService = {}
 local DEBUG = true
 local log = Log.new("UpgradeService", DEBUG)
 
-local DataService, EconomyService, PlotService = nil, nil, nil
+local DataService, EconomyService, PlotService, CollectionBookService = nil, nil, nil, nil
 
 local function notify(player: any, kind: string, text: string)
 	if Validate.isPlayer(player) then
@@ -63,6 +63,7 @@ function UpgradeService.BuyUpgrade(player: Player, upgradeId: string): (boolean,
 	end
 
 	PlotService.RefreshSlots(player) -- shelves / showroom change which slots are enabled
+	CollectionBookService.RefreshRating(player)
 	notify(player, "Upgrade", `{def.name} level {nextLevel}`)
 	log.info(`bought {upgradeId} level {nextLevel} for ${cost}`)
 	return true, nil, nextLevel
@@ -72,6 +73,7 @@ function UpgradeService.Init(services)
 	DataService = services.DataService
 	EconomyService = services.EconomyService
 	PlotService = services.PlotService
+	CollectionBookService = services.CollectionBookService
 	log.info("Init")
 end
 

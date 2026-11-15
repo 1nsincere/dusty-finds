@@ -64,11 +64,11 @@ Config decides which slot shows when: `decorSlots` on an upgrade in `Config/Upgr
 
 | Test | Command | Expected |
 |---|---|---|
-| Services, rolls, selling, upgrades | `require(game.ServerScriptService.Server.Tests.SystemsCheck).run()` | `[SystemsCheck] 128 passed, 0 failed` |
+| Services, rolls, selling, upgrades | `require(game.ServerScriptService.Server.Tests.SystemsCheck).run()` | `[SystemsCheck] 129 passed, 0 failed` |
 | Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 27 passed, 0 failed` |
-| DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 18 passed, 0 failed` |
+| DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 20 passed, 0 failed` |
 | Config data (Edit mode) | `require(game.ReplicatedStorage.Shared.Tests.ConfigCheck).run()` | `231+ passed, 0 failed` (prints the count) |
-| Formulas (Edit mode) | `require(game.ReplicatedStorage.Shared.Tests.FormulasCheck).run()` | `[FormulasCheck] 111 passed, 0 failed` |
+| Formulas (Edit mode) | `require(game.ReplicatedStorage.Shared.Tests.FormulasCheck).run()` | `[FormulasCheck] 117 passed, 0 failed` |
 
 These use fake data and copies of the services, so they never touch your saved test profile.
 **Do not** `require` a service from the command bar to call it: you would get a second copy that is not the running one.
@@ -83,6 +83,7 @@ local me = game.Players:GetPlayers()[1]
 print(DT:Invoke("help"))
 DT:Invoke("giveCash", me, 500)
 DT:Invoke("setLevel", me, 5)
+DT:Invoke("addXp", me, 20)                            -- XP through EconomyService (level-ups work)
 DT:Invoke("giveBox", me, "Starter")                  -- 3 Unopened items, open them with RequestOpenBox
 DT:Invoke("giveItem", me, "TinRobot", "Restored", 3)  -- itemId, state, stars, golden
 DT:Invoke("maxUpgrades", me)                         -- shows all decor, 12 display slots

@@ -15,6 +15,7 @@ local Upgrades = require(ReplicatedStorage.Shared.Config.Upgrades)
 local Formulas = require(ReplicatedStorage.Shared.Formulas)
 
 local CollectionBookService = {}
+local lastRating: { [any]: number } = {} -- [Player] = last stars sent
 local DEBUG = true
 local log = Log.new("CollectionBookService", DEBUG)
 
@@ -107,12 +108,32 @@ function CollectionBookService.GetRatingStars(player: Player): number
 	return Formulas.ratingStars(CollectionBookService.GetRatingPoints(player))
 end
 
+-- Tells the client its shop rating (stars) when it changed. Call after upgrades are bought or exhibits change.
+function CollectionBookService.RefreshRating(player: Player)
+	local stars = CollectionBookService.GetRatingStars(player)
+	if lastRating[player] ~= stars then
+		lastRating[player] = stars
+		if DataService.Push then
+			DataService.Push(player, "rating", stars)
+		end
+	end
+end
+
 function CollectionBookService.Init(services)
 	DataService = services.DataService
 	log.info("Init")
 end
 
 function CollectionBookService.Start()
+	if DataService.AddSnapshotExtra then
+		DataService.AddSnapshotExtra("rating", function(player)
+			lastRating[player] = CollectionBookService.GetRatingStars(player)
+			return lastRating[player]
+		end)
+	end
+	DataService.OnPlayerReleasing(function(player)
+		lastRating[player] = nil
+	end)
 	log.info("Start (no remotes: other services call this one)")
 end
 

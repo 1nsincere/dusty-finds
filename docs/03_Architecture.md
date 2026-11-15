@@ -228,7 +228,8 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | Remote | Payload | Purpose |
 |---|---|---|
 | `StateChanged` | `path: string, value: any` | Update ClientState (e.g. `"cash"`, `"inventory.<uid>"`, `"upgrades.CleaningBrush"`) |
-| `Notify` | `kind, text` | Toasts and banners |
+| `StateChanged("rating", stars)` | `number` 1-5 | Derived, not saved. In the first `GetInitialState` snapshot as `rating`, then pushed when upgrades or exhibits change |
+| `Notify` | `kind, text` | Toasts and banners. Kinds: `LevelUp`, `Upgrade`, `Delivery` ("Crate delivered!", "Free delivery arrived!"), `Info` |
 | `BoxOpened` | `uid, itemId, isGolden, isNew` | Play reveal |
 | `RestoreSession` | `uid, recipe, stepIndex, enabledSpotsSeed` | Begin/resume bench view |
 | `ItemRestored` | `uid, stars, value` | RESTORED! card |
