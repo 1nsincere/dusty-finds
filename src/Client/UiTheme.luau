@@ -25,8 +25,7 @@ function UiTheme.rarityColor(rarity: string?): Color3
 	return (rarity and UiTheme.Rarity[rarity]) or UiTheme.Rarity.Common
 end
 
--- 1500 -> "$1,500". For screens showing prices. (HudController still has its own copy from before this
--- existed; switch it over next time that file is touched.)
+-- 1500 -> "$1,500". Used by every screen that shows money (HUD, Upgrades).
 function UiTheme.formatCash(amount: number): string
 	local formatted = tostring(math.floor(amount))
 	repeat

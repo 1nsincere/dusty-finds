@@ -1,9 +1,10 @@
 -- HudController.luau
--- Purpose: HUD: shows my money, level and XP from ClientState; shows server messages (Notify, Announcement)
--- as the coral banner (good news) or toasts (problems); scales HUD + Toasts to the screen size.
--- Rating stars stay a placeholder until the server sends rating to the client. Buttons are wired by their screens.
--- Owner: Dev 3 (Sean). Depends on: ClientState, Shared.Remotes (Notify, Announcement), Shared.Formulas,
--- Shared.Config.Economy, StarterGui.HUD + StarterGui.Toasts (UI contract, docs/03 §8).
+-- Purpose: HUD: shows my money, level, XP and shop rating stars from ClientState; shows server messages
+-- (Notify, Announcement) as the coral banner (good news) or toasts (problems); scales HUD + Toasts to the screen.
+-- Buttons are wired by their own screens.
+-- Owner: Dev 3 (Sean). Depends on: ClientState ("rating" is sent by CollectionBookService), UiTheme,
+-- Shared.Remotes (Notify, Announcement), Shared.Formulas, Shared.Config.Economy,
+-- StarterGui.HUD + StarterGui.Toasts (UI contract, docs/03 §8).
 
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
@@ -11,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
+local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Formulas = require(Shared:WaitForChild("Formulas"))
@@ -38,7 +40,9 @@ local FADE = TweenInfo.new(0.3)
 local BANNER_ICONS = {
 	LevelUp = "⭐",
 	Upgrade = "🔨",
+	Delivery = "📦", -- "Crate delivered!" / "Free delivery arrived!" (ShipmentService, docs/01 J3)
 }
+local MAX_STARS = 5
 local ANNOUNCEMENT_ICON = "🏆"
 
 local hud: ScreenGui? = nil
@@ -47,22 +51,30 @@ local cameraConnection: RBXScriptConnection? = nil
 
 -- ===== Money / level / XP =====
 
--- 1250 -> "1,250". Cash is always a whole number (EconomyService only allows integers).
-local function formatCash(amount: number): string
-	local formatted = tostring(math.floor(amount))
-	repeat
-		local count
-		formatted, count = string.gsub(formatted, "^(-?%d+)(%d%d%d)", "%1,%2")
-	until count == 0
-	return "$" .. formatted
-end
-
 local function updateMoney()
 	local cash = ClientState.Get("cash")
 	if hud == nil or type(cash) ~= "number" then
 		return -- not loaded: keep the placeholder text from Studio
 	end
-	hud.MoneyPill.Amount.Text = formatCash(cash)
+	hud.MoneyPill.Amount.Text = UiTheme.formatCash(cash)
+end
+
+-- "rating" = shop rating stars (1-5), worked out by the server from decor, expansions and exhibits.
+local function updateRating()
+	local stars = ClientState.Get("rating")
+	if hud == nil or type(stars) ~= "number" then
+		return -- not sent (older server): keep the Studio placeholder
+	end
+	stars = math.clamp(math.floor(stars), 0, MAX_STARS)
+	for i = 1, MAX_STARS do
+		local star = hud.RatingPill.Stars:FindFirstChild("Star" .. i)
+		if star then
+			star.TextColor3 = if i <= stars then UiTheme.Coral else UiTheme.Disabled
+		end
+	end
+	if DEBUG then
+		print(`[HudController] rating {stars}★`)
+	end
 end
 
 local function updateXp()
@@ -287,6 +299,8 @@ function HudController.Start()
 		-- Show what we have now, then follow every server change.
 		updateMoney()
 		updateXp()
+		updateRating()
+		ClientState.OnChanged("rating", updateRating)
 		ClientState.OnChanged("cash", updateMoney)
 		ClientState.OnChanged("level", updateXp)
 		ClientState.OnChanged("xp", updateXp)
