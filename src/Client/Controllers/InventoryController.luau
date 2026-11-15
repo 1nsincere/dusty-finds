@@ -2,6 +2,8 @@
 -- Purpose: Inventory screen: grid of my items (from ClientState) with filters and capacity, a details panel per
 -- item, and Quick Sell for Restored items at my counter (RequestQuickSell). The server checks state, distance and
 -- price; this screen only shows and requests. Opens from HUD 🎒 or my Counter's QuickSellPrompt.
+-- Picker mode (OpenPicker, called by DisplayController from an empty slot): choose a Restored item and send
+-- RequestPlaceDisplay / RequestPlaceExhibit for that slot.
 -- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, Shared.Remotes, Shared.Formulas,
 -- Shared.Config (Items, Rarities, Economy), StarterGui.Inventory, ReplicatedStorage.Assets.UI.ItemCard,
 -- Workspace.Plots (OwnerUserId attribute, Counter).
@@ -57,6 +59,9 @@ local currentFilter = "All"
 local selectedUid: string? = nil
 local selling = false
 local soldMessageUntil = 0
+-- Picker mode: opened from a shelf/pedestal prompt (DisplayController) to choose a Restored item for that slot.
+local pickTarget: { kind: string, slotIndex: number, label: string }? = nil
+local placingUid: string? = nil
 
 local function log(...)
 	if DEBUG then
@@ -112,6 +117,7 @@ local function setDetailsVisible(details: Frame, showItem: boolean)
 	if not showItem then
 		details.QuickSellButton.Visible = false
 		details.RestoreButton.Visible = false
+		details.PlaceButton.Visible = false
 	end
 end
 
@@ -126,7 +132,9 @@ local function updateDetails()
 	local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
 	if type(item) ~= "table" or not FILTERS.All[item.state] then
 		selectedUid = nil
-		details.Hint.Text = "Tap an item to see what you can do."
+		details.Hint.Text = if pickTarget
+			then `Tap a restored item to put on {pickTarget.label}.`
+			else "Tap an item to see what you can do."
 		setDetailsVisible(details, false)
 		return
 	end
@@ -160,6 +168,20 @@ local function updateDetails()
 	end
 	-- Restore comes with Dev 2's restoration; until then it is a greyed placeholder.
 	details.RestoreButton.Visible = item.state == "Dirty" or item.state == "InProgress"
+
+	-- Picker mode: the only action is "put it on the slot I came from" (Quick Sell/Restore hidden).
+	local place = details.PlaceButton :: TextButton
+	place.Visible = pickTarget ~= nil and item.state == "Restored"
+	if pickTarget then
+		quickSell.Visible = false
+		details.RestoreButton.Visible = false
+		if place.Visible then
+			place.Text = if placingUid
+				then "Placing…"
+				elseif pickTarget.kind == "Exhibit" then "Put on pedestal"
+				else "Put on shelf"
+		end
+	end
 end
 
 -- ===== Grid =====
@@ -306,13 +328,66 @@ function InventoryController.IsOpen(): boolean
 	return inventoryGui ~= nil and inventoryGui.Window.Visible
 end
 
+-- Leaves picker mode and puts the normal title and tabs back.
+local function endPicker()
+	pickTarget = nil
+	placingUid = nil
+	if inventoryGui then
+		inventoryGui.Window.Title.Text = "🎒 Inventory"
+		inventoryGui.Window.Tabs.Visible = true
+		inventoryGui.Window.Empty.Text = "Nothing here yet. Open boxes at your door!"
+	end
+end
+
 function InventoryController.Close()
 	if inventoryGui then
 		inventoryGui.Window.Visible = false
 	end
+	endPicker()
 end
 
+local openWindow -- forward declaration (defined below, used by OpenPicker)
+
 function InventoryController.Open(filter: string?)
+	endPicker() -- opened from the HUD or the counter: normal mode
+	openWindow(filter)
+end
+
+-- Opened by DisplayController from an empty slot in my shop: choose a Restored item for that slot.
+function InventoryController.OpenPicker(kind: string, slotIndex: number, label: string)
+	if inventoryGui == nil or (kind ~= "Display" and kind ~= "Exhibit") then
+		return
+	end
+	endPicker()
+	pickTarget = { kind = kind, slotIndex = slotIndex, label = label }
+	selectedUid = nil
+	inventoryGui.Window.Title.Text = `Choose for {label}`
+	inventoryGui.Window.Tabs.Visible = false -- only Restored items can go on a slot
+	inventoryGui.Window.Empty.Text = "No restored items yet."
+	openWindow("Restored")
+end
+
+local function onPlace()
+	local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
+	if pickTarget == nil or placingUid or type(item) ~= "table" or item.state ~= "Restored" then
+		return
+	end
+	placingUid = selectedUid
+	updateDetails() -- "Placing…" right away (docs/01 J4)
+	local remote = if pickTarget.kind == "Exhibit" then Remotes.RequestPlaceExhibit else Remotes.RequestPlaceDisplay
+	remote:FireServer(selectedUid, pickTarget.slotIndex)
+	log("asked to place", selectedUid, "on", pickTarget.kind, pickTarget.slotIndex)
+	-- If the server refuses (slot taken, too far…) a toast explains it; unlock the button after a moment.
+	local uid = placingUid
+	task.delay(2, function()
+		if placingUid == uid then
+			placingUid = nil
+			updateDetails()
+		end
+	end)
+end
+
+openWindow = function(filter: string?)
 	if inventoryGui == nil then
 		return
 	end
@@ -407,10 +482,20 @@ function InventoryController.Start()
 			end
 		end
 		window.Details.QuickSellButton.Activated:Connect(onQuickSell)
+		window.Details.PlaceButton.Activated:Connect(onPlace)
 		window.Details.RestoreButton.AutoButtonColor = false
 
 		ClientState.OnChanged("inventory", function()
 			selling = false
+			-- Placed: the item is now Displayed/Exhibited, so the picker's job is done.
+			if placingUid then
+				local placed = ClientState.Get("inventory." .. placingUid)
+				if type(placed) ~= "table" or placed.state ~= "Restored" then
+					log("placed", placingUid)
+					InventoryController.Close()
+					return
+				end
+			end
 			renderGrid()
 		end)
 		ClientState.OnChanged("upgrades", updateCapacity)

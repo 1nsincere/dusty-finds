@@ -18,6 +18,7 @@ ClientState.Load()
 local ORDER = {
 	"HudController",
 	"InventoryController",
+	"DisplayController",
 	"DiscoveryController",
 	"RestorationController",
 	"ShopController",
