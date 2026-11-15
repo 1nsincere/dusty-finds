@@ -46,19 +46,22 @@ restore/                         ← Git repo root
 
 ```
 Workspace
-├── Plots/                       -- 6 plot models (Plot1..Plot6), built in Studio
-│   └── Plot1/
-│       ├── Spawn (Part)         -- where the owner spawns / visit point
-│       ├── Sign (SurfaceGui with owner name)
-│       ├── Counter/ (CheckoutPrompt, QuickSellPrompt, LikePrompt)
-│       ├── Benches/Bench1/ (ItemAnchor, CameraPoint, Prompt)
-│       ├── DisplaySlots/Slot1..Slot12 (Part + attribute SlotIndex, Enabled)
-│       ├── ExhibitSlots/Exhibit1..Exhibit4
-│       ├── DecorSlots/<DecorId>/ (model, hidden until bought)
+├── Plots/                       -- Folder: 6 plot Models (Plot1..Plot6), built in Studio
+│   └── Plot1/                   -- Model, PrimaryPart = Floor (40x40 studs). Plot1 is the master; Plot2-6 are copies
+│       ├── Floor (Part), Walls/, Shelves/  -- greybox geometry, not used by code
+│       ├── Spawn (Part)         -- invisible, NOT a SpawnLocation; owner is teleported here / visit point
+│       ├── Sign (Part) → SurfaceGui → OwnerName (TextLabel, default "For Sale")
+│       ├── Counter (Part) → CheckoutPrompt, QuickSellPrompt, LikePrompt (ProximityPrompts)
+│       ├── Benches/Bench1 (Part) → ItemAnchor (Part), CameraPoint (Part, faces the anchor), Prompt
+│       ├── DisplaySlots/Slot1..Slot12 (Part + attribute SlotIndex, Enabled; 1-3 Enabled at start)
+│       ├── ExhibitSlots/Exhibit1..Exhibit4 (Part + attribute SlotIndex, Enabled; 1 Enabled at start)
+│       ├── DecorSlots/<DecorId> (Model + attribute DecorId; parts Transparency 1 + CanCollide false until bought)
+│       │                        -- PottedPlant1, PottedPlant2, Rug, WallPosters, PendantLamps, NeonSign
 │       ├── DeliveryPoint (Part)  -- where boxes appear
-│       ├── SupplyBoard (Part + Prompt)
-│       └── CustomerPath/ (Door, Browse1..3, CounterSpot, Exit)
-└── Street, scenery…
+│       ├── SupplyBoard (Part) → Prompt
+│       └── CustomerPath/ (Door, Browse1..3, CounterSpot, Exit: invisible marker Parts)
+├── Street (Part)                -- in front of the plots; default SpawnLocation sits on it
+└── scenery…
 
 ServerStorage
 ├── Expansions/BackRoom, Showroom      -- cloned into a plot when bought
