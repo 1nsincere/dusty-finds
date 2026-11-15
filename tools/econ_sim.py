@@ -18,6 +18,7 @@ UP=[ # name,cost,level,effect
 ('Plant',160,1),('Rug',150,1),('Shelf2',900,3),('Storage2',1000,4),('BackRoom',2500,4),('Posters',200,1),('Lamps',400,1),
 ('Brush2',1500,5),('Polisher2',1800,5),('Toolkit2',2000,6),('Sign2',2500,6),('Neon',1500,1),('Shelf3',4000,7),('Storage3',5000,8),
 ('FishTank',3000,1),('Brush3',8000,10),('Polisher3',8500,10),('Toolkit3',9000,11),('Showroom',20000,10),('Fountain',10000,10),('Sign3',12000,12)]
+REQ={'FishTank':'BackRoom','Fountain':'Showroom'} # same as `requires` in Shared/Config/Upgrades.luau: must own this first
 def run(seed):
     rnd=random.Random(seed); t=0; money=100; xp=0; lvl=1; owned=set(); log={}
     slots=3; bench=1
@@ -41,7 +42,7 @@ def run(seed):
         xp+=n*avgx; t+=1
         while xp>=xpneed(lvl): xp-=xpneed(lvl); lvl+=1; money+=50*lvl; log.setdefault('Lv'+str(lvl),t)
         for name,cost,req in UP:
-            if name not in owned and lvl>=req and money>=cost:
+            if name not in owned and lvl>=req and money>=cost and (name not in REQ or REQ[name] in owned):
                 money-=cost; owned.add(name); log[name]=t; break
     return log
 logs=[run(s) for s in range(200)]

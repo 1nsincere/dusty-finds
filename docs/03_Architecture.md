@@ -46,19 +46,22 @@ restore/                         ← Git repo root
 
 ```
 Workspace
-├── Plots/                       -- 6 plot models (Plot1..Plot6), built in Studio
-│   └── Plot1/
-│       ├── Spawn (Part)         -- where the owner spawns / visit point
-│       ├── Sign (SurfaceGui with owner name)
-│       ├── Counter/ (CheckoutPrompt, QuickSellPrompt, LikePrompt)
-│       ├── Benches/Bench1/ (ItemAnchor, CameraPoint, Prompt)
-│       ├── DisplaySlots/Slot1..Slot12 (Part + attribute SlotIndex, Enabled)
-│       ├── ExhibitSlots/Exhibit1..Exhibit4
-│       ├── DecorSlots/<DecorId>/ (model, hidden until bought)
+├── Plots/                       -- Folder: 6 plot Models (Plot1..Plot6), built in Studio
+│   └── Plot1/                   -- Model, PrimaryPart = Floor (40x40 studs). Plot1 is the master; Plot2-6 are copies
+│       ├── Floor (Part), Walls/, Shelves/  -- greybox geometry, not used by code
+│       ├── Spawn (Part)         -- invisible, NOT a SpawnLocation; owner is teleported here / visit point
+│       ├── Sign (Part) → SurfaceGui → OwnerName (TextLabel, default "For Sale")
+│       ├── Counter (Part) → CheckoutPrompt, QuickSellPrompt, LikePrompt (ProximityPrompts)
+│       ├── Benches/Bench1 (Part) → ItemAnchor (Part), CameraPoint (Part, faces the anchor), Prompt
+│       ├── DisplaySlots/Slot1..Slot12 (Part + attribute SlotIndex, Enabled; 1-3 Enabled at start)
+│       ├── ExhibitSlots/Exhibit1..Exhibit4 (Part + attribute SlotIndex, Enabled; 1 Enabled at start)
+│       ├── DecorSlots/<DecorId> (Model + attribute DecorId; parts Transparency 1 + CanCollide false until bought)
+│       │                        -- PottedPlant1, PottedPlant2, Rug, WallPosters, PendantLamps, NeonSign
 │       ├── DeliveryPoint (Part)  -- where boxes appear
-│       ├── SupplyBoard (Part + Prompt)
-│       └── CustomerPath/ (Door, Browse1..3, CounterSpot, Exit)
-└── Street, scenery…
+│       ├── SupplyBoard (Part) → Prompt
+│       └── CustomerPath/ (Door, Browse1..3, CounterSpot, Exit: invisible marker Parts)
+├── Street (Part)                -- in front of the plots; default SpawnLocation sits on it
+└── scenery…
 
 ServerStorage
 ├── Expansions/BackRoom, Showroom      -- cloned into a plot when bought
@@ -215,7 +218,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 3 | slot mine, not reserved by a customer, capacity |
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
 | `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
-| `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, cash |
+| `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | not own shop, not liked today, near that counter |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
 | `RequestSaveSettings` | `settings: table` | Dev 3 | known keys, booleans only |
@@ -263,9 +266,12 @@ Restoration-specific: each step type has a **minimum duration** (Wipe 3 s, Scrap
 ## 8. UI contract (Dev 3 owns)
 Controllers find UI by fixed names. Changing a name = update this list + tell the team.
 ```
-HUD.MoneyPill.Amount (TextLabel)        HUD.RatingPill.Stars (Frame)
-HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton)
-HUD.XPBar.{Fill,Level}                  HUD.Banner (Frame, hidden)
+HUD.MoneyPill.Amount (TextLabel)        HUD.RatingPill.Stars (Frame) → Star1..Star5 (TextLabel "★", color = filled/empty)
+HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton, emoji child "Icon" until real icons)
+HUD.TopRight.{Settings,Visit} (ImageButton)
+HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv N" on top
+HUD.Banner (Frame, hidden) → Text (TextLabel)
+HUD.UIScale  -- HudController sets Scale by screen size
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}
@@ -322,7 +328,7 @@ Items.TinRobot = {
     recipe = {
         { type = "Wipe" },
         { type = "Scrape", layers = 3 },
-        { type = "Reassemble", parts = { "ArmL" } },
+        { type = "Reassemble", parts = { "LeftArm" } },
         { type = "Polish" },
         { type = "Test", style = "Wind", greenZone = 0.25 },
     },
@@ -358,6 +364,8 @@ Upgrades.BackRoom = {
 }
 ```
 
+Optional field `requires = "<upgradeId>"` (e.g. Fish Tank requires `"BackRoom"`, Fountain requires `"Showroom"`): the player must already own that upgrade (`upgrades[requires] >= 1`) **in addition to** meeting `requiredLevel`. `UpgradeService` must validate both. `requiredLevel` alone is not enough: decor unlocks at level 1, so only `requires` stops the Fountain being bought before the Showroom.
+
 ### 10.4 Item instance (owned by a player)
 ```lua
 export type ItemInstance = {
@@ -370,6 +378,8 @@ export type ItemInstance = {
     stars: number?,          -- 1-3 once restored
     slot: number?,           -- display/exhibit slot index
     acquiredAt: number,      -- os.time()
+    crateId: string?,        -- crate it came from (ShipmentService), e.g. "Starter", "FreeDelivery"
+    boxId: string?,          -- groups the items of one crate purchase = one waiting box (max Economy.MaxWaitingBoxes)
 }
 ```
 

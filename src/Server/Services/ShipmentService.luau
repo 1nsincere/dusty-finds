@@ -1,21 +1,282 @@
 -- ShipmentService.luau
--- Purpose: deliveries, crate purchases and rolls (empty skeleton: Init/Start only print for now).
--- Owner: Dev 1 (Ace). Depends on: nothing yet.
--- Init = set up and grab other modules (no waiting); Start = connect events. Real code comes with its feature.
+-- Purpose: boxes of mystery items: Free Delivery, buying crates, rolling contents, opening boxes (docs/01 B1-B3).
+-- Owner: Dev 1 (Ace). Depends on: DataService, EconomyService, InventoryService, CollectionBookService, PlotService,
+-- Shared.Config (Crates, Items, Rarities, Economy). All rolls use Random.new() on the server (CLAUDE.md §4 rule 8).
+-- Contents are rolled when the box is bought/claimed and saved as Unopened items; opening only reveals them.
+
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Log = require(script.Parent.Parent.Lib.Log)
+local Validate = require(script.Parent.Parent.Lib.Validate)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Crates = require(ReplicatedStorage.Shared.Config.Crates)
+local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+local Items = require(ReplicatedStorage.Shared.Config.Items)
+local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 
 local ShipmentService = {}
 local DEBUG = true
+local log = Log.new("ShipmentService", DEBUG)
 
-function ShipmentService.Init(_others)
-	if DEBUG then
-		print("[ShipmentService] Init")
+local rng = Random.new()
+local DataService, EconomyService, InventoryService, CollectionBookService, PlotService = nil, nil, nil, nil, nil
+
+-- Rarity names from lowest to highest, so rolls are in a fixed order.
+local rarityOrder: { string } = {}
+for id in Rarities do
+	table.insert(rarityOrder, id)
+end
+table.sort(rarityOrder, function(a, b)
+	return Rarities[a].index < Rarities[b].index
+end)
+
+-- Item ids of one tier and rarity, sorted so a seeded Random gives the same result every time.
+local function itemsOf(tier: number, rarity: string): { string }
+	local ids = {}
+	for id, def in Items do
+		if def.tier == tier and def.rarity == rarity then
+			table.insert(ids, id)
+		end
+	end
+	table.sort(ids)
+	return ids
+end
+
+-- Rolls ONE item for a crate: rarity from the crate's odds, then a random item of that rarity in the crate's tier,
+-- then a 2% Golden chance. `random` is optional (tests pass a seeded Random). Returns itemId, golden.
+function ShipmentService.RollItem(crateId: string, random: Random?): (string?, boolean)
+	local crate = Crates[crateId]
+	if crate == nil then
+		return nil, false
+	end
+	local r = random or rng
+
+	local roll = r:NextNumber() * 100
+	local running = 0
+	local chosen = nil
+	for _, rarity in rarityOrder do
+		local chance = crate.odds[rarity] or 0
+		if chance > 0 then
+			running += chance
+			if roll < running then
+				chosen = rarity
+				break
+			end
+		end
+	end
+	if chosen == nil then -- rounding at the very top of the range: use the highest rarity with a chance
+		for i = #rarityOrder, 1, -1 do
+			if (crate.odds[rarityOrder[i]] or 0) > 0 then
+				chosen = rarityOrder[i]
+				break
+			end
+		end
+	end
+
+	local pool = itemsOf(crate.tier, chosen)
+	if #pool == 0 then
+		log.warn("no items for", crateId, "tier", crate.tier, chosen)
+		return nil, false
+	end
+	local itemId = pool[r:NextInteger(1, #pool)]
+	local golden = r:NextNumber() < Economy.GoldenChance
+	return itemId, golden
+end
+
+-- Adds one box (a crate's worth of Unopened items) to the inventory. Returns the uids, or nil plus a reason.
+local function addBox(player: Player, crateId: string): ({ string }?, string?)
+	local crate = Crates[crateId]
+	local boxId = HttpService:GenerateGUID(false)
+	local uids: { string } = {}
+	for _ = 1, crate.itemCount do
+		local itemId, golden = ShipmentService.RollItem(crateId)
+		local uid = itemId and InventoryService.Add(player, itemId, {
+			state = "Unopened",
+			golden = golden,
+			crateId = crateId,
+			boxId = boxId,
+		})
+		if uid == nil then
+			for _, added in uids do -- undo the partial box
+				InventoryService.Remove(player, added)
+			end
+			return nil, "addFailed"
+		end
+		table.insert(uids, uid)
+	end
+	return uids, nil
+end
+
+local function notify(player: any, kind: string, text: string)
+	if Validate.isPlayer(player) then
+		Remotes.Notify:FireClient(player, kind, text)
 	end
 end
 
-function ShipmentService.Start()
-	if DEBUG then
-		print("[ShipmentService] Start")
+-- Buys a crate with cash. Returns ok, reason, uids.
+-- Reasons: unknown, free (use the free delivery), noData, level, tooManyBoxes, cash, addFailed.
+function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, string?, { string }?)
+	if not Validate.isConfigId(crateId, Crates) then
+		return false, "unknown", nil
 	end
+	local crate = Crates[crateId]
+	if crate.price <= 0 then
+		return false, "free", nil
+	end
+	local level = DataService.GetValue(player, "level")
+	if type(level) ~= "number" then
+		return false, "noData", nil
+	end
+	if level < crate.requiredLevel then
+		return false, "level", nil
+	end
+	local boxes = InventoryService.CountWaitingBoxes(player)
+	if boxes >= Economy.MaxWaitingBoxes then
+		return false, "tooManyBoxes", nil
+	end
+	if not EconomyService.Spend(player, crate.price) then
+		return false, "cash", nil
+	end
+	local uids, reason = addBox(player, crateId)
+	if uids == nil then
+		EconomyService.AddCash(player, crate.price, "Refund")
+		return false, reason, nil
+	end
+	log.info(`bought {crateId}: {#uids} items`)
+	return true, nil, uids
+end
+
+-- Claims the free delivery if the timer has elapsed and no free box is waiting.
+-- Reasons: noData, tooSoon, alreadyWaiting, tooManyBoxes, addFailed. Returns ok, reason, uids.
+function ShipmentService.ClaimFreeDelivery(player: Player, now: number?): (boolean, string?, { string }?)
+	local last = DataService.GetValue(player, "timers.lastFreeDelivery")
+	if type(last) ~= "number" then
+		return false, "noData", nil
+	end
+	local time = now or os.time()
+	if time - last < Economy.FreeDeliveryIntervalSeconds then
+		return false, "tooSoon", nil
+	end
+	local boxes, freeWaiting = InventoryService.CountWaitingBoxes(player)
+	if freeWaiting >= Economy.FreeDeliveryMaxWaiting then
+		return false, "alreadyWaiting", nil
+	end
+	if boxes >= Economy.MaxWaitingBoxes then
+		return false, "tooManyBoxes", nil
+	end
+	local uids, reason = addBox(player, "FreeDelivery")
+	if uids == nil then
+		return false, reason, nil
+	end
+	DataService.Set(player, "timers.lastFreeDelivery", time)
+	return true, nil, uids
+end
+
+-- A brand-new player (never had a free delivery) gets the guaranteed first box: Economy.FirstBoxItemId, not golden.
+function ShipmentService.GrantFirstBox(player: Player): boolean
+	local last = DataService.GetValue(player, "timers.lastFreeDelivery")
+	if last ~= 0 then
+		return false -- nil = no data, otherwise they already had their first delivery
+	end
+	local uid = InventoryService.Add(player, Economy.FirstBoxItemId, {
+		state = "Unopened",
+		golden = false,
+		crateId = "FreeDelivery",
+		boxId = HttpService:GenerateGUID(false),
+	})
+	if uid == nil then
+		return false
+	end
+	DataService.Set(player, "timers.lastFreeDelivery", os.time())
+	log.info(`first box for {player.Name}`)
+	return true
+end
+
+-- Opens an Unopened item: it becomes Dirty (needs inventory room), the collection records it, first finds pay a bonus.
+-- Returns ok, reason, info = { itemId, golden, isNew, bonus }.
+function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?, { [string]: any }?)
+	local item = InventoryService.Get(player, uid)
+	if item == nil then
+		return false, "noItem", nil
+	end
+	if item.state ~= "Unopened" then
+		return false, "notUnopened", nil
+	end
+	local ok, reason = InventoryService.Update(player, uid, { state = "Dirty" })
+	if not ok then
+		if reason == "full" then
+			notify(player, "Info", "Your inventory is full. Sell something or buy Storage Racks.")
+		end
+		return false, reason, nil
+	end
+
+	local def = Items[item.itemId]
+	local isNew = CollectionBookService.RecordFound(player, item.itemId, item.golden) == true
+	local bonus = 0
+	if isNew then
+		bonus = Rarities[def.rarity].firstFindBonus[def.tier] or 0
+		if bonus > 0 then
+			EconomyService.AddCash(player, bonus, "Bonus")
+		end
+	end
+
+	if Validate.isPlayer(player) then
+		Remotes.BoxOpened:FireClient(player, uid, item.itemId, item.golden, isNew)
+	end
+	if def.rarity == "Legendary" then
+		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
+		Remotes.Announcement:FireAllClients(`{name} found a Legendary {def.name}!`, def.rarity)
+	end
+	return true, nil, { itemId = item.itemId, golden = item.golden, isNew = isNew, bonus = bonus }
+end
+
+function ShipmentService.Init(services)
+	DataService = services.DataService
+	EconomyService = services.EconomyService
+	InventoryService = services.InventoryService
+	CollectionBookService = services.CollectionBookService
+	PlotService = services.PlotService
+	log.info("Init")
+end
+
+function ShipmentService.Start()
+	Remotes.RequestOpenBox.OnServerEvent:Connect(function(player, uid)
+		if not Validate.rateLimit(player, "RequestOpenBox", 3) or type(uid) ~= "string" then
+			return
+		end
+		ShipmentService.OpenBox(player, uid)
+	end)
+
+	Remotes.RequestBuyCrate.OnServerEvent:Connect(function(player, crateId)
+		if not Validate.rateLimit(player, "RequestBuyCrate", 3) or type(crateId) ~= "string" then
+			return
+		end
+		local ok, reason = ShipmentService.BuyCrate(player, crateId)
+		if not ok and reason == "cash" then
+			notify(player, "Info", "Not enough cash for that crate.")
+		elseif not ok and reason == "tooManyBoxes" then
+			notify(player, "Info", "Open your waiting boxes first.")
+		end
+	end)
+
+	Remotes.RequestClaimFreeDelivery.OnServerEvent:Connect(function(player)
+		if not Validate.rateLimit(player, "RequestClaimFreeDelivery", 2) then
+			return
+		end
+		local plot = PlotService.GetPlot(player)
+		local point = plot and plot:FindFirstChild("DeliveryPoint")
+		if point == nil or not Validate.withinDistance(player, point, Economy.InteractMaxStuds) then
+			return
+		end
+		ShipmentService.ClaimFreeDelivery(player)
+	end)
+
+	-- New players get their guaranteed first box once their data is loaded.
+	DataService.OnPlayerLoaded(function(player)
+		ShipmentService.GrantFirstBox(player)
+	end)
+	log.info("Start")
 end
 
 return ShipmentService
