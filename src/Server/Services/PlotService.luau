@@ -2,7 +2,7 @@
 -- Purpose: gives each player a free shop plot when their data loads, teleports them to it, shows their name on the
 -- sign, enables the display/exhibit slots they own, and resets the plot when they leave (docs/01 multiplayer section, docs/03 §2).
 -- Owner: Dev 1 (Ace). Depends on: DataService, Shared.Config (Economy, Upgrades), Workspace.Plots (Sean's greybox).
--- Server only. No remotes. Decor and expansions are NOT rebuilt here yet (they come with UpgradeService).
+-- Server only. No remotes. Decor is shown from upgrade levels; expansion rooms (Back Room, Showroom) are not cloned yet.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -64,10 +64,50 @@ local function slotCounts(upgrades: { [string]: number }?)
 	return displayCount, exhibitCount
 end
 
+-- Shows or hides one decor model. Hidden = Transparency 1 and no collision (what Sean's greybox starts as).
+-- A part can opt in to its own look when shown with attributes: VisibleTransparency (default 0) and
+-- VisibleCanCollide (default false, so decor never traps a player).
+local function setDecorVisible(slot: Instance, visible: boolean)
+	for _, part in slot:GetDescendants() do
+		if part:IsA("BasePart") then
+			if visible then
+				part.Transparency = part:GetAttribute("VisibleTransparency") or 0
+				part.CanCollide = part:GetAttribute("VisibleCanCollide") == true
+			else
+				part.Transparency = 1
+				part.CanCollide = false
+			end
+		end
+	end
+	slot:SetAttribute("Visible", visible)
+end
+
+-- Decor comes from Config: an upgrade's `decorSlots` lists the DecorSlots models, slot i shows at level >= i.
+local function applyDecor(plot: Model, upgrades: { [string]: number }?)
+	local folder = plot:FindFirstChild("DecorSlots")
+	if folder == nil then
+		return
+	end
+	local owned = upgrades or {}
+	for _, def in Upgrades do
+		if def.decorSlots then
+			local level = owned[def.id] or 0
+			for index, slotName in def.decorSlots do
+				local slot = folder:FindFirstChild(slotName)
+				if slot then
+					setDecorVisible(slot, level >= index)
+				end
+			end
+		end
+	end
+end
+
+-- Rebuilds everything a plot shows from the owner's upgrades (nil = the empty "For Sale" look).
 local function applySlots(plot: Model, upgrades: { [string]: number }?)
 	local displayCount, exhibitCount = slotCounts(upgrades)
 	setSlots(plot:FindFirstChild("DisplaySlots"), displayCount)
 	setSlots(plot:FindFirstChild("ExhibitSlots"), exhibitCount)
+	applyDecor(plot, upgrades)
 end
 
 local function teleportToPlot(player: Player, plot: Model)
@@ -145,7 +185,7 @@ function PlotService.GetPlot(player: Player): Model?
 	return plotOf[player]
 end
 
--- Call after a purchase changes slot counts (e.g. UpgradeService buys Display Shelves).
+-- Call after a purchase changes what the plot shows: slot counts and decor (UpgradeService does this after a buy).
 function PlotService.RefreshSlots(player: Player)
 	local plot = plotOf[player]
 	if plot then

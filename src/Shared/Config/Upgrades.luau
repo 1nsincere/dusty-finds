@@ -69,30 +69,35 @@ local Upgrades = {
 		costs = { 80, 80 },
 		requiredLevel = { 1, 1 },
 		effect = { ratingPoints = { 1, 2 } }, -- total points owned at each level
+		decorSlots = { "PottedPlant1", "PottedPlant2" }, -- plot DecorSlots shown at each level (slot i shows at level >= i)
 		description = "A little green for the shop",
 	},
 	Rug = {
 		id = "Rug", name = "Rug", tab = "Decor",
 		maxLevel = 1, costs = { 150 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 2 } },
+		decorSlots = { "Rug" },
 		description = "Cozy floor rug",
 	},
 	WallPosters = {
 		id = "WallPosters", name = "Wall Posters", tab = "Decor",
 		maxLevel = 1, costs = { 200 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 2 } },
+		decorSlots = { "WallPosters" },
 		description = "Posters for the walls",
 	},
 	PendantLamps = {
 		id = "PendantLamps", name = "Pendant Lamps", tab = "Decor",
 		maxLevel = 1, costs = { 400 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 3 } },
+		decorSlots = { "PendantLamps" },
 		description = "Warm hanging lights",
 	},
 	NeonSign = { -- the doc's "Neon RE:STORE Sign"; the in-game sign text is Dev 3's call
 		id = "NeonSign", name = "Neon Sign", tab = "Decor",
 		maxLevel = 1, costs = { 1500 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 5 } },
+		decorSlots = { "NeonSign" },
 		description = "A glowing neon sign",
 	},
 	FishTank = {

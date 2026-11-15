@@ -147,6 +147,22 @@ function ConfigCheck.run()
 		if up.requires ~= nil then
 			check(`upgrade {upgradeId}: requires "{up.requires}", which is an existing upgrade`, Upgrades[up.requires] ~= nil)
 		end
+		-- `decorSlots` = plot DecorSlots models this upgrade shows (one per level, names unique across all upgrades)
+		if up.decorSlots ~= nil then
+			check(`upgrade {upgradeId}: decorSlots has {up.maxLevel} entries`, type(up.decorSlots) == "table" and #up.decorSlots == up.maxLevel)
+			check(`upgrade {upgradeId}: decorSlots names are not used by another upgrade`, (function()
+				for otherId, other in Upgrades do
+					if otherId ~= upgradeId and other.decorSlots ~= nil then
+						for _, name in other.decorSlots do
+							if table.find(up.decorSlots, name) then
+								return false
+							end
+						end
+					end
+				end
+				return true
+			end)())
+		end
 		-- Ace's decision: all decor unlocks at level 1
 		if up.tab == "Decor" then
 			check(`upgrade {upgradeId}: decor unlocks at level 1`, (function()
