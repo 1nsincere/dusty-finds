@@ -117,7 +117,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── EconomyService.luau      [Dev 1] add/spend cash, XP & level-ups, rewards
 │   ├── InventoryService.luau    [Dev 1] add/remove/move items, capacity, state changes
 │   ├── ShipmentService.luau     [Dev 1] free delivery timer, crate purchase, rolls, opening
-│   ├── RestorationService.luau  [Dev 2] start/step/finish validation, quality calc
+│   ├── RestorationService.luau  [Dev 1 rules, agreed with Dev 2] start/step/finish validation, quality calc, session ids, failed-save handling (docs/Restoration_Contract.md)
 │   ├── DisplayService.luau      [Dev 1 server rules, Dev 3 visuals] display & exhibit slots, slot attributes, reservations for customers
 │   ├── CustomerService.luau     [Dev 1] customer decisions: spawn rules, wish, choose item, checkout, pay via Economy; hooks SetSpawnHandler/SetRemovedHandler
 │   ├── CustomerNpcService.luau  [Dev 3, to be written] NPC models, walking, counter queue, Checkout prompt (see docs/Customer_Server.md)
@@ -215,7 +215,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestBuyCrate` | `crateId: string` | Dev 1 | crate exists, level, cash, max 3 unopened boxes waiting |
 | `RequestClaimFreeDelivery` | — | Dev 1 | timer elapsed, near DeliveryPoint |
 | `RequestStartRestore` | `uid, benchName` | Dev 2 | item mine & `Dirty`/`InProgress`, bench in my plot, free, near bench |
-| `ReportStepComplete` | `uid, stepIndex, score` | Dev 2 | active session, correct step, min duration passed, score number 0–100 |
+| `ReportStepComplete` | `uid, stepIndex, score, sessionId` | Dev 2 | active session (id matches), correct step, min duration passed, score number 0–100 |
 | `RequestExitRestore` | `uid` | Dev 2 | active session (progress kept) |
 | `RequestPlaceDisplay` | `uid, slotIndex` | Dev 1 (server), Dev 3 (UI) | item mine & `Restored`, slot unlocked & empty, within InteractMaxStuds of the slot, rate limit 4/s |
 | `RequestPlaceExhibit` | `uid, slotIndex` | Dev 1 (server), Dev 3 (UI) | same, exhibit slot |
@@ -235,7 +235,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `StateChanged("rating", stars)` | `number` 1-5 | Derived, not saved. In the first `GetInitialState` snapshot as `rating`, then pushed when upgrades or exhibits change |
 | `Notify` | `kind, text` | Toasts and banners. Kinds: `LevelUp`, `Upgrade`, `Delivery` ("Crate delivered!", "Free delivery arrived!"), `Info` |
 | `BoxOpened` | `uid, itemId, isGolden, isNew` | Play reveal |
-| `RestoreSession` | `uid, recipe, stepIndex, enabledSpotsSeed` | Begin/resume bench view |
+| `RestoreSession` | `uid, recipe, stepIndex, enabledSpotsSeed, sessionId` | Begin/resume bench view |
 | `ItemRestored` | `uid, stars, value` | RESTORED! card |
 | `SaleMade` | `amount, wishMatched, tip` | Coins and `+$` popup |
 | `Announcement` | `text, rarity` | Server-wide rare find (also posted via TextChatService) |
