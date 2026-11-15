@@ -109,9 +109,11 @@ function DevToolsCheck.run()
 		local fakeDS = makeFakeDataService()
 		fakeDS._store[player] = deepCopy(TEMPLATE)
 		local refreshCalls = 0
+		local syncCalls = 0
 		local S: { [string]: any } = {
 			DataService = fakeDS,
 			PlotService = { RefreshSlots = function() refreshCalls += 1 end, GetPlot = function() return nil end },
+			DisplayService = { SyncSlots = function() syncCalls += 1 end },
 		}
 		for _, name in names do
 			S[name] = require(services[name])
@@ -163,6 +165,7 @@ function DevToolsCheck.run()
 			only = it
 		end
 		check("resetProfile leaves only the first Rubber Duck box", remaining == 1 and only.itemId == "RubberDuck" and only.state == "Unopened")
+		check("resetProfile clears the shelf attributes (calls DisplayService.SyncSlots)", syncCalls >= 1)
 		check("resetProfile keeps the version field", data().version == 1)
 
 		check("unknown command refused", call("nope", player) == false)

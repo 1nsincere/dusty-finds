@@ -109,6 +109,7 @@ function commands.resetProfile(player: Player)
 		end
 	end
 	S.PlotService.RefreshSlots(player)
+	S.DisplayService.SyncSlots(player) -- the shelves are empty now: clear their ItemId / Golden / Stars attributes
 	S.ShipmentService.GrantFirstBox(player)
 	return true, nil
 end
