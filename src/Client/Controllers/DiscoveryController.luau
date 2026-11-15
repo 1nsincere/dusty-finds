@@ -144,6 +144,9 @@ local function openBox(boxId: string)
 	if others and others.ShopController and others.ShopController.CloseSupply then
 		others.ShopController.CloseSupply() -- one modal at a time (docs/01 J4)
 	end
+	if others and others.InventoryController and others.InventoryController.Close then
+		others.InventoryController.Close()
+	end
 
 	local total = #box.uids
 	for index, uid in box.uids do

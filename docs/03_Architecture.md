@@ -273,6 +273,9 @@ HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv
 HUD.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
 HUD.UIScale  -- HudController sets Scale by screen size
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
+Inventory.Window.{Title,Capacity,CloseButton,Empty}  Tabs.{All,NeedsRestoring,Restored}
+Inventory.Window.Details.{Hint,ItemName,Rarity,Info,Value,QuickSellButton,RestoreButton}
+Assets.UI.ItemCard (TextButton) → RarityStroke (UIStroke), StateIcon, GoldenTag, ItemName, Stars, Value
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Discovery.Card.{GoldenTag,Counter,Hint}  RarityBanner → Text   Dots → Dot1..Dot5   NewTag/GoldenTag → Text
   -- "Name" clashes with Instance.Name: code must use Card:FindFirstChild("Name")

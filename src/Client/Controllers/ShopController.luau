@@ -152,6 +152,10 @@ function ShopController.OpenSupply()
 	if discovery and discovery.IsOpen and discovery.IsOpen() then
 		return -- finish the reveal first
 	end
+	local inventory = others and others.InventoryController
+	if inventory and inventory.Close then
+		inventory.Close() -- one modal at a time (docs/01 J4)
+	end
 	refreshButtons()
 	supply.Window.Visible = true
 	log("Supply opened")
