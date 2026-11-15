@@ -221,7 +221,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | not own shop, not liked today, near that counter |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
-| `RequestSaveSettings` | `settings: table` | Dev 3 | known keys, booleans only |
+| `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id, order |
 
 ### Server → Client (RemoteEvents)

@@ -26,6 +26,7 @@ local ORDER = {
 	"CustomerService",
 	"UpgradeService",
 	"ShopSocialService",
+	"SettingsService",
 	"DevTools", -- Studio only: does nothing on live servers
 }
 
