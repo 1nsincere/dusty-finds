@@ -73,3 +73,39 @@ Goal: <what the player should be able to do>
 Done when: <observable result in Studio>
 Plan first. Don't write code until I say go.
 ```
+
+---
+
+## Part 7: Your first tasks (step by step)
+
+Always say "plan first, wait for go" (CLAUDE.md §6.2). If Claude proposes touching a file you don't own, stop and ask Ace. Ace makes the code commits.
+
+### Dwayne (Dev 2): Wipe minigame prototype
+**Goal:** wipe dirt spots off one item with mouse and touch, in a separate test place.
+**Done when:** a Dirty item clears with mouse **and** touch with no errors. Next: bench camera, then Polish.
+
+| Step | What to do | Prompt for Claude Code |
+|---|---|---|
+| 1 | Learn the design | `Read docs/01_GameDesign.md (restoration section) and docs/03_Architecture.md §11. Explain the Wipe interaction and the data flow in plain words with a small diagram. No code.` |
+| 2 | Write the contract | `Draft the Item Model Contract: exact part and folder names a restoration item model must have (DirtSpots etc.). Show it for Ace and Sean to review. Don't write code.` |
+| 3 | Test place | Create a new, empty Roblox place (not the main one). Add a baseplate and one simple item model that follows the contract. |
+| 4 | Build Wipe | `Feature: Wipe minigame prototype (Stage 4, Dev 2). Read CLAUDE.md, docs/STATUS.md, docs/03 §3 and §11. Goal: mouse or touch rubs dirt spots off one item. Done when: all spots clear, a progress bar fills, works with mouse and phone emulator. Plan first.` |
+| 5 | Test | Play and wipe the item, then use Device Emulator → a phone and repeat. |
+| 6 | Report | `Update docs/STATUS.md with what works. Then list what could still be wrong.` |
+
+### Sean (Dev 3): Greybox plot
+**Goal:** a plain grey shop plot with every part named as in `docs/03_Architecture.md` §2, then 6 plots.
+**Done when:** the part-name check passes on all 6 plots, and plots are small enough to walk around on a phone.
+
+| Step | What to do | Prompt for Claude Code |
+|---|---|---|
+| 1 | Learn the layout | `Read docs/03_Architecture.md §2 and docs/04 Stage 2. List every named part a Plot needs and what each is for. Explain how PlotService will use them. No code.` |
+| 2 | Build Plot1 | In Studio (main place, via Team Create) build `Workspace/Plots/Plot1` from plain grey parts named exactly as §2: `Spawn`, `Sign`, `Counter`, `Benches/Bench1`, `DisplaySlots/Slot1..12`, `ExhibitSlots`, `DeliveryPoint`, `SupplyBoard`, `CustomerPath`. Anchor every part. |
+| 3 | Check names | `Use the Studio MCP to inspect Workspace.Plots.Plot1 and compare it with docs/03 §2. List missing or misnamed parts. Don't change anything.` |
+| 4 | Copy to Plot6 | Duplicate it five times and rename to `Plot2` ... `Plot6`. |
+| 5 | Report | `Update docs/STATUS.md with what is built.` |
+
+### Open gap
+The **Item Model Contract** is referenced in the docs but not written down yet. Dwayne drafts it in step 2; Ace and Sean review it before real item models are built, because display slots depend on it.
+
+When stuck, paste the Output errors and use the "Fix a bug" template from CLAUDE.md §7.
