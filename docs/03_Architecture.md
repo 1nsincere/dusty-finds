@@ -266,9 +266,12 @@ Restoration-specific: each step type has a **minimum duration** (Wipe 3 s, Scrap
 ## 8. UI contract (Dev 3 owns)
 Controllers find UI by fixed names. Changing a name = update this list + tell the team.
 ```
-HUD.MoneyPill.Amount (TextLabel)        HUD.RatingPill.Stars (Frame)
-HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton)
-HUD.XPBar.{Fill,Level}                  HUD.Banner (Frame, hidden)
+HUD.MoneyPill.Amount (TextLabel)        HUD.RatingPill.Stars (Frame) → Star1..Star5 (TextLabel "★", color = filled/empty)
+HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton, emoji child "Icon" until real icons)
+HUD.TopRight.{Settings,Visit} (ImageButton)
+HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv N" on top
+HUD.Banner (Frame, hidden) → Text (TextLabel)
+HUD.UIScale  -- HudController sets Scale by screen size
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}

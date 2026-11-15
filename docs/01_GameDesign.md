@@ -386,14 +386,14 @@ Trading (scams and duplication exploits, plus Roblox trading-policy complexity),
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ [$ 1,250] [★★★☆☆ Rating]        [notification banner]   [⚙]   │
-│                                                    [👥 Visit] │
-│ [🎒]                                                          │
+│ [$ 1,250] [★★★☆☆ Rating]                         [👥] [⚙]   │
+│ [Lv 4 ▓▓▓▓░░░░░░ XP]                                          │
+│ [🎒]            [notification banner]                         │
 │ [🔨]              (3D world / bench view)                     │
 │ [📖]                                                          │
 │ [📦]                                                          │
 │                     [ hint / prompt area ]                    │
-│                                           [Lv 4 ▓▓▓▓░░ XP]    │
+│ (thumbstick)                                  (jump button)  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -401,7 +401,7 @@ Trading (scams and duplication exploits, plus Roblox trading-policy complexity),
 
 | Interface | Layout | Function |
 |---|---|---|
-| **Main HUD** | Top-left money + rating pills; left vertical buttons (Inventory 🎒, Upgrades 🔨, Collection 📖, Supply 📦); top-right Settings ⚙ and Visit 👥; bottom-right level/XP bar | Always visible, minimal |
+| **Main HUD** | Top-left money + rating pills; left vertical buttons (Inventory 🎒, Upgrades 🔨, Collection 📖, Supply 📦); top-right Settings ⚙ and Visit 👥; level/XP bar under the pills (bottom-right is the mobile jump button) | Always visible, minimal |
 | **Money display** | Teal pill, coin icon, number animates up/down, `+$480` floats on gain | Instant feedback |
 | **Inventory** | Center modal, 4-column grid of cards (rarity border, state icon, stars, value); filter tabs; capacity `8/16` | Choose what to restore, display, or sell |
 | **Shipment notification** | Coral banner slides from top: "📦 Free delivery arrived!" / "Crate delivered!", auto-hides after 4 s; box at the door has a bobbing ❓ marker | Draws player to the door |
