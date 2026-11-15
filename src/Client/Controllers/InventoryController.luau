@@ -3,7 +3,7 @@
 -- item, and Quick Sell for Restored items at my counter (RequestQuickSell). The server checks state, distance and
 -- price; this screen only shows and requests. Opens from HUD 🎒 or my Counter's QuickSellPrompt.
 -- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, Shared.Remotes, Shared.Formulas,
--- Shared.Config (Items, Rarities, Upgrades, Economy), StarterGui.Inventory, ReplicatedStorage.Assets.UI.ItemCard,
+-- Shared.Config (Items, Rarities, Economy), StarterGui.Inventory, ReplicatedStorage.Assets.UI.ItemCard,
 -- Workspace.Plots (OwnerUserId attribute, Counter).
 
 local Players = game:GetService("Players")
@@ -17,7 +17,6 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Formulas = require(Shared:WaitForChild("Formulas"))
 local Items = require(Config:WaitForChild("Items"))
 local Rarities = require(Config:WaitForChild("Rarities"))
-local Upgrades = require(Config:WaitForChild("Upgrades"))
 local Economy = require(Config:WaitForChild("Economy"))
 
 local InventoryController = {}
@@ -65,14 +64,9 @@ local function log(...)
 	end
 end
 
--- TODO(Ace): this mirrors InventoryService.GetCapacity. Asked Ace to move it into Shared/Formulas so there is
--- only one copy; switch to Formulas when it exists.
+-- Same formula the server uses (Formulas is shared), so the "used/max" number always matches.
 local function capacity(): number
-	local level = ClientState.Get("upgrades.StorageRacks") or 0
-	if level > 0 then
-		return Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
-	end
-	return Economy.StartingInventoryCapacity
+	return Formulas.inventoryCapacity(ClientState.Get("upgrades.StorageRacks") or 0)
 end
 
 local function starsText(stars: number?): string
