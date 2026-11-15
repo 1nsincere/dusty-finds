@@ -144,6 +144,7 @@ function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, st
 		return false, reason, nil
 	end
 	log.info(`bought {crateId}: {#uids} items`)
+	notify(player, "Delivery", "Crate delivered!")
 	return true, nil, uids
 end
 
@@ -170,6 +171,7 @@ function ShipmentService.ClaimFreeDelivery(player: Player, now: number?): (boole
 		return false, reason, nil
 	end
 	DataService.Set(player, "timers.lastFreeDelivery", time)
+	notify(player, "Delivery", "Free delivery arrived!")
 	return true, nil, uids
 end
 
@@ -245,6 +247,12 @@ function ShipmentService.Start()
 		if not Validate.rateLimit(player, "RequestOpenBox", 3) or type(uid) ~= "string" then
 			return
 		end
+		-- Boxes are opened at the door: the player must be near their own DeliveryPoint.
+		local plot = PlotService.GetPlot(player)
+		local point = plot and plot:FindFirstChild("DeliveryPoint")
+		if point == nil or not Validate.withinDistance(player, point, Economy.InteractMaxStuds) then
+			return
+		end
 		ShipmentService.OpenBox(player, uid)
 	end)
 
@@ -257,6 +265,8 @@ function ShipmentService.Start()
 			notify(player, "Info", "Not enough cash for that crate.")
 		elseif not ok and reason == "tooManyBoxes" then
 			notify(player, "Info", "Open your waiting boxes first.")
+		elseif not ok and reason == "level" then
+			notify(player, "Info", `Reach level {Crates[crateId].requiredLevel} to order that crate.`)
 		end
 	end)
 

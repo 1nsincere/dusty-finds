@@ -96,6 +96,7 @@ export type UpgradeDef = {
 	costs: { number },
 	requiredLevel: { number },
 	requires: string?, -- upgradeId that must already be owned (checked IN ADDITION to requiredLevel)
+	decorSlots: { string }?, -- plot DecorSlots names shown by this upgrade (slot i shows at level >= i)
 	effect: { [string]: any },
 	description: string,
 }

@@ -46,6 +46,7 @@ local profiles = {} -- [Player] = Profile (only while loaded and active)
 local loading = {} -- [Player] = true while a load is in progress (stops double loads)
 local releasing = {} -- [Player] = true while WE end their session on purpose (so it isn't treated as a lost session)
 local removed = {} -- [Player] = true once PlayerRemoving fired (Parent can still be Players then, so Parent alone isn't enough)
+local snapshotExtras = {} -- [key] = function(player) -> value, added to GetInitialState
 local loadedCallbacks = {} -- functions(player) called right after a profile loads
 local releasingCallbacks = {} -- functions(player) called just before a profile is released
 
@@ -303,6 +304,23 @@ function DataService.Set(player: Player, path: string, value: any): boolean
 	return true
 end
 
+-- Sends a value to the client that is NOT saved data (e.g. the shop rating, worked out by another service).
+function DataService.Push(player: Player, path: string, value: any)
+	if Validate.isPlayer(player) then
+		Remotes.StateChanged:FireClient(player, path, deepCopy(value))
+	end
+end
+
+-- Adds a derived (not saved) value to the first snapshot a client gets, e.g. "rating". fn(player) -> value.
+function DataService.AddSnapshotExtra(key: string, fn: (Player) -> any)
+	snapshotExtras[key] = fn
+end
+
+-- A fresh copy of the default player data. Only DevTools uses it (to reset a Studio test profile).
+function DataService.GetTemplate()
+	return deepCopy(TEMPLATE)
+end
+
 -- Call `callback(player)` once a player's profile is loaded (also for players already loaded).
 -- Services that need data at join (e.g. PlotService) should wait for this instead of polling.
 function DataService.OnPlayerLoaded(callback: (Player) -> ())
@@ -353,7 +371,16 @@ function DataService.Start()
 			task.wait(0.25)
 			waited += 0.25
 		end
-		return DataService.Get(player)
+		local snapshot = DataService.Get(player)
+		if snapshot then
+			for key, fn in snapshotExtras do -- derived values such as "rating"
+				local ok, value = pcall(fn, player)
+				if ok then
+					snapshot[key] = value
+				end
+			end
+		end
+		return snapshot
 	end
 
 	Players.PlayerAdded:Connect(function(player)

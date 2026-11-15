@@ -3,6 +3,8 @@
 -- Owner: Dev 1 (Ace). Depends on: Shared.Remotes and every module in Services/.
 -- Why two passes: Init wires services together (no waiting on others), Start connects events,
 -- so by the time any Start runs, every service already exists.
+-- Every step is wrapped in pcall: one broken service prints a red error and is skipped, instead of a syntax error in
+-- (say) a test tool stopping the whole server from booting. Check Output for "[Main] FAILED" after every change.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -24,23 +26,55 @@ local ORDER = {
 	"CustomerService",
 	"UpgradeService",
 	"ShopSocialService",
+	"SettingsService",
+	"DevTools", -- Studio only: does nothing on live servers
 }
 
 local servicesFolder = script.Parent:WaitForChild("Services")
 local services = {}
+local failed: { [string]: boolean } = {}
 
-for _, name in ORDER do
-	services[name] = require(servicesFolder:WaitForChild(name))
+local function fail(name: string, step: string, err: any)
+	failed[name] = true
+	services[name] = nil
+	warn(`[Main] FAILED {step} of {name}: {tostring(err)}`)
 end
 
 for _, name in ORDER do
-	services[name].Init(services)
+	local ok, result = pcall(function()
+		return require(servicesFolder:WaitForChild(name))
+	end)
+	if ok then
+		services[name] = result
+	else
+		fail(name, "load", result)
+	end
 end
 
 for _, name in ORDER do
-	services[name].Start()
+	if not failed[name] then
+		local ok, err = pcall(services[name].Init, services)
+		if not ok then
+			fail(name, "Init", err)
+		end
+	end
+end
+
+for _, name in ORDER do
+	if not failed[name] then
+		local ok, err = pcall(services[name].Start)
+		if not ok then
+			fail(name, "Start", err)
+		end
+	end
 end
 
 if DEBUG then
-	print(`[Main] server ready, {#ORDER} services started`)
+	local started = 0
+	for _, name in ORDER do
+		if not failed[name] then
+			started += 1
+		end
+	end
+	print(`[Main] server ready, {started}/{#ORDER} services started`)
 end

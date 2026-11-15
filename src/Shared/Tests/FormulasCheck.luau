@@ -129,6 +129,14 @@ function FormulasCheck.run()
 	local tipChance, tipAmount, checkoutBonus, spawnInterval =
 		Formulas.tipChance, Formulas.tipAmount, Formulas.checkoutBonus, Formulas.customerSpawnInterval
 
+	-- inventoryCapacity: 8 -> 16 -> 24 -> 40, bad input = starting capacity
+	expectEqual("inventoryCapacity 0", Formulas.inventoryCapacity(0), 8)
+	expectEqual("inventoryCapacity 1", Formulas.inventoryCapacity(1), 16)
+	expectEqual("inventoryCapacity 2", Formulas.inventoryCapacity(2), 24)
+	expectEqual("inventoryCapacity 3", Formulas.inventoryCapacity(3), 40)
+	expectEqual("inventoryCapacity 9 (beyond max) falls back", Formulas.inventoryCapacity(9), 8)
+	expectEqual("inventoryCapacity nil-ish input", Formulas.inventoryCapacity(0/0), 8)
+
 	-- tipChance = 5% + 5% x rating stars (+ customer bonus), clamped 0-1
 	expectEqual("tipChance 1 star", r3(tipChance(1)), 0.1)
 	expectEqual("tipChance 3 stars", r3(tipChance(3)), 0.2)

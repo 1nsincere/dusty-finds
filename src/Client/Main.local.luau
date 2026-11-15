@@ -10,6 +10,11 @@ local DEBUG = true
 -- Waits until the server has created the remotes.
 require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
+-- Load my data before any controller starts, so the HUD and menus can read it immediately.
+-- If loading fails the game still starts (UI shows placeholders) instead of hanging here.
+local ClientState = require(script.Parent:WaitForChild("ClientState"))
+ClientState.Load()
+
 local ORDER = {
 	"HudController",
 	"InventoryController",
