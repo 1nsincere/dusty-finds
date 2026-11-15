@@ -291,7 +291,9 @@ Upgrades.Window.{Title,Cash,CloseButton,Tabs,List}  Tabs.{Tools,Shop,Decor,Expan
 Upgrades.UpgradeTemplate (hidden) → Glow (UIStroke), Icon, Title, Dots (→ Dot1..Dot3), Effect, BuyButton
 Supply.Window.{Title,Cash,CloseButton,List}   -- Cash: "💰 $N" pill, live (windows cover HUD money on phones)
 Supply.CrateTemplate (hidden) → Name, Info, Odds (→ RowTemplate), BuyButton   -- one card per Config crate with price > 0
-Collection.Book.{Pages,PageLabel}       Settings.Window.Toggles
+Collection.Book.{Pages,PageLabel}
+Settings.Window.{Title,CloseButton,Toggles}   Settings.ToggleTemplate (hidden) → Label, Switch (TextButton "ON"/"OFF")
+  -- one row per key, named after it: announcements, music, sfx, reduceEffects (= SettingsService keys)
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)
 Toasts.UIScale  -- toasts = Notify kinds other than LevelUp/Upgrade (e.g. "Info"), 3 s, max 3 on screen
 ```
