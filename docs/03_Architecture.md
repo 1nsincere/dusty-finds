@@ -270,14 +270,15 @@ HUD.MoneyPill.Amount (TextLabel)        HUD.RatingPill.Stars (Frame) → Star1..
 HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton, emoji child "Icon" until real icons)
 HUD.TopRight.{Settings,Visit} (ImageButton)
 HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv N" on top
-HUD.Banner (Frame, hidden) → Text (TextLabel)
+HUD.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
 HUD.UIScale  -- HudController sets Scale by screen size
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}
 Upgrades.Window.{Tabs,List}             Supply.Window.List
 Collection.Book.{Pages,PageLabel}       Settings.Window.Toggles
-Toasts.Container
+Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)
+Toasts.UIScale  -- toasts = Notify kinds other than LevelUp/Upgrade (e.g. "Info"), 3 s, max 3 on screen
 ```
 
 ---
