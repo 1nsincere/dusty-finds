@@ -375,6 +375,8 @@ export type ItemInstance = {
     stars: number?,          -- 1-3 once restored
     slot: number?,           -- display/exhibit slot index
     acquiredAt: number,      -- os.time()
+    crateId: string?,        -- crate it came from (ShipmentService), e.g. "Starter", "FreeDelivery"
+    boxId: string?,          -- groups the items of one crate purchase = one waiting box (max Economy.MaxWaitingBoxes)
 }
 ```
 
