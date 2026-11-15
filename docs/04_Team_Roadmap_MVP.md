@@ -10,7 +10,7 @@ models, or making UI.**
 
 ```mermaid
 flowchart LR
-    subgraph D1["Dev 1: Systems & Data (Integrator)"]
+    subgraph D1["Dev 1 Ace: Systems & Data (Integrator)"]
         A1[Data / ProfileStore]
         A2[Economy & XP]
         A3[Inventory]
@@ -19,14 +19,14 @@ flowchart LR
         A6[Collection book data]
         A7[Remotes + Validate + Config]
     end
-    subgraph D2["Dev 2: Restoration & Items"]
+    subgraph D2["Dev 2 Dwayne: Restoration & Items"]
         B1[4 minigame modules]
         B2[RestorationController + bench view]
         B3[RestorationService]
         B4[Item models 20x]
         B5[Restoration VFX & SFX]
     end
-    subgraph D3["Dev 3: World, Customers & UI"]
+    subgraph D3["Dev 3 Sean: World, Customers & UI"]
         C1[Plots & shop building]
         C2[Expansion & decor models]
         C3[Display & exhibits]
@@ -42,21 +42,21 @@ flowchart LR
     A3 --> C5
 ```
 
-### Dev 1: Systems & Data Lead (and Integrator)
+### Dev 1: Ace, Systems & Data Lead (and Integrator)
 - **Responsibilities:** everything about player data and money; the shared contracts; weekly integration; Git snapshots.
 - **Systems:** DataService, PlotService (assignment/rebuild), EconomyService, InventoryService, ShipmentService, UpgradeService, CollectionBookService, `Shared/Remotes`, `Shared/Config/*`, `Shared/Types`, `Shared/Formulas`, `Server/Lib/Validate`.
 - **Depends on:** Dev 3's plot model (part names), Dev 2's recipe format.
 - **Deliverables:** working data layer by end of Stage 3; crates and inventory by Stage 3; upgrades by Stage 6; saving hardened by Stage 8; economy sim kept in sync.
 - **Integration:** owns the contract files. Others request remote/config changes by message; Dev 1 adds them the same day.
 
-### Dev 2: Restoration & Items Lead
+### Dev 2: Dwayne, Restoration & Items Lead
 - **Responsibilities:** the core fun. Everything that happens at the workbench, plus item models.
 - **Systems:** `Minigames/*` (PointerInput, SpotClear, Socket, Rub, Timing), RestorationController (bench view, step runner, finish card logic), RestorationService (server validation and quality), Item Model Contract, 20 item models, restoration VFX/SFX, discovery reveal VFX.
 - **Depends on:** InventoryService API (Dev 1), Restoration UI frames (Dev 3 builds the frames, Dev 2 drives them).
 - **Deliverables:** Wipe prototype on a baseplate by week 3; all 4 modules by Stage 4; 12 Tier-1 items by Stage 5; 8 Tier-2 items by Stage 7.
 - **Integration:** starts in an **isolated test place** (no dependency on others) and merges into the main place once the Item Model Contract is stable.
 
-### Dev 3: World, Customers & UI Lead
+### Dev 3: Sean, World, Customers & UI Lead
 - **Responsibilities:** what players see and walk around in, the customers, and every screen.
 - **Systems:** 6 plots + street, expansions and decor models, DisplayService, CustomerService (NPC spawning and movement), CustomerUIController, all UI (HUD, Inventory, Discovery, Upgrades, Supply, Collection, Settings, Toasts), TutorialController, ShopSocialService (likes, announcements, visit, invite), mobile layout.
 - **Depends on:** Dev 1 for data (ClientState and remotes), Dev 2 for item models on shelves.
@@ -77,7 +77,7 @@ flowchart LR
 
 ```mermaid
 gantt
-    title RE:STORE MVP: ~16 weeks planned (expect up to 20)
+    title Dusty Finds MVP: ~16 weeks planned (expect up to 20)
     dateFormat  YYYY-MM-DD
     axisFormat  W%W
     section Foundation

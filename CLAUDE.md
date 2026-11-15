@@ -1,4 +1,4 @@
-# RE:STORE: Master Development Prompt for Claude Code
+# Dusty Finds: Restore & Sell: Master Development Prompt for Claude Code
 
 > This file is read by Claude Code at the start of every session.
 > It tells Claude **what we are building, how the project is organized, and how to work with our team**.
@@ -8,7 +8,7 @@
 
 ## 0. Who you are working with
 
-You are assisting a team of **three beginner Roblox developers** building **RE:STORE**, a multiplayer
+You are assisting a team of **three beginner Roblox developers** building **Dusty Finds: Restore & Sell**, a multiplayer
 restoration simulator and shop management game, in Roblox Studio with Luau.
 
 - We have limited experience with Studio and Luau. Explain *where* code goes and *why*, in plain language.
@@ -17,6 +17,16 @@ restoration simulator and shop management game, in Roblox Studio with Luau.
 
 **Never assume code works because you generated it.** Every change ends with clear steps to test it in Studio,
 and you tell us what output or behavior proves it works.
+
+### Team
+
+| Name | Role | Focus | Also |
+|---|---|---|---|
+| Ace | Dev 1: Systems & Data ("the brain") | Data, economy, inventory, shipments, upgrades, contracts | Makes the Git commits |
+| Dwayne | Dev 2: Restoration & Items ("the fun") | Minigames, restoration, item models | |
+| Sean | Dev 3: World, Customers & UI ("the look") | Plots, customers, all UI | |
+
+The game was first called RE:STORE. Older docs may still use that name.
 
 ---
 
@@ -79,7 +89,8 @@ File naming (Script Sync convention):
 |---|---|
 | `Name.luau` | ModuleScript |
 | `Name.server.luau` | Script (Server RunContext) |
-| `Name.client.luau` | Script (Client RunContext) |
+| `Name.client.luau` | Script (Client RunContext). Do **not** put in StarterPlayerScripts: it runs twice |
+| `Name.local.luau` | LocalScript. Use this for the client entry point (`Main.local.luau`) |
 | `Name/` | Folder |
 
 ---
@@ -89,7 +100,7 @@ File naming (Script Sync convention):
 ```mermaid
 flowchart TB
     subgraph Client["CLIENT (StarterPlayerScripts/Client)"]
-        CM[Main.client.luau] --> CC[Controllers<br/>HUD, Inventory, Restoration,<br/>Shop, Collection, Settings]
+        CM[Main.local.luau] --> CC[Controllers<br/>HUD, Inventory, Restoration,<br/>Shop, Collection, Settings]
         CC --> MG[Minigames<br/>SpotClear, Socket, Rub, Timing]
         CC --> CS[ClientState<br/>mirror of my data]
     end

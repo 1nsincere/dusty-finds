@@ -1,4 +1,4 @@
-# RE:STORE: Development Blueprint
+# Dusty Finds: Development Blueprint
 
 *Find it. Clean it. Fix it. Sell it. Grow your shop.*
 

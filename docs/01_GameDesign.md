@@ -10,7 +10,7 @@ Numbers (prices, odds, costs) live in `02_Economy.md`. Code structure lives in `
 ### A1. Identity
 | | |
 |---|---|
-| **Title** | RE:STORE |
+| **Title** | Dusty Finds: Restore & Sell |
 | **Genre** | Restoration simulator + shop tycoon + collection |
 | **Pitch** | *"Find it. Clean it. Fix it. Sell it. Grow your shop."* |
 | **Platform** | Roblox: PC and mobile at launch (tablet supported; console later) |

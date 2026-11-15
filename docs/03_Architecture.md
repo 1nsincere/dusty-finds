@@ -22,7 +22,7 @@ flowchart LR
 ```
 
 - **Team Create** = the live shared place. Everyone builds the world and UI there in real time (no merge conflicts on 3D or UI).
-- **Script Sync (Studio beta)** syncs our three code folders to `.luau` files on disk so Claude Code can read and edit them. Enable: *File → Beta Features → Script Sync*, then right-click a folder → *Script Sync → Sync with Directory*.
+- **Script Sync (Studio beta)** syncs our three code folders to `.luau` files on disk so Claude Code can read and edit them. Enable: *File → Beta Features → Script Sync*, then right-click the folder → *Script Sync → Sync with Directory* and pick the **parent** `src` folder (not `src\Server` itself). Script Sync creates `src\<FolderName>` inside the folder you pick; picking the folder itself makes a nested `src\Server\Server`. To re-link, first stop the old sync on that folder.
 - **Roblox Studio MCP server (built into Studio)** lets Claude Code inspect the data model, read Output, and start or stop playtests. Enable in *Assistant → Manage MCP Servers*. Claude Code has a quick-connect option.
 - **Git + GitHub** = history and backup of code and docs. **Dev 1 commits a snapshot at the end of each work session** (others don't commit code; this avoids Git conflicts because Team Create already shares live code). Docs changes can be committed by anyone.
 - **Ownership rule:** you only edit files you own (see `04_Team_Roadmap_MVP.md`). Two people editing the same script at once in Team Create + Script Sync can overwrite each other. Shared contract files are edited only by their owner after a quick message in the team chat.
@@ -123,7 +123,7 @@ src/Server/                                  (ServerScriptService.Server)
     └── Log.luau            -- tagged debug printing
 
 src/Client/                                  (StarterPlayerScripts.Client)
-├── Main.client.luau        -- requires controllers, Init() then Start()
+├── Main.local.luau         -- LocalScript; requires controllers, Init() then Start()
 ├── ClientState.luau        -- local mirror of my data; fires Changed signals
 ├── Controllers/
 │   ├── HudController.luau          [Dev 3]

@@ -181,7 +181,7 @@ Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 
 
 ```mermaid
 timeline
-    title RE:STORE progression (MVP)
+    title Dusty Finds progression (MVP)
     Early (0-30 min) : Starter crates : First tools, shelves, storage : Learn all 6 interactions : Reach Lv 5
     Mid (30 min-2 h) : Flea Market crates : Back Room : Tool Lv 2 : 3-star rating
     Late (2-6 h) : Showroom : Tool Lv 3 : Exhibit Epics and Legendaries : Complete collection : Hunt Golden variants
