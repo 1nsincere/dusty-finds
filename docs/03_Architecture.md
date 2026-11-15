@@ -65,7 +65,9 @@ Workspace
 
 ServerStorage
 ├── Expansions/BackRoom, Showroom      -- cloned into a plot when bought
-└── NPCs/Kid, Grandpa, Collector, Teen
+└── NPCs/Kid, Grandpa, Collector, Teen   -- built (greybox R15 rigs, PrimaryPart = HumanoidRootPart, unanchored,
+                                          --   name hidden, attribute CustomerType, "Hat" part welded to Head);
+                                          --   names = Config/Customers `model`; code sets WalkSpeed from Config
 
 ReplicatedStorage
 ├── Shared/                       -- synced code (see §3)
