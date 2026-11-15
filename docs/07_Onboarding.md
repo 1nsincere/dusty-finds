@@ -37,7 +37,7 @@ Press **Play**. Output should show every `[...Service] Init/Start` line, then `[
 - The client entry file is `Main.local.luau` (LocalScript). Do not use `.client.luau` inside StarterPlayerScripts: it runs twice.
 
 ## Part 5: First prompt for Claude Code
-Open Claude Code inside the `dusty-finds` folder and paste your prompt.
+Open a terminal in the `dusty-finds` folder, run `claude` (Claude Code) or `codex` (Codex users: it reads `AGENTS.md`, which points to `CLAUDE.md`), and paste your prompt.
 
 **Dwayne (Dev 2):**
 ```
