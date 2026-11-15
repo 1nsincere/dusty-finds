@@ -51,6 +51,14 @@ function commands.setLevel(player: Player, level: any)
 	return S.DataService.Set(player, "level", level), nil
 end
 
+-- addXp(player, amount): goes through EconomyService, so level-ups and their rewards happen like in the real game
+function commands.addXp(player: Player, amount: any)
+	if not Validate.isInteger(amount, 0, 1e9) then
+		return false, "amount must be a whole number 0 - 1,000,000,000"
+	end
+	return S.EconomyService.AddXp(player, amount)
+end
+
 -- giveItem(player, itemId, state?, stars?, golden?): state defaults to "Dirty"; Restored/Displayed/Exhibited get stars (default 2)
 function commands.giveItem(player: Player, itemId: any, state: any, stars: any, golden: any)
 	if not Validate.isConfigId(itemId, Items) then

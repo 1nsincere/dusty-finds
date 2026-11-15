@@ -177,8 +177,14 @@ function PlotCheck.run()
 		PlotService.RefreshSlots(P[3])
 		check("removing the upgrade hides it again", lamp.Transparency == 1 and lamp.CanCollide == false)
 
+		-- shelf attributes (set by DisplayService.SyncSlots) must not leak to the next owner
+		plot(2).DisplaySlots.Slot1:SetAttribute("ItemId", "Teacup")
+		plot(2).DisplaySlots.Slot1:SetAttribute("Golden", true)
+		plot(2).DisplaySlots.Slot1:SetAttribute("Stars", 3)
+
 		-- release and reuse
 		releasingCallback(P[2])
+		check("release clears the shelf attributes (ItemId, Golden, Stars)", plot(2).DisplaySlots.Slot1:GetAttribute("ItemId") == nil and plot(2).DisplaySlots.Slot1:GetAttribute("Golden") == nil and plot(2).DisplaySlots.Slot1:GetAttribute("Stars") == nil)
 		check("release resets sign, owner, slots and decor", plot(2).Sign.SurfaceGui.OwnerName.Text == "For Sale" and plot(2):GetAttribute("OwnerUserId") == nil and slotsOn(2, "DisplaySlots") == 3 and decorHiddenProperly(2, "Rug") and decorHiddenProperly(2, "PottedPlant1") and PlotService.GetPlot(P[2]) == nil)
 		releasingCallback(P[2])
 		check("double release is harmless", PlotService.GetPlot(P[2]) == nil)

@@ -174,6 +174,17 @@ local function releasePlot(player: Player)
 	plotOf[player] = nil
 	ownerOf[plot] = nil
 	plot:SetAttribute("OwnerUserId", nil)
+	-- Shelves show their item through attributes (DisplayService.SyncSlots): clear them for the next owner.
+	for _, folderName in { "DisplaySlots", "ExhibitSlots" } do
+		local folder = plot:FindFirstChild(folderName)
+		if folder then
+			for _, slot in folder:GetChildren() do
+				slot:SetAttribute("ItemId", nil)
+				slot:SetAttribute("Golden", nil)
+				slot:SetAttribute("Stars", nil)
+			end
+		end
+	end
 	setSign(plot, SIGN_FOR_SALE)
 	applySlots(plot, nil)
 	log.info(player.Name, "left", plot.Name)

@@ -53,8 +53,8 @@ Workspace
 │       ├── Sign (Part) → SurfaceGui → OwnerName (TextLabel, default "For Sale")
 │       ├── Counter (Part) → CheckoutPrompt, QuickSellPrompt, LikePrompt (ProximityPrompts)
 │       ├── Benches/Bench1 (Part) → ItemAnchor (Part), CameraPoint (Part, faces the anchor), Prompt
-│       ├── DisplaySlots/Slot1..Slot12 (Part + attribute SlotIndex, Enabled; 1-3 Enabled at start)
-│       ├── ExhibitSlots/Exhibit1..Exhibit4 (Part + attribute SlotIndex, Enabled; 1 Enabled at start)
+│       ├── DisplaySlots/Slot1..Slot12 (Part + attributes SlotIndex, Enabled; 1-3 Enabled at start. While holding an item the server also sets ItemId (string), Golden (bool), Stars (number), so visitors can draw it)
+│       ├── ExhibitSlots/Exhibit1..Exhibit4 (Part + attributes SlotIndex, Enabled; 1 Enabled at start; same ItemId / Golden / Stars attributes while holding an item)
 │       ├── DecorSlots/<DecorId> (Model + attribute DecorId; parts Transparency 1 + CanCollide false until bought)
 │       │                        -- PottedPlant1, PottedPlant2, Rug, WallPosters, PendantLamps, NeonSign
 │       ├── DeliveryPoint (Part)  -- where boxes appear
@@ -116,7 +116,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── InventoryService.luau    [Dev 1] add/remove/move items, capacity, state changes
 │   ├── ShipmentService.luau     [Dev 1] free delivery timer, crate purchase, rolls, opening
 │   ├── RestorationService.luau  [Dev 2] start/step/finish validation, quality calc
-│   ├── DisplayService.luau      [Dev 3] display & exhibit slots, reservations for customers
+│   ├── DisplayService.luau      [Dev 1 server rules, Dev 3 visuals] display & exhibit slots, slot attributes, reservations for customers
 │   ├── CustomerService.luau     [Dev 3] spawn/move NPCs, choose items, checkout, pay via Economy
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
@@ -213,22 +213,23 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestStartRestore` | `uid, benchName` | Dev 2 | item mine & `Dirty`/`InProgress`, bench in my plot, free, near bench |
 | `ReportStepComplete` | `uid, stepIndex, score` | Dev 2 | active session, correct step, min duration passed, score number 0–100 |
 | `RequestExitRestore` | `uid` | Dev 2 | active session (progress kept) |
-| `RequestPlaceDisplay` | `uid, slotIndex` | Dev 3 | item mine & `Restored`, slot unlocked & empty |
-| `RequestPlaceExhibit` | `uid, slotIndex` | Dev 3 | same, exhibit slot |
-| `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 3 | slot mine, not reserved by a customer, capacity |
+| `RequestPlaceDisplay` | `uid, slotIndex` | Dev 1 (server), Dev 3 (UI) | item mine & `Restored`, slot unlocked & empty, within InteractMaxStuds of the slot, rate limit 4/s |
+| `RequestPlaceExhibit` | `uid, slotIndex` | Dev 1 (server), Dev 3 (UI) | same, exhibit slot |
+| `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 1 (server), Dev 3 (UI) | slot mine, not reserved by a customer, capacity (kind is "Display" or "Exhibit") |
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
 | `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | not own shop, not liked today, near that counter |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
-| `RequestSaveSettings` | `settings: table` | Dev 3 | known keys, booleans only |
+| `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id, order |
 
 ### Server → Client (RemoteEvents)
 | Remote | Payload | Purpose |
 |---|---|---|
 | `StateChanged` | `path: string, value: any` | Update ClientState (e.g. `"cash"`, `"inventory.<uid>"`, `"upgrades.CleaningBrush"`) |
-| `Notify` | `kind, text` | Toasts and banners |
+| `StateChanged("rating", stars)` | `number` 1-5 | Derived, not saved. In the first `GetInitialState` snapshot as `rating`, then pushed when upgrades or exhibits change |
+| `Notify` | `kind, text` | Toasts and banners. Kinds: `LevelUp`, `Upgrade`, `Delivery` ("Crate delivered!", "Free delivery arrived!"), `Info` |
 | `BoxOpened` | `uid, itemId, isGolden, isNew` | Play reveal |
 | `RestoreSession` | `uid, recipe, stepIndex, enabledSpotsSeed` | Begin/resume bench view |
 | `ItemRestored` | `uid, stars, value` | RESTORED! card |

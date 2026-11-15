@@ -79,6 +79,11 @@ local function makeFakeDataService()
 		node[parts[#parts]] = deepCopy(value)
 		return true
 	end
+	fake.pushes = {} -- what the real DataService.Push would send to the client
+	function fake.Push(p, path, value)
+		table.insert(fake.pushes, { path = path, value = value })
+	end
+	function fake.AddSnapshotExtra() end
 	function fake.OnPlayerLoaded() end
 	function fake.OnPlayerReleasing() end
 	fake._store = store
@@ -320,9 +325,12 @@ function SystemsCheck.run()
 		local u = newPlayer()
 		fakeDS.Set(u, "cash", 100000)
 		check("Upgrade: unknown id refused", select(2, Upgrade.BuyUpgrade(u, "Nope")) == "unknown" and select(2, Upgrade.BuyUpgrade(u, 5)) == "unknown")
+		fakeDS.pushes = {} -- earlier sections also push ratings
 		local bought, _, lvl = Upgrade.BuyUpgrade(u, "CleaningBrush")
 		check("Upgrade: Brush L1 costs $150", bought and lvl == 1 and cash(u) == 100000 - 150 and fakeDS.GetValue(u, "upgrades.CleaningBrush") == 1)
 		check("Upgrade: purchase refreshes plot slots", refreshCalls == 1)
+		check("Upgrade: rating is pushed to the client once (1 star)", #fakeDS.pushes == 1 and fakeDS.pushes[1].path == "rating" and fakeDS.pushes[1].value == 1)
+		fakeDS.pushes = {}
 		check("Upgrade: Brush L2 needs player level 5", select(2, Upgrade.BuyUpgrade(u, "CleaningBrush")) == "level" and cash(u) == 100000 - 150)
 		fakeDS.Set(u, "level", 5)
 		check("Upgrade: Brush L2 at level 5 costs $1500", Upgrade.BuyUpgrade(u, "CleaningBrush") and cash(u) == 100000 - 150 - 1500)

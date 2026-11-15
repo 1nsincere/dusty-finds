@@ -23,6 +23,7 @@ local VALID_STATES = { Unopened = true, Dirty = true, InProgress = true, Restore
 local NOT_COUNTED = { Unopened = true, Displayed = true, Exhibited = true }
 
 local DataService, EconomyService, PlotService, CollectionBookService = nil, nil, nil, nil
+local DisplayService = nil -- optional: tests may run without it
 
 -- uids come from HttpService:GenerateGUID. Only letters, digits and dashes are allowed, because a "." would
 -- change the DataService path ("inventory.<uid>.state").
@@ -36,11 +37,7 @@ end
 
 function InventoryService.GetCapacity(player: Player): number
 	local upgrades = DataService.GetValue(player, "upgrades") or {}
-	local level = upgrades.StorageRacks or 0
-	if level > 0 then
-		return Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
-	end
-	return Economy.StartingInventoryCapacity
+	return Formulas.inventoryCapacity(upgrades.StorageRacks or 0)
 end
 
 -- Number of items that use up capacity.
@@ -175,6 +172,9 @@ function InventoryService.Update(player: Player, uid: string, changes: { [string
 			return false, "saveFailed"
 		end
 	end
+	if changes.state ~= nil or item.state == "Exhibited" then
+		CollectionBookService.RefreshRating(player) -- exhibits give rating points
+	end
 	return true, nil
 end
 
@@ -243,6 +243,9 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 	if not InventoryService.Remove(player, uid) then
 		return false, "removeFailed", nil
 	end
+	if DisplayService then
+		DisplayService.SyncSlots(player) -- the shelf is empty now: clear its ItemId / Golden / Stars attributes
+	end
 	local total = price + bonus + tip
 	EconomyService.AddCash(player, total, "Sale")
 	local sold = DataService.GetValue(player, "stats.sold") or 0
@@ -258,6 +261,7 @@ function InventoryService.Init(services)
 	EconomyService = services.EconomyService
 	PlotService = services.PlotService
 	CollectionBookService = services.CollectionBookService
+	DisplayService = services.DisplayService
 	log.info("Init")
 end
 
