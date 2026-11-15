@@ -280,7 +280,9 @@ Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Discovery.Card.{GoldenTag,Counter,Hint}  RarityBanner → Text   Dots → Dot1..Dot5   NewTag/GoldenTag → Text
   -- "Name" clashes with Instance.Name: code must use Card:FindFirstChild("Name")
 Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}
-Upgrades.Window.{Tabs,List}             Supply.Window.{Title,CloseButton,List}
+Upgrades.Window.{Title,CloseButton,Tabs,List}  Tabs.{Tools,Shop,Decor,Expansions} (= Config `tab`)
+Upgrades.UpgradeTemplate (hidden) → Glow (UIStroke), Icon, Title, Dots (→ Dot1..Dot3), Effect, BuyButton
+Supply.Window.{Title,CloseButton,List}
 Supply.CrateTemplate (hidden) → Name, Info, Odds (→ RowTemplate), BuyButton   -- one card per Config crate with price > 0
 Collection.Book.{Pages,PageLabel}       Settings.Window.Toggles
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)

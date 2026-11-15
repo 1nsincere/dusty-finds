@@ -327,8 +327,8 @@ function InventoryController.Open(filter: string?)
 		return -- finish the reveal first
 	end
 	local shop = others and others.ShopController
-	if shop and shop.CloseSupply then
-		shop.CloseSupply()
+	if shop and shop.CloseAll then
+		shop.CloseAll() -- Supply + Upgrades
 	end
 	selectTab(filter or currentFilter)
 	inventoryGui.Window.Visible = true

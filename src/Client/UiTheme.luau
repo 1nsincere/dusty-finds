@@ -1,6 +1,6 @@
 -- UiTheme.luau (StarterPlayerScripts.Client.UiTheme)
 -- Purpose: UI colors in one place: the docs/01 J1 palette and rarity display colors (Rarities.luau says
--- "Dev 3 picks them with the UI"). Screens read colors from here instead of hard-coding them.
+-- "Dev 3 picks them with the UI"), plus small display helpers (money formatting) shared by screens.
 -- Owner: Dev 3 (Sean). Depends on: nothing.
 
 local UiTheme = {}
@@ -23,6 +23,17 @@ UiTheme.Rarity = {
 
 function UiTheme.rarityColor(rarity: string?): Color3
 	return (rarity and UiTheme.Rarity[rarity]) or UiTheme.Rarity.Common
+end
+
+-- 1500 -> "$1,500". For screens showing prices. (HudController still has its own copy from before this
+-- existed; switch it over next time that file is touched.)
+function UiTheme.formatCash(amount: number): string
+	local formatted = tostring(math.floor(amount))
+	repeat
+		local count
+		formatted, count = string.gsub(formatted, "^(-?%d+)(%d%d%d)", "%1,%2")
+	until count == 0
+	return "$" .. formatted
 end
 
 return UiTheme
