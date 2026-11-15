@@ -131,6 +131,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 ├── Controllers/
 │   ├── HudController.luau          [Dev 3]
 │   ├── InventoryController.luau    [Dev 3]
+│   ├── DisplayController.luau      [Dev 3] shelf/pedestal prompts (my plot) + item visuals on every plot from slot attributes
 │   ├── DiscoveryController.luau    [Dev 3 UI, Dev 2 VFX]
 │   ├── RestorationController.luau  [Dev 2] bench view, camera, step runner
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
@@ -275,7 +276,8 @@ HUD.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Up
 HUD.UIScale  -- HudController sets Scale by screen size
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
 Inventory.Window.{Title,Capacity,CloseButton,Empty}  Tabs.{All,NeedsRestoring,Restored}
-Inventory.Window.Details.{Hint,ItemName,Rarity,Info,Value,QuickSellButton,RestoreButton}
+Inventory.Window.Details.{Hint,ItemName,Rarity,Info,Value,QuickSellButton,RestoreButton,PlaceButton}
+  -- PlaceButton: only in picker mode (opened from a shelf/pedestal), "Put on shelf" / "Put on pedestal"
 Assets.UI.ItemCard (TextButton) → RarityStroke (UIStroke), StateIcon, GoldenTag, ItemName, Stars, Value
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Discovery.Card.{GoldenTag,Counter,Hint}  RarityBanner → Text   Dots → Dot1..Dot5   NewTag/GoldenTag → Text
