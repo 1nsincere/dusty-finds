@@ -18,6 +18,8 @@ export type ItemInstance = {
 	stars: number?, -- 1-3 once restored
 	slot: number?, -- display/exhibit slot index
 	acquiredAt: number, -- os.time()
+	crateId: string?, -- crate it came from (set by ShipmentService; used to count waiting boxes)
+	boxId: string?, -- groups the items of one crate purchase into one "box" (max Economy.MaxWaitingBoxes waiting)
 }
 
 export type CollectionEntry = {

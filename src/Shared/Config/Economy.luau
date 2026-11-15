@@ -13,6 +13,8 @@ local Economy = {
 	FreeDeliveryIntervalSeconds = 180, -- 1 Tier-1 item every 3 minutes
 	FreeDeliveryMaxWaiting = 1,
 	FirstBoxItemId = "RubberDuck", -- guaranteed tutorial box at the door
+	MaxWaitingBoxes = 3, -- docs/01 B1: at most 3 unopened boxes (one box = one crate purchase or one free delivery)
+	InteractMaxStuds = 25, -- how close the character must be to a counter / delivery point for a request
 
 	-- §2 Rarity-related globals (per-rarity numbers live in Rarities.luau)
 	GoldenChance = 0.02, -- 2% on any roll
