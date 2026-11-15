@@ -247,6 +247,12 @@ function ShipmentService.Start()
 		if not Validate.rateLimit(player, "RequestOpenBox", 3) or type(uid) ~= "string" then
 			return
 		end
+		-- Boxes are opened at the door: the player must be near their own DeliveryPoint.
+		local plot = PlotService.GetPlot(player)
+		local point = plot and plot:FindFirstChild("DeliveryPoint")
+		if point == nil or not Validate.withinDistance(player, point, Economy.InteractMaxStuds) then
+			return
+		end
 		ShipmentService.OpenBox(player, uid)
 	end)
 
