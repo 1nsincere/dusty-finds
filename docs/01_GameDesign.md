@@ -401,7 +401,7 @@ Trading (scams and duplication exploits, plus Roblox trading-policy complexity),
 
 | Interface | Layout | Function |
 |---|---|---|
-| **Main HUD** | Top-left money + rating pills; left vertical buttons (Inventory 🎒, Upgrades 🔨, Collection 📖, Supply 📦); top-right Settings ⚙ and Visit 👥; level/XP bar under the pills (bottom-right is the mobile jump button) | Always visible, minimal |
+| **Main HUD** | Top-left money + rating pills; a row of buttons under the XP bar (Inventory 🎒, Upgrades 🔨, Collection 📖, Supply 📦); top-right Settings ⚙ and Visit 👥; level/XP bar under the pills (bottom-left is the mobile thumbstick, bottom-right the jump button) | Always visible, minimal |
 | **Money display** | Teal pill, coin icon, number animates up/down, `+$480` floats on gain | Instant feedback |
 | **Inventory** | Center modal, 4-column grid of cards (rarity border, state icon, stars, value); filter tabs; capacity `8/16` | Choose what to restore, display, or sell |
 | **Shipment notification** | Coral banner slides from top: "📦 Free delivery arrived!" / "Crate delivered!", auto-hides after 4 s; box at the door has a bobbing ❓ marker | Draws player to the door |
