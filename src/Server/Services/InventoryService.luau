@@ -22,7 +22,7 @@ local log = Log.new("InventoryService", DEBUG)
 local VALID_STATES = { Unopened = true, Dirty = true, InProgress = true, Restored = true, Displayed = true, Exhibited = true }
 local NOT_COUNTED = { Unopened = true, Displayed = true, Exhibited = true }
 
-local DataService, EconomyService, PlotService = nil, nil, nil
+local DataService, EconomyService, PlotService, CollectionBookService = nil, nil, nil, nil
 
 -- uids come from HttpService:GenerateGUID. Only letters, digits and dashes are allowed, because a "." would
 -- change the DataService path ("inventory.<uid>.state").
@@ -212,10 +212,52 @@ function InventoryService.QuickSell(player: Player, uid: string): (boolean, stri
 	return true, nil, amount
 end
 
+-- A customer buys a Displayed item (called by CustomerService / DisplayService, Dev 3). The server works out the whole
+-- price, so the caller can't invent one: price = sellPrice (wish x1.25 if wishMatched), + 10% if `checkout`, + a tip
+-- (chance = 5% + 5% x shop rating stars + opts.tipBonus; amount 10-25% of the price).
+-- opts: wishMatched (boolean), checkout (boolean), tipBonus (the customer type's tipBonus), random (tests only).
+-- Returns ok, reason, { price, bonus, tip, total }. Reasons: noItem, notDisplayed, noPrice, removeFailed.
+function InventoryService.CompleteSale(player: Player, uid: string, opts: { [string]: any }?): (boolean, string?, { [string]: number }?)
+	opts = opts or {}
+	local item = InventoryService.Get(player, uid)
+	if item == nil then
+		return false, "noItem", nil
+	end
+	if item.state ~= "Displayed" or type(item.stars) ~= "number" then
+		return false, "notDisplayed", nil
+	end
+	local wishMatched = opts.wishMatched == true
+	local price = Formulas.sellPrice(item.itemId, item.stars, item.golden, wishMatched)
+	if price <= 0 then
+		return false, "noPrice", nil
+	end
+
+	local bonus = if opts.checkout == true then Formulas.checkoutBonus(price) else 0
+	local random: Random = opts.random or Random.new()
+	local tip = 0
+	local chance = Formulas.tipChance(CollectionBookService.GetRatingStars(player), opts.tipBonus)
+	if random:NextNumber() < chance then
+		tip = Formulas.tipAmount(price, random:NextNumber(Economy.TipMinFraction, Economy.TipMaxFraction))
+	end
+
+	if not InventoryService.Remove(player, uid) then
+		return false, "removeFailed", nil
+	end
+	local total = price + bonus + tip
+	EconomyService.AddCash(player, total, "Sale")
+	local sold = DataService.GetValue(player, "stats.sold") or 0
+	DataService.Set(player, "stats.sold", sold + 1)
+	if Validate.isPlayer(player) then
+		Remotes.SaleMade:FireClient(player, total, wishMatched, tip)
+	end
+	return true, nil, { price = price, bonus = bonus, tip = tip, total = total }
+end
+
 function InventoryService.Init(services)
 	DataService = services.DataService
 	EconomyService = services.EconomyService
 	PlotService = services.PlotService
+	CollectionBookService = services.CollectionBookService
 	log.info("Init")
 end
 

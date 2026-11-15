@@ -122,6 +122,55 @@ function FormulasCheck.run()
 	expectEqual("ratingStars missing points", rating(nil :: any), 1)
 	expectEqual("ratingStars NaN points", rating(NaN), 1)
 
+	-- ===== customer helpers (docs/02 §5): worked out by hand =====
+	local function r3(x: number): number -- 3 decimals, so 0.30000000000000004 compares equal to 0.3
+		return math.floor(x * 1000 + 0.5) / 1000
+	end
+	local tipChance, tipAmount, checkoutBonus, spawnInterval =
+		Formulas.tipChance, Formulas.tipAmount, Formulas.checkoutBonus, Formulas.customerSpawnInterval
+
+	-- tipChance = 5% + 5% x rating stars (+ customer bonus), clamped 0-1
+	expectEqual("tipChance 1 star", r3(tipChance(1)), 0.1)
+	expectEqual("tipChance 3 stars", r3(tipChance(3)), 0.2)
+	expectEqual("tipChance 5 stars", r3(tipChance(5)), 0.3)
+	expectEqual("tipChance 5 stars + Collector bonus 0.05", r3(tipChance(5, 0.05)), 0.35)
+	expectEqual("tipChance 0 stars counts as 1 star", r3(tipChance(0)), 0.1)
+	expectEqual("tipChance 9 stars counts as 5 stars", r3(tipChance(9)), 0.3)
+	expectEqual("tipChance missing stars counts as 1 star", r3(tipChance(nil :: any)), 0.1)
+	expectEqual("tipChance NaN stars counts as 1 star", r3(tipChance(NaN)), 0.1)
+	expectEqual("tipChance huge bonus is capped at 1", tipChance(3, 5), 1)
+	expectEqual("tipChance negative bonus is floored at 0", tipChance(1, -5), 0)
+
+	-- tipAmount = round(price x fraction), fraction clamped to 10%-25%
+	expectEqual("tipAmount $100 at 10%", tipAmount(100, 0.1), 10)
+	expectEqual("tipAmount $100 at 25%", tipAmount(100, 0.25), 25)
+	expectEqual("tipAmount fraction above 25% is capped", tipAmount(100, 0.5), 25)
+	expectEqual("tipAmount fraction below 10% is raised", tipAmount(100, 0.01), 10)
+	expectEqual("tipAmount $21 at 10% (2.1) rounds to 2", tipAmount(21, 0.1), 2)
+	expectEqual("tipAmount $15 at 25% (3.75) rounds to 4", tipAmount(15, 0.25), 4)
+	expectEqual("tipAmount price 0", tipAmount(0, 0.2), 0)
+	expectEqual("tipAmount negative price", tipAmount(-50, 0.2), 0)
+	expectEqual("tipAmount NaN fraction uses 10%", tipAmount(100, NaN), 10)
+
+	-- checkoutBonus = round(10% of price)
+	expectEqual("checkoutBonus $100", checkoutBonus(100), 10)
+	expectEqual("checkoutBonus $21 (2.1) rounds to 2", checkoutBonus(21), 2)
+	expectEqual("checkoutBonus $25 (2.5) rounds up to 3", checkoutBonus(25), 3)
+	expectEqual("checkoutBonus price 0", checkoutBonus(0), 0)
+	expectEqual("checkoutBonus negative price", checkoutBonus(-5), 0)
+	expectEqual("checkoutBonus NaN price", checkoutBonus(NaN), 0)
+
+	-- customerSpawnInterval = 30 x 0.9^sign x ratingMult (1.0, 0.9, 0.8, 0.7, 0.6), minimum 10 s
+	expectEqual("spawn interval sign 0, 1 star", r3(spawnInterval(0, 1)), 30)
+	expectEqual("spawn interval sign 1, 1 star", r3(spawnInterval(1, 1)), 27)
+	expectEqual("spawn interval sign 0, 5 stars", r3(spawnInterval(0, 5)), 18)
+	expectEqual("spawn interval sign 3, 1 star", r3(spawnInterval(3, 1)), 21.87)
+	expectEqual("spawn interval sign 3, 5 stars", r3(spawnInterval(3, 5)), 13.122)
+	expectEqual("spawn interval 9 stars counts as 5", r3(spawnInterval(3, 9)), 13.122)
+	expectEqual("spawn interval negative sign counts as 0", r3(spawnInterval(-2, 1)), 30)
+	expectEqual("spawn interval never below 10 s", spawnInterval(40, 5), 10)
+	expectEqual("spawn interval NaN sign counts as 0", r3(spawnInterval(NaN, 1)), 30)
+
 	for _, line in lines do
 		print(line)
 	end

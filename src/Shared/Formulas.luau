@@ -88,4 +88,41 @@ function Formulas.ratingStars(points: number): number
 	return stars
 end
 
+-- Chance (0-1) that a customer tips: 5% + 5% x rating stars (docs/02 §5), plus the customer type's own bonus.
+-- Rating stars are clamped to 1-5, a missing bonus counts as 0, the result is clamped to 0-1.
+function Formulas.tipChance(ratingStars: number, customerBonus: number?): number
+	local stars = math.clamp(math.floor(cleanNumber(ratingStars, 1)), 1, #Economy.RatingStarMinPoints)
+	local bonus = cleanNumber(customerBonus, 0)
+	return math.clamp(Economy.TipBaseChance + Economy.TipChancePerRatingStar * stars + bonus, 0, 1)
+end
+
+-- Tip in dollars = price x fraction, where fraction is clamped to TipMinFraction..TipMaxFraction (10-25%).
+-- A price of 0 or less gives 0. The caller supplies the random fraction, so this stays pure.
+function Formulas.tipAmount(price: number, fraction: number): number
+	local p = cleanNumber(price, 0)
+	if p <= 0 then
+		return 0
+	end
+	local f = math.clamp(cleanNumber(fraction, Economy.TipMinFraction), Economy.TipMinFraction, Economy.TipMaxFraction)
+	return round(p * f)
+end
+
+-- Extra cash for tapping Checkout before the auto-checkout: 10% of the price. Price 0 or less gives 0.
+function Formulas.checkoutBonus(price: number): number
+	local p = cleanNumber(price, 0)
+	if p <= 0 then
+		return 0
+	end
+	return round(p * Economy.CheckoutBonusFraction)
+end
+
+-- Seconds between customer arrivals: 30 s x 0.9^(Shop Sign level) x rating multiplier, never below the minimum.
+-- Sign level below 0 counts as 0; rating stars are clamped to 1-5.
+function Formulas.customerSpawnInterval(signLevel: number, ratingStars: number): number
+	local sign = math.max(0, math.floor(cleanNumber(signLevel, 0)))
+	local stars = math.clamp(math.floor(cleanNumber(ratingStars, 1)), 1, #Economy.CustomerSpawnRatingMult)
+	local seconds = Economy.CustomerSpawnBaseSeconds * Economy.CustomerSpawnSignFactor ^ sign * Economy.CustomerSpawnRatingMult[stars]
+	return math.max(Economy.CustomerSpawnMinSeconds, seconds)
+end
+
 return Formulas

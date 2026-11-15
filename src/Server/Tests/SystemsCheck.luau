@@ -242,6 +242,52 @@ function SystemsCheck.run()
 		local displayed = Inventory.Add(s, "RubberDuck", { state = "Displayed" })
 		check("QuickSell: a Displayed item can't be quick sold", Inventory.QuickSell(s, displayed) == false)
 
+		-- Customer sale (CompleteSale). A stub Random gives exact rolls: NextNumber() = tip roll, NextNumber(a, b) = tip fraction.
+		local function fixedRandom(roll: number, fraction: number): any
+			return {
+				NextNumber = function(_, a, b)
+					if a ~= nil and b ~= nil then
+						return fraction
+					end
+					return roll
+				end,
+			}
+		end
+		local function displayedDuck(pl, golden: boolean?): string
+			local id = Inventory.Add(pl, "RubberDuck", { state = "Displayed", golden = golden })
+			Inventory.Update(pl, id, { stars = 2 })
+			return id
+		end
+		local cs = newPlayer() -- cash 100, shop rating 1 star (tip chance 10%)
+		local d1 = displayedDuck(cs)
+		local saleOk, _, sale = Inventory.CompleteSale(cs, d1, { random = fixedRandom(0.99, 0.2) })
+		check("Sale: Rubber Duck 2 stars, no wish, no tip = $12", saleOk and sale.price == 12 and sale.tip == 0 and sale.total == 12 and cash(cs) == 112, cash(cs))
+		check("Sale: item removed, sold +1, earned +12", Inventory.Get(cs, d1) == nil and fakeDS.GetValue(cs, "stats.sold") == 1 and fakeDS.GetValue(cs, "stats.earned") == 12)
+		local _, _, saleWish = Inventory.CompleteSale(cs, displayedDuck(cs), { wishMatched = true, random = fixedRandom(0.99, 0.2) })
+		check("Sale: wish match x1.25 = $15", saleWish.price == 15 and saleWish.total == 15)
+		local _, _, saleCheckout = Inventory.CompleteSale(cs, displayedDuck(cs), { checkout = true, random = fixedRandom(0.99, 0.2) })
+		check("Sale: Checkout bonus 10% of $12 = $1 more", saleCheckout.bonus == 1 and saleCheckout.total == 13)
+		local _, _, saleTip = Inventory.CompleteSale(cs, displayedDuck(cs), { random = fixedRandom(0.05, 0.25) })
+		check("Sale: tip roll 5% < 10% chance tips 25% of $12 = $3", saleTip.tip == 3 and saleTip.total == 15)
+		local _, _, saleNoTip = Inventory.CompleteSale(cs, displayedDuck(cs), { random = fixedRandom(0.12, 0.25) })
+		check("Sale: roll 12% does not tip at 1 star (chance 10%)", saleNoTip.tip == 0)
+		local _, _, saleBonus = Inventory.CompleteSale(cs, displayedDuck(cs), { tipBonus = 0.05, random = fixedRandom(0.12, 0.25) })
+		check("Sale: Collector tipBonus 0.05 makes the same roll tip (chance 15%)", saleBonus.tip == 3)
+		local _, _, saleGolden = Inventory.CompleteSale(cs, displayedDuck(cs, true), { wishMatched = true, random = fixedRandom(0.99, 0.2) })
+		check("Sale: Golden + wish Rubber Duck 2 stars = $45", saleGolden.total == 45)
+		local rated = newPlayer() -- 3-star shop: Back Room 3 + Showroom 8 + Neon Sign 5 + Pendant Lamps 3 + Rug 2 = 21 points
+		for _, id in { "BackRoom", "Showroom", "NeonSign", "PendantLamps", "Rug" } do
+			fakeDS.Set(rated, "upgrades." .. id, 1)
+		end
+		local _, _, saleRated = Inventory.CompleteSale(rated, displayedDuck(rated), { random = fixedRandom(0.15, 0.25) })
+		check("Sale: a 3-star shop tips more (chance 20%, roll 15% tips)", Collection.GetRatingStars(rated) == 3 and saleRated.tip == 3)
+		local notDisplayed = Inventory.Add(cs, "RubberDuck", { state = "Dirty" })
+		local restoredOnly = Inventory.Add(cs, "RubberDuck", { state = "Restored" })
+		Inventory.Update(cs, restoredOnly, { stars = 2 })
+		local cashBefore = cash(cs)
+		check("Sale: Dirty and Restored (not on a shelf) items can't be bought by customers", select(2, Inventory.CompleteSale(cs, notDisplayed)) == "notDisplayed" and select(2, Inventory.CompleteSale(cs, restoredOnly)) == "notDisplayed" and Inventory.Get(cs, restoredOnly) ~= nil and cash(cs) == cashBefore)
+		check("Sale: unknown uid refused", select(2, Inventory.CompleteSale(cs, "nope")) == "noItem")
+
 		-- ===== CollectionBookService =====
 		local c = newPlayer()
 		check("Collection: first find returns true", Collection.RecordFound(c, "TinRobot", false) == true)
