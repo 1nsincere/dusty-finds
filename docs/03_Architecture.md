@@ -273,10 +273,12 @@ Controllers find UI by fixed names. Changing a name = update this list + tell th
 ```
 HUD.MoneyPill.Amount (TextLabel)        HUD.RatingPill.Stars (Frame) → Star1..Star5 (TextLabel "★", color = filled/empty)
 HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton, emoji child "Icon" until real icons)
+  -- a ROW under the XP bar (not a column): the bottom-left corner belongs to the phone thumbstick
 HUD.TopRight.{Settings,Visit} (ImageButton)
 HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv N" on top
 HUD.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
 HUD.UIScale  -- HudController sets Scale by screen size
+StarterGui.ScreenOrientation = LandscapeSensor  -- landscape only (decision 2026-11-16): windows are ~600 px wide
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
 Inventory.Window.{Title,Capacity,CloseButton,Empty}  Tabs.{All,NeedsRestoring,Restored}
 Inventory.Window.Details.{Hint,ItemName,Rarity,Info,Value,QuickSellButton,RestoreButton,PlaceButton}
@@ -286,9 +288,9 @@ Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Discovery.Card.{GoldenTag,Counter,Hint}  RarityBanner → Text   Dots → Dot1..Dot5   NewTag/GoldenTag → Text
   -- "Name" clashes with Instance.Name: code must use Card:FindFirstChild("Name")
 Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}
-Upgrades.Window.{Title,CloseButton,Tabs,List}  Tabs.{Tools,Shop,Decor,Expansions} (= Config `tab`)
+Upgrades.Window.{Title,Cash,CloseButton,Tabs,List}  Tabs.{Tools,Shop,Decor,Expansions} (= Config `tab`)
 Upgrades.UpgradeTemplate (hidden) → Glow (UIStroke), Icon, Title, Dots (→ Dot1..Dot3), Effect, BuyButton
-Supply.Window.{Title,CloseButton,List}
+Supply.Window.{Title,Cash,CloseButton,List}   -- Cash: "💰 $N" pill, live (windows cover HUD money on phones)
 Supply.CrateTemplate (hidden) → Name, Info, Odds (→ RowTemplate), BuyButton   -- one card per Config crate with price > 0
 Collection.Book.{Pages,PageLabel}       Settings.Window.Toggles
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)

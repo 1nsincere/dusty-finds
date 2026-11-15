@@ -476,6 +476,24 @@ function ShopController.Start()
 
 		setUpUpgrades(playerGui, hud)
 
+		-- Cash pill in both title bars: on phones the window covers the HUD money, so show it here too.
+		local cashLabels = {}
+		for _, screen in { supply, playerGui:FindFirstChild("Upgrades") } do
+			local label = screen and screen:FindFirstChild("Window") and screen.Window:FindFirstChild("Cash")
+			if label and label:IsA("TextLabel") then
+				label.BackgroundColor3 = UiTheme.Teal
+				table.insert(cashLabels, label)
+			end
+		end
+		local function updateCash()
+			local text = "💰 " .. UiTheme.formatCash(ClientState.Get("cash") or 0)
+			for _, label in cashLabels do
+				label.Text = text
+			end
+		end
+		updateCash()
+		ClientState.OnChanged("cash", updateCash)
+
 		local plots = workspace:WaitForChild("Plots", 10)
 		if plots then
 			for _, plot in plots:GetChildren() do

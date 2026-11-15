@@ -20,6 +20,7 @@ local DEBUG = true
 
 local PLACEHOLDER_SIZE = Vector3.new(1.2, 1.2, 1.2) -- until Dev 2's item models exist
 local TAG_MAX_DISTANCE = 30 -- name tags only show when close, to keep the street readable
+local TAG_WIDTH_STUDS = 2.4
 local REMOVE_COOLDOWN = 1.5
 -- Folder name in the plot -> the `kind` the server expects, and the words players see.
 local KINDS = {
@@ -56,6 +57,8 @@ local function makeItemVisual(itemId: string, golden: boolean): (Instance, BaseP
 			if part:IsA("BasePart") then
 				part.Anchored = true
 				part.CanCollide = false
+				part.CanQuery = false -- don't block clicks/prompts on the slot underneath
+				part.CanTouch = false
 			end
 		end
 		local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
@@ -89,20 +92,32 @@ local function renderSlot(slot: BasePart)
 	local golden = slot:GetAttribute("Golden") == true
 	local visual, anchorPart = makeItemVisual(itemId, golden)
 
-	-- Sit on top of the slot part (shelf pad or pedestal top).
-	local height = if anchorPart then anchorPart.Size.Y else PLACEHOLDER_SIZE.Y
-	local target = slot.CFrame * CFrame.new(0, slot.Size.Y / 2 + height / 2, 0)
+	-- Sit on top of the slot part (shelf pad or pedestal top), facing the slot's front.
+	-- Models are measured as a whole (bounding box), so the LOWEST part touches the pad
+	-- even if the pivot isn't at the bottom (Item Model Contract: pivot at Base's centre).
+	local slotTop = slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0)
+	local boxCFrame, boxSize
 	if visual:IsA("Model") then
-		visual:PivotTo(target)
-	elseif visual:IsA("BasePart") then
-		visual.CFrame = target
+		visual:PivotTo(slotTop)
+		boxCFrame, boxSize = visual:GetBoundingBox()
+		local bottom = slotTop:PointToObjectSpace(boxCFrame.Position).Y - boxSize.Y / 2
+		visual:PivotTo(slotTop * CFrame.new(0, -bottom, 0))
+		boxCFrame, boxSize = visual:GetBoundingBox()
+	else
+		local block = visual :: BasePart
+		block.CFrame = slotTop * CFrame.new(0, block.Size.Y / 2, 0)
+		boxCFrame, boxSize = block.CFrame, block.Size
 	end
+	-- Name tag floats 1 stud above the top of the whole item, whatever its shape.
+	local topY = boxCFrame.Position.Y + boxSize.Y / 2
+	local tagOffsetY = topY - (anchorPart and anchorPart.Position.Y or boxCFrame.Position.Y) + 1
 
 	-- Name tag: "Vintage Tin Robot ★★☆" (+ 🌟 for golden), seen by owner and visitors.
 	local def = Items[itemId]
 	local tag = Instance.new("BillboardGui")
-	tag.Size = UDim2.fromOffset(150, 30)
-	tag.StudsOffset = Vector3.new(0, height / 2 + 1, 0)
+	-- Sized in studs (just under the 2.5-stud slot spacing) so tags shrink with distance and never overlap.
+	tag.Size = UDim2.fromScale(TAG_WIDTH_STUDS, TAG_WIDTH_STUDS / 2.2) -- 2 lines: name, then stars
+	tag.StudsOffsetWorldSpace = Vector3.new(0, tagOffsetY, 0) -- world up, even if the item is rotated
 	tag.MaxDistance = TAG_MAX_DISTANCE
 	tag.Parent = anchorPart or visual
 	local label = Instance.new("TextLabel")
@@ -112,7 +127,7 @@ local function renderSlot(slot: BasePart)
 	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.4
-	label.Text = `{if golden then "🌟 " else ""}{def and def.name or itemId} {starsText(slot:GetAttribute("Stars"))}`
+	label.Text = `{if golden then "🌟 " else ""}{def and def.name or itemId}\n{starsText(slot:GetAttribute("Stars"))}`
 	label.Parent = tag
 
 	visual.Name = "Item_" .. slot.Name
