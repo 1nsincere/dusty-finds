@@ -13,7 +13,7 @@ Pacing targets (checked with a simple simulation, see §9):
 | Back Room expansion | ~1 hour | 58 min |
 | Lv 10 | ~1.5 hours | 83 min |
 | Lv 15 (MVP level cap) | ~3 hours | 187 min |
-| Showroom | ~4 hours | 231 min |
+| Showroom | ~4 hours | 211 min |
 | Collection book (non-Golden) complete | 4–6 hours | depends on luck (Legendary 1%) |
 
 MVP gives roughly **4–6 hours** of progression plus Golden-variant hunting. Updates add crate tiers (§8).
@@ -75,7 +75,7 @@ Categories: **Toys · Kitchen · Decor · Music · Electronics** (used by custom
 |---|---|---|---|---|---|
 | RubberDuck | Rubber Duck | Common | Toys | $12 | Wipe → Polish |
 | Teacup | Floral Teacup | Common | Kitchen | $14 | Wipe → Polish |
-| ToyCar | Toy Race Car | Common | Toys | $16 | Wipe → Reassemble (wheels) → Polish |
+| ToyCar | Toy Race Car | Common | Toys | $16 | Wipe → Reassemble (wheel) → Polish |
 | DeskLamp | Desk Lamp | Common | Decor | $18 | Wipe → Replace (bulb) → Test (switch) |
 | AlarmClock | Alarm Clock | Uncommon | Electronics | $32 | Scrape → Reassemble (bell) → Test (wind) |
 | SnowGlobe | Snow Globe | Uncommon | Decor | $35 | Wipe → Polish → Test (shake) |
@@ -83,7 +83,7 @@ Categories: **Toys · Kitchen · Decor · Music · Electronics** (used by custom
 | MusicBox | Music Box | Rare | Music | $80 | Scrape → Reassemble (dancer) → Polish → Test (wind) |
 | RetroCamera | Retro Camera | Rare | Electronics | $85 | Wipe → Replace (lens) → Polish → Test (flash) |
 | CopperKettle | Copper Kettle | Epic | Kitchen | $170 | Scrape → Reassemble (lid) → Polish → Test (whistle) |
-| TinRobot | Vintage Tin Robot | Epic | Toys | $180 | Wipe → Scrape → Reassemble (arm) → Polish → Test (wind) |
+| TinRobot | Vintage Tin Robot | Epic | Toys | $180 | Wipe → Scrape → Reassemble (left arm) → Polish → Test (wind) |
 | Gramophone | Antique Gramophone | Legendary | Music | $450 | Wipe → Scrape → Replace (horn) → Polish → Test (play) |
 
 ### Tier 2: Flea Market (8 items)
@@ -92,7 +92,7 @@ Categories: **Toys · Kitchen · Decor · Music · Electronics** (used by custom
 | VinylRecord | Vinyl Record | Common | Music | $70 | Wipe → Polish |
 | EnamelMug | Enamel Camp Mug | Common | Kitchen | $75 | Scrape → Polish |
 | RotaryPhone | Rotary Phone | Uncommon | Electronics | $170 | Wipe → Reassemble (handset) → Test (ring) |
-| Marionette | Wooden Marionette | Uncommon | Toys | $180 | Wipe → Reassemble (limbs) → Polish |
+| Marionette | Wooden Marionette | Uncommon | Toys | $180 | Wipe → Reassemble (leg) → Polish |
 | PocketWatch | Pocket Watch | Rare | Decor | $400 | Scrape → Replace (gear) → Polish → Test (tick) |
 | TubeRadio | Tube Radio | Rare | Electronics | $420 | Wipe → Replace (tube) → Polish → Test (tune) |
 | ShipInBottle | Ship in a Bottle | Epic | Decor | $900 | Wipe → Reassemble (mast) → Polish → Test (light) |
@@ -161,7 +161,7 @@ Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 
 ---
 
 ## 7. XP and levels
-- XP to go from level *L* to *L+1* = **round(40 × L^1.6)**. Cumulative: Lv 5 ≈ 760 XP · Lv 10 ≈ 5,350 · Lv 15 ≈ 15,000.
+- XP to go from level *L* to *L+1* = **round(40 × L^1.6)**. Cumulative: Lv 5 ≈ 760 XP · Lv 10 ≈ 5,350 · Lv 15 ≈ 16,100.
 - **Level-up reward:** $50 × new level, plus unlock popups ("Flea Market crates unlocked!").
 - **MVP level cap: 15** (raised with each content update).
 

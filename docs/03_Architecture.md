@@ -215,7 +215,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 3 | slot mine, not reserved by a customer, capacity |
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
 | `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
-| `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, cash |
+| `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | not own shop, not liked today, near that counter |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
 | `RequestSaveSettings` | `settings: table` | Dev 3 | known keys, booleans only |
@@ -322,7 +322,7 @@ Items.TinRobot = {
     recipe = {
         { type = "Wipe" },
         { type = "Scrape", layers = 3 },
-        { type = "Reassemble", parts = { "ArmL" } },
+        { type = "Reassemble", parts = { "LeftArm" } },
         { type = "Polish" },
         { type = "Test", style = "Wind", greenZone = 0.25 },
     },
@@ -357,6 +357,8 @@ Upgrades.BackRoom = {
     effect = { expansion = "BackRoom", ratingPoints = 3, benches = 1 },
 }
 ```
+
+Optional field `requires = "<upgradeId>"` (e.g. Fish Tank requires `"BackRoom"`, Fountain requires `"Showroom"`): the player must already own that upgrade (`upgrades[requires] >= 1`) **in addition to** meeting `requiredLevel`. `UpgradeService` must validate both. `requiredLevel` alone is not enough: decor unlocks at level 1, so only `requires` stops the Fountain being bought before the Showroom.
 
 ### 10.4 Item instance (owned by a player)
 ```lua
