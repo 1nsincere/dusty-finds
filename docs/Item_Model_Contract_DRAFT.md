@@ -1,6 +1,6 @@
 # Item Model Contract — draft for Ace and Sean
 
-Owner: Dwayne (Dev 2). Status: proposed; awaiting Ace and Sean's review.
+Owner: Dwayne (Dev 2). Status: proposed; Ace's review complete, awaiting Sean's review.
 
 This expands the outline in `01_GameDesign.md` §C2 for review. It does not replace
 that design or change any shared code. The first build will be a Wipe-only item
@@ -53,8 +53,10 @@ folders and parts needed by that item's restoration recipe.
 - Names are case-sensitive: use `DirtSpots`, not `Dirtspots` or `Dirt Spots`.
 - Real item model names match Ace's existing item/model IDs. Their eventual
   location is `ReplicatedStorage/Assets/Items/<ItemId>`.
-- Socket and loose-part names match exactly, for example `Sockets/Wheel1` and
-  `LooseParts/Wheel1`. Socket targets remain queryable even when invisible.
+- Socket and loose-part names match exactly, for example `Sockets/Wheel` and
+  `LooseParts/Wheel` for ToyCar. Use Ace's final Config part names (such as
+  `Wheel` and `LeftArm`), with no added digits. Socket targets remain queryable
+  even when invisible.
 - The existing design allows an optional NumberValue named `Layers` on rust spots.
   Rust texture names and placement transforms for assembly still need agreement
   before those interactions are implemented.
@@ -65,14 +67,15 @@ folders and parts needed by that item's restoration recipe.
 
 ## Review requested
 
-- **Ace:** confirm the item/model ID connection and that the Wipe structure fits
-  the planned recipe/config integration. No shared Config, Types, or Remotes
-  changes are proposed for this prototype.
+- **Ace:** review complete in `STATUS.md` under "Review notes for Dwayne".
+  The item/model ID connection and Wipe structure fit the planned integration;
+  the socket example above now uses the final part name. No shared Config,
+  Types, or Remotes changes are needed for this prototype.
 - **Sean:** confirm that using `Base` as PrimaryPart fits bench and display
   placement. Agree on item scale, orientation, and pivot placement with Dwayne
   before building production item models; these are not standardized here yet.
 - **Both:** review the proposed spot/decal naming and query settings above.
 
 After review: build one anchored Wipe test item in a separate baseplate, then
-implement and test mouse and touch cleaning. This draft has not been reviewed
-by Ace or Sean and no Studio setup or playtest has been performed for it.
+implement and test mouse and touch cleaning. Ace has reviewed this draft;
+Sean's review is still pending. No Studio setup or playtest has been performed for it.

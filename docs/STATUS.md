@@ -16,7 +16,7 @@
 ## 🔨 In progress
 | Feature | Owner | Notes |
 |---|---|---|
-| Item Model Contract draft | Dev 2 (Dwayne) | `docs/Item_Model_Contract_DRAFT.md` expands the existing game-design outline; awaiting Ace and Sean's review. No Wipe code or Studio model built yet. |
+| Item Model Contract draft | Dev 2 (Dwayne) | `docs/Item_Model_Contract_DRAFT.md` expands the existing game-design outline; Ace's review complete (read from fetched origin/main), socket example corrected to `Sockets/Wheel` / `LooseParts/Wheel`; awaiting Sean's review. No Wipe code or Studio model built yet. |
 | Tooling setup (Team Create, Git, Claude Code, MCP) | All | Dwayne and Sean still need to link Script Sync on their PCs (see Notes) |
 | Contracts: Types, Item Model Contract, UI contract, plot part names | Dev 1 / 2 / 3 | Remotes list is done (see skeleton) |
 
