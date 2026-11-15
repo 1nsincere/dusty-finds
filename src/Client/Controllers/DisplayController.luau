@@ -20,6 +20,7 @@ local DEBUG = true
 
 local PLACEHOLDER_SIZE = Vector3.new(1.2, 1.2, 1.2) -- until Dev 2's item models exist
 local TAG_MAX_DISTANCE = 30 -- name tags only show when close, to keep the street readable
+local TAG_WIDTH_STUDS = 2.4
 local REMOVE_COOLDOWN = 1.5
 -- Folder name in the plot -> the `kind` the server expects, and the words players see.
 local KINDS = {
@@ -114,7 +115,8 @@ local function renderSlot(slot: BasePart)
 	-- Name tag: "Vintage Tin Robot ★★☆" (+ 🌟 for golden), seen by owner and visitors.
 	local def = Items[itemId]
 	local tag = Instance.new("BillboardGui")
-	tag.Size = UDim2.fromOffset(150, 30)
+	-- Sized in studs (just under the 2.5-stud slot spacing) so tags shrink with distance and never overlap.
+	tag.Size = UDim2.fromScale(TAG_WIDTH_STUDS, TAG_WIDTH_STUDS / 2.2) -- 2 lines: name, then stars
 	tag.StudsOffsetWorldSpace = Vector3.new(0, tagOffsetY, 0) -- world up, even if the item is rotated
 	tag.MaxDistance = TAG_MAX_DISTANCE
 	tag.Parent = anchorPart or visual
@@ -125,7 +127,7 @@ local function renderSlot(slot: BasePart)
 	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.4
-	label.Text = `{if golden then "🌟 " else ""}{def and def.name or itemId} {starsText(slot:GetAttribute("Stars"))}`
+	label.Text = `{if golden then "🌟 " else ""}{def and def.name or itemId}\n{starsText(slot:GetAttribute("Stars"))}`
 	label.Parent = tag
 
 	visual.Name = "Item_" .. slot.Name
