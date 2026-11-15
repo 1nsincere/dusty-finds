@@ -2,6 +2,7 @@
 -- Purpose: shows my waiting boxes at my plot's DeliveryPoint (client-side, only I see them) and plays the reveal:
 -- "Open" on a box asks the server to open each item (RequestOpenBox), and each BoxOpened result is shown on the
 -- Discovery card (rarity, name, dots, est. value, NEW!/GOLDEN). The server already rolled the item; we only show it.
+-- Also the Free Delivery claim prompt + countdown sign on the same DeliveryPoint (RequestClaimFreeDelivery).
 -- Owner: Dev 3 (Sean) UI, Dev 2 (Dwayne) VFX later. Depends on: ClientState, UiTheme, Shared.Remotes,
 -- Shared.Config (Items, Rarities, Crates, Economy), Shared.Formulas, StarterGui.Discovery,
 -- ReplicatedStorage.Assets.Boxes, Workspace.Plots (OwnerUserId attribute, DeliveryPoint).
@@ -24,6 +25,7 @@ local DiscoveryController = {}
 local DEBUG = true
 
 local OPEN_TIMEOUT = 4 -- seconds to wait for BoxOpened; no answer = server refused (it sends a toast, e.g. "inventory full")
+local CLAIM_COOLDOWN = 2 -- seconds the claim prompt stays off after a press (the box appearing is the confirmation)
 local ESTIMATE_STARS = 2 -- "Est. value" = price when restored to 2★ (Good)
 local BOX_SPACING = 3.2 -- studs between boxes at the door
 local DOT_EMPTY = UiTheme.Disabled
@@ -37,6 +39,9 @@ local boxModels: { [string]: Model } = {} -- [boxId] = model at the door
 local results: { [string]: { itemId: string, golden: boolean, isNew: boolean } } = {} -- [uid] = BoxOpened info
 local opening = false
 local storePressed = Instance.new("BindableEvent")
+local claimPrompt: ProximityPrompt? = nil
+local claimSign: TextLabel? = nil
+local claimCooldownUntil = 0
 
 local function log(...)
 	if DEBUG then
@@ -253,6 +258,95 @@ local function renderBoxes()
 	end
 end
 
+-- ===== Free Delivery (claim prompt + countdown sign on my DeliveryPoint) =====
+
+-- Mirrors the checks in ShipmentService.ClaimFreeDelivery so the prompt only shows when a claim will work.
+-- Returns ready, sign text. The server checks again; this only decides what the player sees.
+local function freeDeliveryStatus(): (boolean, string)
+	local last = ClientState.Get("timers.lastFreeDelivery")
+	if type(last) ~= "number" then
+		return false, ""
+	end
+	local boxes = waitingBoxes()
+	for _, box in boxes do
+		if box.crateId == "FreeDelivery" then
+			return false, "" -- the free box itself is at the door with its own "Open" prompt
+		end
+	end
+	if #boxes >= Economy.MaxWaitingBoxes then
+		return false, "📦 Open your boxes first"
+	end
+	-- Server time, not this PC's clock: os.time() on a PC with a wrong clock would show a wrong countdown.
+	local remaining = Economy.FreeDeliveryIntervalSeconds - (math.floor(workspace:GetServerTimeNow()) - last)
+	if remaining > 0 then
+		return false, string.format("📦 Free box in %d:%02d", remaining // 60, remaining % 60)
+	end
+	return true, "📦 Free box ready!"
+end
+
+local function updateFreeDelivery()
+	if claimPrompt == nil or claimSign == nil then
+		return
+	end
+	local ready, text = freeDeliveryStatus()
+	claimPrompt.Enabled = ready and os.clock() >= claimCooldownUntil
+	claimSign.Text = text
+	claimSign.Visible = text ~= ""
+end
+
+local function setUpFreeDelivery(point: BasePart)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "FreeDeliveryPrompt"
+	prompt.ActionText = "Claim free box"
+	prompt.ObjectText = "Free Delivery"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 10 -- server allows Economy.InteractMaxStuds; stay well inside it
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = false
+	prompt.Parent = point
+	prompt.Triggered:Connect(function()
+		local ready = freeDeliveryStatus()
+		if not ready then
+			return
+		end
+		claimCooldownUntil = os.clock() + CLAIM_COOLDOWN
+		prompt.Enabled = false
+		Remotes.RequestClaimFreeDelivery:FireServer()
+		log("asked for free delivery")
+	end)
+	claimPrompt = prompt
+
+	-- Small sign above the pad, only visible to me (client-side like the boxes).
+	local board = Instance.new("BillboardGui")
+	board.Name = "FreeDeliverySign"
+	board.Size = UDim2.fromOffset(200, 36)
+	board.StudsOffset = Vector3.new(0, 5, 0)
+	board.MaxDistance = 60
+	board.Parent = point
+	local sign = Instance.new("TextLabel")
+	sign.Size = UDim2.fromScale(1, 1)
+	sign.BackgroundColor3 = UiTheme.Cream
+	sign.BackgroundTransparency = 0.1
+	sign.TextColor3 = UiTheme.Ink
+	sign.Font = Enum.Font.FredokaOne
+	sign.TextScaled = true
+	sign.Text = ""
+	sign.Parent = board
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = sign
+	claimSign = sign
+
+	-- One light loop for the countdown (1 update per second), plus instant updates on data changes.
+	task.spawn(function()
+		while claimPrompt == prompt do
+			updateFreeDelivery()
+			task.wait(1)
+		end
+	end)
+	ClientState.OnChanged("timers", updateFreeDelivery)
+end
+
 -- Waits until PlotService marks a plot as mine (OwnerUserId attribute replicates from the server).
 local function waitForMyPlot(): Model?
 	local plots = workspace:WaitForChild("Plots", 10)
@@ -309,7 +403,14 @@ function DiscoveryController.Start()
 		boxFolder.Name = "MyBoxes" -- client-only: other players don't see my boxes
 		boxFolder.Parent = workspace
 		renderBoxes()
-		ClientState.OnChanged("inventory", renderBoxes)
+		ClientState.OnChanged("inventory", function()
+			renderBoxes()
+			updateFreeDelivery()
+		end)
+		local point = myPlot:FindFirstChild("DeliveryPoint")
+		if point and point:IsA("BasePart") then
+			setUpFreeDelivery(point)
+		end
 		log(`ready at {myPlot.Name}, {#waitingBoxes()} box(es) waiting`)
 	end)
 end
