@@ -7,7 +7,7 @@
 **Last updated:** 2026-11-15 by Dev 1 (Ace, with Claude Code)
 
 ## ✅ Done
-- DataService (ProfileStore): loads profile on join (template from docs/03 §10.5, store `PlayerData_DEV` in Studio / `PlayerData_v1` live), Reconcile + migrate stub, kicks if session fails, ends session on leave. `DataService.Get/Set` for other services; `GetInitialState` returns a copy of the data. Tested in Studio Play: loads cash=100, Set works incl. nested paths, bad input rejected. ProfileStore installed at `ServerScriptService.Packages.ProfileStore` (not synced, do not edit).
+- DataService (ProfileStore): loads profile on join (template from docs/03 §10.5, store `PlayerData_DEV` in Studio / `PlayerData_v1` live), Reconcile + migrate stub, kicks if session fails, ends session on leave. `DataService.Get/Set` for other services; `GetInitialState` returns a copy of the data. Tested in Studio Play: loads cash=100, Set works incl. nested paths, bad input rejected, and data persists across Stop/Play (cash 250 reloaded; Studio API access is now on). Not yet tested with 2 players or the session-failure kick. ProfileStore installed at `ServerScriptService.Packages.ProfileStore` (not synced, do not edit).
 - Project skeleton boots with no errors: 11 server services + 9 client controllers load in the §4 order, each prints Init then Start once (checked in a Studio playtest). Remotes from 03 §6 are created by `Shared/Remotes.luau` (23 events + `GetInitialState`). All stubs have `DEBUG = true`; turn off when real code lands.
 - Script Sync linked for `ServerScriptService.Server`, `ReplicatedStorage.Shared`, `StarterPlayerScripts.Client` ↔ `src/Server`, `src/Shared`, `src/Client` (verified two-way with test files).
 - Studio MCP connected to place "Dusty Finds: Restore & Sell" (placeId 113871213495650).
@@ -20,7 +20,7 @@
 | Contracts: Types, Item Model Contract, UI contract, plot part names | Dev 1 / 2 / 3 | Remotes list is done (see skeleton) |
 
 ## 🐞 Known broken
-- Saving across sessions is **untested**: Studio Access to API Services is off, so ProfileStore says "data will not be saved". Turn on *Game Settings → Security → Enable Studio Access to API Services* (Dev 1), then verify data survives a Stop/Play.
+- (none)
 
 ## 📝 Notes for the team
 - **Script Sync linking:** right-click the Studio folder → Script Sync → Sync with Directory → pick the **parent `src` folder**. It creates `src/<FolderName>` itself. Picking `src/Server` makes a nested `src/Server/Server`. Stop an old sync before re-linking.
@@ -29,7 +29,7 @@
 ## ⏭ Next up
 1. Greybox plot model with named parts (Dev 3)
 2. Wipe minigame prototype in test place (Dev 2)
-3. Verify DataService saving (API access on), test with 2 players; then PlotService once Sean's Plot1 exists (Dev 1)
+3. Test DataService with 2 players (Test tab → Clients and Servers); then PlotService once Sean's Plot1 exists (Dev 1)
 4. Test skeleton with 2 players (Test tab → Clients and Servers) and a phone emulator before Stage 2
 
 ## 📝 Contract changes log
