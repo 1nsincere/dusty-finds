@@ -2,3 +2,7 @@
 *.rbxlx
 *.lock
 .DS_Store
+
+# generated Blender output (rebuild with tools/blender/*.py)
+assets/models/
+assets/previews/
