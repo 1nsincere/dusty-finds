@@ -20,7 +20,8 @@ local DEBUG = true
 
 local PLACEHOLDER_SIZE = Vector3.new(1.2, 1.2, 1.2) -- until Dev 2's item models exist
 local TAG_MAX_DISTANCE = 30 -- name tags only show when close, to keep the street readable
-local TAG_WIDTH_STUDS = 2.4
+local TAG_WIDTH_STUDS = 2.15 -- slots are 2.5 studs apart: leaves a visible gap between neighbouring tags
+local TAG_BACKGROUND = Color3.fromRGB(31, 45, 58) -- UI ink colour (same as window text)
 local REMOVE_COOLDOWN = 1.5
 -- Folder name in the plot -> the `kind` the server expects, and the words players see.
 local KINDS = {
@@ -115,18 +116,31 @@ local function renderSlot(slot: BasePart)
 	-- Name tag: "Vintage Tin Robot ★★☆" (+ 🌟 for golden), seen by owner and visitors.
 	local def = Items[itemId]
 	local tag = Instance.new("BillboardGui")
-	-- Sized in studs (just under the 2.5-stud slot spacing) so tags shrink with distance and never overlap.
+	-- Sized in studs (under the 2.5-stud slot spacing) so tags shrink with distance and never overlap.
 	tag.Size = UDim2.fromScale(TAG_WIDTH_STUDS, TAG_WIDTH_STUDS / 2.2) -- 2 lines: name, then stars
 	tag.StudsOffsetWorldSpace = Vector3.new(0, tagOffsetY, 0) -- world up, even if the item is rotated
 	tag.MaxDistance = TAG_MAX_DISTANCE
+	tag.LightInfluence = 0 -- same look in the bright town and inside the shop
 	tag.Parent = anchorPart or visual
+	-- Dark rounded pill: white text alone vanished against the bright cream walls / sky (place v79 town), and a
+	-- gap between pills keeps neighbouring tags from reading as one long line.
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
+	label.BackgroundColor3 = TAG_BACKGROUND
+	label.BackgroundTransparency = 0.2
 	label.TextScaled = true
 	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.4
+	label.TextStrokeTransparency = 1
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.25, 0)
+	corner.Parent = label
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0.06, 0)
+	padding.PaddingRight = UDim.new(0.06, 0)
+	padding.PaddingTop = UDim.new(0.08, 0)
+	padding.PaddingBottom = UDim.new(0.08, 0)
+	padding.Parent = label
 	label.Text = `{if golden then "🌟 " else ""}{def and def.name or itemId}\n{starsText(slot:GetAttribute("Stars"))}`
 	label.Parent = tag
 
