@@ -31,6 +31,7 @@ local session: Session? = nil
 local activeBench: string? = nil -- the bench the player asked to restore at (Bench1 / Bench2)
 local cleanup: (() -> ())? = nil
 local minigames: { [string]: (any) -> (() -> ())? } = {}
+local viewProvider: ((any) -> { [string]: any }?)? = nil
 
 local function log(...)
 	if DEBUG then
@@ -191,11 +192,28 @@ local function startStep()
 			end
 		end,
 	}
+	-- Optional view (Dwayne's RestorationView): gives the minigame a local item clone and a pointer adapter.
+	local viewCleanup: (() -> ())? = nil
+	if viewProvider then
+		local viewOk, view = pcall(viewProvider, ctx)
+		if viewOk and type(view) == "table" then
+			ctx.model, ctx.attachPointer, viewCleanup = view.model, view.attachPointer, view.cleanup
+		elseif not viewOk then
+			warn("[RestorationController] view provider failed: " .. tostring(view))
+		end
+	end
 	local runner = minigames[step.type] or placeholder
 	local ok, result = pcall(runner, ctx)
-	if ok and type(result) == "function" then
-		cleanup = result
-	elseif not ok then
+	local stepCleanup = if ok and type(result) == "function" then result else nil
+	cleanup = if stepCleanup or viewCleanup then function()
+		if stepCleanup then
+			pcall(stepCleanup)
+		end
+		if viewCleanup then
+			pcall(viewCleanup)
+		end
+	end else nil
+	if not ok then
 		warn("[RestorationController] minigame for " .. step.type .. " failed: " .. tostring(result))
 	end
 	log(`step {current.stepIndex}/{#current.recipe}: {step.type}{if minigames[step.type] then "" else " (placeholder)"}`)
@@ -224,6 +242,17 @@ local function onInventoryChanged()
 end
 
 -- ===== Public API =====
+
+-- Dwayne's RestorationView registers ONE provider: fn(ctx) -> { model = local item clone, attachPointer = function(minigameObject) -> cleanup, cleanup = function }
+-- Minigames that need a model (Scrape, Reassemble, Replace) read ctx.model / ctx.attachPointer; without a provider they use the placeholder.
+function RestorationController.SetViewProvider(provider: ((any) -> { [string]: any }?)?)
+	viewProvider = provider
+end
+
+-- The hold-the-button fallback, so an adapter without its model can still let the player finish the step.
+function RestorationController.RunPlaceholder(ctx): () -> ()
+	return placeholder(ctx)
+end
 
 function RestorationController.RegisterMinigame(stepType: string, runner: (any) -> (() -> ())?)
 	minigames[stepType] = runner
