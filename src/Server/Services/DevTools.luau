@@ -196,6 +196,80 @@ function commands.e2e(player: Player)
 	return failed == 0, { passed = passed, failed = failed, lines = lines }
 end
 
+-- testAll(player, withE2E?): runs EVERY automated check one after another and returns one summary (name, passed, failed, first failures).
+-- Each check works on copies and fake data, so your profile is safe. withE2E = true also walks the live loop (about 70 s, restores your profile after).
+local ALL_CHECKS = {
+	{ "ConfigCheck", function() return ReplicatedStorage.Shared:FindFirstChild("Tests") and ReplicatedStorage.Shared.Tests:FindFirstChild("ConfigCheck") end },
+	{ "SystemsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SystemsCheck") end },
+	{ "PlotCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PlotCheck") end, true },
+	{ "DisplayCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DisplayCheck") end },
+	{ "CustomerCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CustomerCheck") end },
+	{ "RestorationCheck", function() return script.Parent.Parent.Tests:FindFirstChild("RestorationCheck") end },
+	{ "SettingsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SettingsCheck") end },
+	{ "TutorialCheck", function() return script.Parent.Parent.Tests:FindFirstChild("TutorialCheck") end },
+	{ "MinigamesCheck", function() return script.Parent.Parent.Tests:FindFirstChild("MinigamesCheck") end },
+	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
+}
+
+function commands.testAll(player: Player, withE2E: any)
+	local summary = {}
+	local totalPassed, totalFailed = 0, 0
+	for _, entry in ALL_CHECKS do
+		local name, find, commandBarOnly = entry[1], entry[2], entry[3]
+		local module = find()
+		if commandBarOnly then
+			-- these two clone scripts and read their Source, which only the Studio command bar may do; running them here would
+			-- crash halfway and leave a copy of the plots in Workspace
+			table.insert(summary, `{name}: SKIPPED here, run it from the command bar: require(game.ServerScriptService.Server.Tests.{name}).run()`)
+		elseif module == nil then
+			table.insert(summary, `{name}: MISSING (not in this place)`)
+			totalFailed += 1
+		else
+			local ok, lines, passed, failed = pcall(function()
+				local first, second, third = require(module).run()
+				if type(first) == "number" then
+					return {}, first, second -- ConfigCheck returns pass, fail, text
+				end
+				return first, second, third
+			end)
+			if not ok and string.find(tostring(lines), "capability", 1, true) then
+				-- PlotCheck and DevToolsCheck clone scripts and read their Source: only the Studio command bar may do that
+				table.insert(summary, `{name}: SKIPPED here (run it from the command bar: require(game.ServerScriptService.Server.Tests.{name}).run())`)
+			elseif not ok then
+				totalFailed += 1
+				table.insert(summary, `{name}: CRASHED {tostring(lines)}`)
+			else
+				passed, failed = tonumber(passed) or 0, tonumber(failed) or 0
+				totalPassed += passed
+				totalFailed += failed
+				local text = `{name}: {passed} passed, {failed} failed`
+				if failed > 0 and type(lines) == "table" then
+					for _, line in lines do
+						if string.sub(line, 1, 4) == "FAIL" then
+							text ..= "\n    " .. line
+							break
+						end
+					end
+				end
+				table.insert(summary, text)
+			end
+		end
+	end
+	if withE2E == true then
+		local ok, success, value = pcall(commands.e2e, player)
+		if ok and value then
+			totalPassed += value.passed
+			totalFailed += value.failed
+			table.insert(summary, `EndToEnd (live loop): {value.passed} passed, {value.failed} failed`)
+		else
+			totalFailed += 1
+			table.insert(summary, "EndToEnd: CRASHED " .. tostring(success))
+		end
+	end
+	table.insert(summary, `ALL: {totalPassed} passed, {totalFailed} failed -> {if totalFailed == 0 then "GREEN" else "RED"}`)
+	return totalFailed == 0, summary
+end
+
 -- maxUpgrades(player): every upgrade to its max level for free (also shows decor and slots)
 function commands.maxUpgrades(player: Player)
 	for id, def in Upgrades do

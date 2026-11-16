@@ -101,6 +101,7 @@ print(DT:Invoke("dump", me))                         -- all saved data
 `resetProfile` and `maxUpgrades` change your saved test profile (`PlayerData_DEV`). That is what they are for, but
 only use them on a profile you do not mind resetting. DevTools does nothing on a live server.
 
+**Run every check at once:** `game.ServerStorage.DevTools:Invoke("testAll", player)` returns one summary (about 577 checks, ends with GREEN or RED). Add `true` as a third argument to also walk the live loop (about 70 s, restores your profile). PlotCheck and DevToolsCheck read script Source, so Studio only lets the command bar run them: `testAll` skips them and says so. Run those two from the command bar.
 **Dev explore commands (Studio only, chat):** `AdminController` (client) adds `/cmds`, `/fly [speed]` (WASD, Space up, Ctrl or Q down), `/noclip`, `/speed n`, `/jump n`, `/zoom n` (the game caps zoom at 20), `/tp x y z`, `/tp playerName`, `/plot n`, `/normal`. It does nothing outside Studio and changes nothing on the server (cash, items and levels stay in DevTools above).
 
 ## 6. Manual loop check (about 5 minutes)
