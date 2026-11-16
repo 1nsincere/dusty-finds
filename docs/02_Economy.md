@@ -197,3 +197,11 @@ timeline
 5. **Simulation used for this doc** (Python, 200 runs, solo player, greedy buying, ~1.4 items/min base, +15% per tool level): results in the table at the top. Re-run it when you change numbers (Claude Code can maintain `tools/econ_sim.py`).
 6. **Playtest truth beats math:** record real times-to-milestone from 3–5 fresh testers (§L4 in `05_Monetization_QA.md`) and adjust.
 7. Use **analytics funnels** after launch (`AnalyticsService`) for tutorial steps, first upgrade, Lv 5, Back Room. Where players drop off is where pacing is wrong.
+
+### Pacing re-check with the playable loop (Dev 1, 2026-11-16)
+Simulated a steady new player for 30 minutes (200 runs): opens boxes at once, restores with step times Wipe 6 s, Scrape 8, Reassemble 6, Replace 6, Polish 7, Test 4 plus 12 s walking and opening per item, 3 stars, buys the 50 Starter crate whenever it can and Display Shelves L1 at 120, customers every 30 s (Collectors only buy Rare+).
+- Average earned: about $350 at 5 min, $720 at 10 min, $1,500 at 20 min, $2,270 at 30 min; about 44 items sold in 30 min (of at most 60 customers).
+- First sale about 1.5 to 2 min and first upgrade (Shelves $120) at about 2 to 3 min, both inside the targets above.
+- Level 5 needs 761 XP in total (40 + 121 + 232 + 368); at about 19 XP per restored item that is about 38 items, so about 25 min, on target.
+- The shelves are empty about 60% of the time: early pacing is limited by how fast the player restores, not by customers. Real minigames that take longer than these step times will slow income; re-run this once Wipe and Polish are final.
+- Not simulated: wishes (x1.25), tips, the Checkout bonus (included as a flat 5%), other upgrades, Golden items, level-up cash.
