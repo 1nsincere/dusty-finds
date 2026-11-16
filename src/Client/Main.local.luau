@@ -25,6 +25,7 @@ local ORDER = {
 	"CollectionController",
 	"CustomerUIController",
 	"SettingsController",
+	"VisitController", -- Sean: 👥 Visit window (RequestVisit)
 	"TutorialController",
 }
 

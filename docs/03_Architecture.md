@@ -126,7 +126,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   │                                    CustomerId, CustomerType, Wish, OwnerUserId, ItemId (once chosen)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
-│   └── ShopSocialService.luau     [Dev 3] likes, announcements, visit list, invites
+│   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); later: likes, invites
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
     └── Log.luau            -- tagged debug printing
@@ -144,6 +144,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── CollectionController.luau   [Dev 3]
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
 │   ├── SettingsController.luau     [Dev 3]
+│   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit)
 │   └── TutorialController.luau     [Dev 3]
 └── Minigames/                      [Dev 2]
     ├── PointerInput.luau   -- unified mouse/touch → raycast hits
@@ -299,6 +300,8 @@ Collection.Book.{Title,CloseButton,PageLabel,PrevButton,NextButton,Grid}   -- Gr
 Collection.EntryTemplate (hidden) → RarityStroke (UIStroke), Icon, ItemName, Info, GoldenTag
   -- entry: "?"/"???"/rarity (not found) → name + "Found" → best stars → gold stroke + 🌟 (golden found)
 Settings.Window.{Title,CloseButton,Toggles}   Settings.ToggleTemplate (hidden) → Label, Switch (TextButton "ON"/"OFF")
+Visit.Window.{Title,CloseButton,List,Empty}   Visit.RowTemplate (hidden) → Name, Info, VisitButton
+  -- one row per player on the server, you first ("🏠 Your shop" + "Go home"); List = ScrollingFrame + UIListLayout
   -- one row per key, named after it: announcements, music, sfx, reduceEffects (= SettingsService keys)
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)
 Toasts.UIScale  -- toasts = Notify kinds other than LevelUp/Upgrade (e.g. "Info"), 3 s, max 3 on screen
