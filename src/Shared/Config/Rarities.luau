@@ -40,6 +40,15 @@ local Rarities = {
 		firstFindBonus = { 300, 1500 },
 		exhibitPoints = 8,
 	},
+	-- Relic: above Legendary. NEVER in a crate's odds table (all odds keep Relic = 0): relics come only from the special
+	-- pull in ShipmentService.RollItem (Economy.RelicChance), so they stay a surprise and the odds still add up to 100.
+	Relic = {
+		id = "Relic",
+		index = 6,
+		xpPerRestore = 400,
+		firstFindBonus = { 800, 4000 },
+		exhibitPoints = 16,
+	},
 }
 
 return Rarities

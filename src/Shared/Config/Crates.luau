@@ -13,7 +13,7 @@ local Crates = {
 		requiredLevel = 1,
 		itemCount = 1,
 		tier = 1,
-		odds = { Common = 75, Uncommon = 20, Rare = 5, Epic = 0, Legendary = 0 },
+		odds = { Common = 75, Uncommon = 20, Rare = 5, Epic = 0, Legendary = 0, Relic = 0 },
 	},
 	Starter = {
 		id = "Starter",
@@ -23,7 +23,7 @@ local Crates = {
 		requiredLevel = 1,
 		itemCount = 3,
 		tier = 1,
-		odds = { Common = 60, Uncommon = 25, Rare = 10, Epic = 4, Legendary = 1 },
+		odds = { Common = 60, Uncommon = 25, Rare = 10, Epic = 4, Legendary = 1, Relic = 0 },
 	},
 	FleaMarket = {
 		id = "FleaMarket",
@@ -33,7 +33,7 @@ local Crates = {
 		requiredLevel = 5,
 		itemCount = 3,
 		tier = 2,
-		odds = { Common = 55, Uncommon = 27, Rare = 12, Epic = 5, Legendary = 1 },
+		odds = { Common = 55, Uncommon = 27, Rare = 12, Epic = 5, Legendary = 1, Relic = 0 },
 	},
 }
 

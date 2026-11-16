@@ -33,6 +33,15 @@ local Economy = {
 	CheckoutBonusFraction = 0.10, -- +10% if the owner taps Checkout before auto-checkout
 	AutoCheckoutSeconds = 8,
 
+	-- Special pulls (docs/02 §3b): two surprises on top of the normal odds.
+	-- 1) LOST MASTERPIECE: chance per rolled item (by crate id) that the item is a Relic instead. Free Delivery never rolls one.
+	--    About 1 in 500 Flea Market items (the Starter tier has no Relic); Relics are never Golden.
+	RelicChance = { FleaMarket = 0.002 },
+	-- 2) TIME CAPSULE: chance per BOUGHT crate that it holds a sealed capsule: extra bonus items with better odds.
+	TimeCapsuleChance = { FleaMarket = 0.03, Starter = 0.015 },
+	TimeCapsuleBonusItems = 2,
+	TimeCapsuleOdds = { Rare = 60, Epic = 35, Legendary = 5 }, -- percentages, add up to 100
+
 	-- §5 Customer flow
 	CustomerSpawnBaseSeconds = 30,
 	CustomerSpawnSignFactor = 0.9, -- interval x 0.9^(Shop Sign level)
