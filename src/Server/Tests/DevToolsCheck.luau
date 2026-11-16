@@ -96,7 +96,7 @@ function DevToolsCheck.run()
 	local services = Instance.new("Folder")
 	services.Name = "Services"
 	services.Parent = kit
-	local names = { "EconomyService", "InventoryService", "CollectionBookService", "ShipmentService", "DevTools" }
+	local names = { "EconomyService", "InventoryService", "CollectionBookService", "ShipmentService", "RestorationService", "DevTools" }
 	for _, name in names do
 		ServerScriptService.Server.Services[name]:Clone().Parent = services
 	end
@@ -155,6 +155,14 @@ function DevToolsCheck.run()
 		check("giveBox gives 3 Unopened items in one box", boxOk and #uids == 3 and data().inventory[uids[1]].state == "Unopened" and data().inventory[uids[1]].boxId == data().inventory[uids[3]].boxId)
 		check("giveBox rejects unknown crates", call("giveBox", player, "Nope") == false)
 
+		local _, ar = call("giveItem", player, "Teacup", "Dirty")
+		local arOk, arResult = call("autoRestore", player, ar)
+		check("autoRestore: a Dirty Teacup is restored through the real rules (3 stars at score 100)", arOk and arResult.finished == true and arResult.stars == 3 and data().inventory[ar].state == "Restored" and data().stats.restored == 1, arResult)
+		check("autoRestore: a Restored item is refused", call("autoRestore", player, ar) == false)
+		check("autoRestore: bad arguments refused", call("autoRestore", player, 5) == false and call("autoRestore", player, ar, "100") == false)
+		local _, ar2 = call("giveItem", player, "Teacup", "Dirty")
+		local _, lowResult = call("autoRestore", player, ar2, 0)
+		check("autoRestore: score 0 gives 1 star", lowResult ~= nil and lowResult.stars == 1, lowResult and lowResult.stars)
 		check("maxUpgrades sets every upgrade to max and refreshes the plot", call("maxUpgrades", player) and data().upgrades.CleaningBrush == 3 and data().upgrades.PottedPlants == 2 and data().upgrades.Showroom == 1 and refreshCalls == 1)
 
 		check("resetProfile returns to a new player", call("resetProfile", player) and data().cash == 100 and data().level == 1 and next(data().upgrades) == nil and next(data().collection) == nil)
@@ -167,6 +175,14 @@ function DevToolsCheck.run()
 		check("resetProfile leaves only the first Rubber Duck box", remaining == 1 and only.itemId == "RubberDuck" and only.state == "Unopened")
 		check("resetProfile clears the shelf attributes (calls DisplayService.SyncSlots)", syncCalls >= 1)
 		check("resetProfile keeps the version field", data().version == 1)
+
+		local wsOk, wsLines = call("whyStuck", player)
+		check("whyStuck: a brand-new player is not stuck and is told to open the box", wsOk and string.find(table.concat(wsLines, " "), "open a box", 1, true) ~= nil and string.find(wsLines[#wsLines], "not stuck", 1, true) ~= nil, wsLines and wsLines[#wsLines])
+		for _ = 1, 9 do
+			call("giveItem", player, "Teacup", "Dirty")
+		end
+		local _, fullLines = call("whyStuck", player)
+		check("whyStuck: a full inventory of Dirty items is reported as STUCK", string.find(table.concat(fullLines, " "), "STUCK: the inventory is full", 1, true) ~= nil and string.find(fullLines[#fullLines], "problem", 1, true) ~= nil, fullLines and fullLines[#fullLines])
 
 		check("unknown command refused", call("nope", player) == false)
 		check("a non-player argument is refused", call("giveCash", {}, 5) == false and call("giveCash", nil, 5) == false)
