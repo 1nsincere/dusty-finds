@@ -65,8 +65,8 @@ Config decides which slot shows when: `decorSlots` on an upgrade in `Config/Upgr
 | Test | Command | Expected |
 |---|---|---|
 | Services, rolls, selling, upgrades | `require(game.ServerScriptService.Server.Tests.SystemsCheck).run()` | `[SystemsCheck] 129 passed, 0 failed` |
-| Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 28 passed, 0 failed` |
-| DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 21 passed, 0 failed` |
+| Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 43 passed, 0 failed` |
+| DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 27 passed, 0 failed` |
 | Customers | `require(game.ServerScriptService.Server.Tests.CustomerCheck).run()` | `[CustomerCheck] 51 passed, 0 failed` |
 | Restoration | `require(game.ServerScriptService.Server.Tests.RestorationCheck).run()` | `[RestorationCheck] 53 passed, 0 failed` |
 | Shelves and exhibits | `require(game.ServerScriptService.Server.Tests.DisplayCheck).run()` | `[DisplayCheck] 36 passed, 0 failed` |
@@ -91,6 +91,7 @@ DT:Invoke("addXp", me, 20)                            -- XP through EconomyServi
 DT:Invoke("giveBox", me, "Starter")                  -- 3 Unopened items, open them with RequestOpenBox
 DT:Invoke("giveItem", me, "TinRobot", "Restored", 3)  -- itemId, state, stars, golden
 DT:Invoke("maxUpgrades", me)                         -- shows all decor, 12 display slots
+DT:Invoke("autoRestore", me, uid, 100)               -- restores a Dirty item through the REAL restoration rules (no minigames needed); score optional
 DT:Invoke("resetProfile", me)                        -- back to a brand-new player
 print(DT:Invoke("dump", me))                         -- all saved data
 ```

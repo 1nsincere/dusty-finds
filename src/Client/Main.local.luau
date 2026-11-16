@@ -26,6 +26,7 @@ local ORDER = {
 	"CustomerUIController",
 	"SettingsController",
 	"TutorialController",
+	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")

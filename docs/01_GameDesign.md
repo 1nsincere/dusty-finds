@@ -346,8 +346,8 @@ Painting with brushes on textures, real mesh deformation, physics-based assembly
 ## E. Multiplayer Design
 
 ### E1. Server model
-- **6 plots per server**, side by side on one street. Each player is assigned a free plot on join; their shop sign shows their name.
-- No teleporting, private instances, or reserved servers in MVP. Visiting = walking next door (plus a "Visit" list in the HUD that teleports you to a plot's door within the same server).
+- **6 plots per server**, in a small town of three streets (Market Street, Antique Row, Workshop Lane) joined by a west avenue, two shops facing each other on each street (decision 2026-11, see docs/06 D-Map). Each player is assigned a free plot on join; their shop sign shows their name.
+- No private instances or reserved servers in MVP. Visiting = walking to the other street, or the "Visit" list in the HUD that teleports you to a plot's door within the same server. **The Visit list becomes necessary now that shops are 100-300 studs apart (ShopSocialService is still an empty skeleton).**
 
 ### E2. MVP social features
 | Feature | How it works | Why |
