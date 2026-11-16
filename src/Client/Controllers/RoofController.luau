@@ -92,8 +92,10 @@ function RoofController.Start()
 				local inside = false
 				if root and floor and floor:IsA("BasePart") then
 					local p = floor.CFrame:PointToObjectSpace(root.Position)
-					local limit = if state.inside then EXIT_HALF else ENTER_HALF
-					inside = math.abs(p.X) < limit and math.abs(p.Z) < limit and p.Y < MAX_HEIGHT
+					-- shops can be scaled (a 56 stud shop is 1.4x): the limits were written for the original 40 stud floor
+					local k = floor.Size.X / 40
+					local limit = (if state.inside then EXIT_HALF else ENTER_HALF) * k
+					inside = math.abs(p.X) < limit and math.abs(p.Z) < limit and p.Y < MAX_HEIGHT * k
 				end
 				state.inside = inside
 			end
