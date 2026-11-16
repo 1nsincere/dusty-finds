@@ -9,7 +9,7 @@
 
 local CONFIG = {
 	ITEM_ID = "Teacup", -- exact Config item id (see src/Shared/Config/Items.luau)
-	ROTATE_Y_DEGREES = -90, -- turn the model so its good side (handle, front) faces the bench camera; the camera sits on the +X side
+	ROTATE_Y_DEGREES = 0, -- 0 = as imported. The bench camera sits on the -Z side looking toward +Z, its right is -X. The importer flips Blender X, so a handle or spout you modelled on +X shows on the RIGHT with 0. Turn in 90 degree steps if your front differs
 	BASE_SIZE = Vector3.new(2.1, 0.12, 2.1), -- the plate it stands on
 	SCALE = 1, -- uniform scale after import (1 = as modelled, 1 stud = 1 Blender unit)
 	-- colour per part name (the object names you used in Blender): { hex, reflectance }
@@ -18,8 +18,8 @@ local CONFIG = {
 		Rim = { "E3B23C", 0.25 }, Trim = { "E3B23C", 0.25 }, Flower = { "D2694A", 0 }, Leaf = { "7FA37C", 0 },
 	},
 	POLISH_PARTS = { "Body", "Saucer", "Handle" }, -- parts the Polish step rubs; they go into the PolishSurfaces folder
-	-- dirt spots (Wipe) and rust spots (Scrape): {x, z} offsets from the item centre AFTER rotation; the height is raycast onto the surface
-	DIRT_SPOTS = { { 0.45, -0.54 }, { 0.70, 0 }, { 0.45, 0.54 } },
+	-- dirt spots (Wipe) and rust spots (Scrape): {x, z} offsets from the item centre AFTER rotation; the height is raycast onto the surface. Put them on the -Z side (toward the camera), e.g. {-0.5,-0.55}, {0,-0.7}, {0.5,-0.55}
+	DIRT_SPOTS = { { -0.54, -0.45 }, { 0, -0.70 }, { 0.54, -0.45 } },
 	RUST_SPOTS = {},
 	-- Reassemble / Replace: { name = "Lens1", socket = Vector3, tray = Vector3 }; leave empty if the recipe has none
 	SOCKETS = {},

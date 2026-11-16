@@ -36,3 +36,5 @@ The town palette (docs/Environment_Art.md) is muted on purpose so items pop. Ite
 
 ## 7. Prompt for Codex CLI / Claude Code
 See the section "Prompt" in the chat history or ask Ace; the short version: read this file and the two examples, then write `tools/blender/<itemid>.py` for the item in `src/Shared/Config/Items.luau`, run it, look at the preview, fix, and report triangles and the preview path.
+
+**Orientation (learned on the kettle):** the bench camera sits on the -Z side of the item looking toward +Z; its right is -X. The glTF importer flips Blender X. So model the front toward Blender +Y... in practice: a handle or spout you build on Blender +X appears on the RIGHT of the screen with `ROTATE_Y_DEGREES = 0`, and spots belong on the -Z side. Check with a Play test before trusting.
