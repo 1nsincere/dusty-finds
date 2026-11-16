@@ -4,6 +4,7 @@
 -- price; this screen only shows and requests. Opens from HUD 🎒 or my Counter's QuickSellPrompt.
 -- Picker mode (OpenPicker, called by DisplayController from an empty slot): choose a Restored item and send
 -- RequestPlaceDisplay / RequestPlaceExhibit for that slot.
+-- Restore (Dirty/InProgress) calls Dev 2's RestorationController.RequestStartRestore(uid); greyed until that exists.
 -- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, Shared.Remotes, Shared.Formulas,
 -- Shared.Config (Items, Rarities, Economy), StarterGui.Inventory, ReplicatedStorage.Assets.UI.ItemCard,
 -- Workspace.Plots (OwnerUserId attribute, Counter).
@@ -109,6 +110,12 @@ end
 
 -- ===== Details panel =====
 
+-- True once Dev 2's RestorationController offers RequestStartRestore(uid) (docs/Restoration_Contract.md §4).
+local function restorationReady(): boolean
+	local controller = others and others.RestorationController
+	return controller ~= nil and type(controller.RequestStartRestore) == "function"
+end
+
 local function setDetailsVisible(details: Frame, showItem: boolean)
 	details.Hint.Visible = not showItem
 	for _, name in { "ItemName", "Rarity", "Info", "Value" } do
@@ -166,8 +173,13 @@ local function updateDetails()
 			quickSell.BackgroundColor3 = UiTheme.Disabled
 		end
 	end
-	-- Restore comes with Dev 2's restoration; until then it is a greyed placeholder.
-	details.RestoreButton.Visible = item.state == "Dirty" or item.state == "InProgress"
+	-- Restore hands over to Dev 2's RestorationController; greyed until that controller offers RequestStartRestore.
+	local restore = details.RestoreButton :: TextButton
+	restore.Visible = item.state == "Dirty" or item.state == "InProgress"
+	local canRestore = restorationReady()
+	restore.Text = if item.state == "InProgress" then "Continue" else "Restore"
+	restore.BackgroundColor3 = if canRestore then UiTheme.Coral else UiTheme.Disabled
+	restore.AutoButtonColor = canRestore
 
 	-- Picker mode: the only action is "put it on the slot I came from" (Quick Sell/Restore hidden).
 	local place = details.PlaceButton :: TextButton
@@ -289,6 +301,17 @@ local function selectTab(name: string)
 end
 
 -- ===== Quick Sell =====
+
+local function onRestore()
+	local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
+	if type(item) ~= "table" or (item.state ~= "Dirty" and item.state ~= "InProgress") or not restorationReady() then
+		return
+	end
+	local uid = selectedUid :: string
+	InventoryController.Close() -- the Restoration screen takes over (RestorationUIController)
+	others.RestorationController.RequestStartRestore(uid)
+	log("asked to restore", uid)
+end
 
 local function onQuickSell()
 	local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
@@ -483,7 +506,7 @@ function InventoryController.Start()
 		end
 		window.Details.QuickSellButton.Activated:Connect(onQuickSell)
 		window.Details.PlaceButton.Activated:Connect(onPlace)
-		window.Details.RestoreButton.AutoButtonColor = false
+		window.Details.RestoreButton.Activated:Connect(onRestore)
 
 		ClientState.OnChanged("inventory", function()
 			selling = false

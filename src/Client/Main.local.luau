@@ -21,6 +21,7 @@ local ORDER = {
 	"DisplayController",
 	"DiscoveryController",
 	"RestorationController",
+	"RestorationUIController", -- Sean: Restoration screen (chips, hint, progress, finish card)
 	"ShopController",
 	"CollectionController",
 	"CustomerUIController",

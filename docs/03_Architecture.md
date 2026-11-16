@@ -140,6 +140,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── DisplayController.luau      [Dev 3] shelf/pedestal prompts (my plot) + item visuals on every plot from slot attributes
 │   ├── DiscoveryController.luau    [Dev 3 UI, Dev 2 VFX]
 │   ├── RestorationController.luau  [Dev 2] bench view, camera, step runner
+│   ├── RestorationUIController.luau [Dev 3] Restoration screen only: chips/hint/progress/Exit/finish card from RestoreSession, item.stepIndex, ItemRestored
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
 │   ├── CollectionController.luau   [Dev 3]
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
@@ -292,7 +293,9 @@ Assets.UI.ItemCard (TextButton) → RarityStroke (UIStroke), StateIcon, GoldenTa
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Discovery.Card.{GoldenTag,Counter,Hint}  RarityBanner → Text   Dots → Dot1..Dot5   NewTag/GoldenTag → Text
   -- "Name" clashes with Instance.Name: code must use Card:FindFirstChild("Name")
-Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}
+Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}   (ScreenGui DisplayOrder 4: above windows, below Toasts)
+  StepChips → ChipTemplate (hidden TextLabel)   Progress → Fill   FinishCard → Title, ItemName, Stars, Value, DoneButton (+ UIScale)
+  -- Dev 2 calls RestorationUIController.SetProgress(0..1) / SetHint(text); Exit calls RestorationController.Exit() if it exists
 Upgrades.Window.{Title,Cash,CloseButton,Tabs,List}  Tabs.{Tools,Shop,Decor,Expansions} (= Config `tab`)
 Upgrades.UpgradeTemplate (hidden) → Glow (UIStroke), Icon, Title, Dots (→ Dot1..Dot3), Effect, BuyButton
 Supply.Window.{Title,Cash,CloseButton,List}   -- Cash: "💰 $N" pill, live (windows cover HUD money on phones)
