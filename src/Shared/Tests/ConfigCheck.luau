@@ -193,9 +193,9 @@ function ConfigCheck.run()
 			tier2 += 1
 		end
 	end
-	check("item count is 22 (20 MVP + 2 Relics)", total == 22, `found {total}`)
-	check("tier 1 has 12 items", tier1 == 12, `found {tier1}`)
-	check("tier 2 has 10 items (8 + 2 Relics)", tier2 == 10, `found {tier2}`)
+	check("item count is 26 (24 + 2 Relics)", total == 26, `found {total}`)
+	check("tier 1 has 15 items", tier1 == 15, `found {tier1}`)
+	check("tier 2 has 11 items (9 + 2 Relics)", tier2 == 11, `found {tier2}`)
 
 	-- 6b. Special pulls (Relics + Time Capsule): Relic never in a crate's odds, chances are sane, relics exist for the tiers that roll them
 	check("no crate lists Relic in its odds above 0", (function()

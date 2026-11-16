@@ -55,10 +55,22 @@ local function buildPages()
 			end
 			return a.id < b.id
 		end)
-		table.insert(pages, { tier = tier, name = tierNames[tier] or `Tier {tier}`, items = list })
+		-- A page holds 12 tiles (4 x 3). A tier with more items (Starter has 15) continues on a second page: "Starter 2".
+		local baseName = tierNames[tier] or `Tier {tier}`
+		local PAGE_SIZE = 12
+		for first = 1, #list, PAGE_SIZE do
+			local chunk = {}
+			for i = first, math.min(first + PAGE_SIZE - 1, #list) do
+				table.insert(chunk, list[i])
+			end
+			table.insert(pages, { tier = tier, name = if first == 1 then baseName else `{baseName} {(first - 1) // PAGE_SIZE + 1}`, items = chunk })
+		end
 	end
 	table.sort(pages, function(a, b)
-		return a.tier < b.tier
+		if a.tier ~= b.tier then
+			return a.tier < b.tier
+		end
+		return a.name < b.name
 	end)
 end
 

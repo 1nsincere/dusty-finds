@@ -1,5 +1,5 @@
 -- Items.luau (ReplicatedStorage.Shared.Config.Items)
--- Purpose: all 22 item definitions (20 MVP + 2 Relics) (docs/02_Economy.md §4, shape from docs/03_Architecture.md §10.1).
+-- Purpose: all 26 item definitions (24 + 2 Relics; see the item-mix comment) (docs/02_Economy.md §4, shape from docs/03_Architecture.md §10.1).
 -- Owner: Dev 1 (Ace). Depends on: nothing (rarity and category names must match Rarities.luau / Economy.Categories).
 -- Recipe step parameters come from the "(...)" notes in docs/02, e.g. "Reassemble (wheel)" -> parts = { "Wheel" }.
 -- Only TinRobot has layers / greenZone / flavor because docs/03 §10.1 gives those; Dev 2 tunes the rest.
@@ -22,11 +22,6 @@ local Items = {
 		model = "ToyCar",
 		recipe = { { type = "Wipe" }, { type = "Reassemble", parts = { "Wheel" } }, { type = "Polish" } },
 	},
-	DeskLamp = {
-		id = "DeskLamp", name = "Desk Lamp", tier = 1, rarity = "Common", category = "Decor", baseValue = 18,
-		model = "DeskLamp",
-		recipe = { { type = "Wipe" }, { type = "Replace", parts = { "Bulb" } }, { type = "Test", style = "Switch" } },
-	},
 	AlarmClock = {
 		id = "AlarmClock", name = "Alarm Clock", tier = 1, rarity = "Uncommon", category = "Electronics", baseValue = 32,
 		model = "AlarmClock",
@@ -36,11 +31,6 @@ local Items = {
 		id = "SnowGlobe", name = "Snow Globe", tier = 1, rarity = "Uncommon", category = "Decor", baseValue = 35,
 		model = "SnowGlobe",
 		recipe = { { type = "Wipe" }, { type = "Polish" }, { type = "Test", style = "Shake" } },
-	},
-	CassettePlayer = {
-		id = "CassettePlayer", name = "Cassette Player", tier = 1, rarity = "Uncommon", category = "Music", baseValue = 38,
-		model = "CassettePlayer",
-		recipe = { { type = "Wipe" }, { type = "Replace", parts = { "Button" } }, { type = "Test", style = "Play" } },
 	},
 	MusicBox = {
 		id = "MusicBox", name = "Music Box", tier = 1, rarity = "Rare", category = "Music", baseValue = 80,
@@ -52,18 +42,8 @@ local Items = {
 			{ type = "Test", style = "Wind" },
 		},
 	},
-	RetroCamera = {
-		id = "RetroCamera", name = "Retro Camera", tier = 1, rarity = "Rare", category = "Electronics", baseValue = 85,
-		model = "RetroCamera",
-		recipe = {
-			{ type = "Wipe" },
-			{ type = "Replace", parts = { "Lens" } },
-			{ type = "Polish" },
-			{ type = "Test", style = "Flash" },
-		},
-	},
 	CopperKettle = {
-		id = "CopperKettle", name = "Copper Kettle", tier = 1, rarity = "Epic", category = "Kitchen", baseValue = 170,
+		id = "CopperKettle", name = "The Brass Baron Kettle", tier = 1, rarity = "Epic", category = "Kitchen", baseValue = 170,
 		model = "CopperKettle",
 		recipe = {
 			{ type = "Scrape" },
@@ -73,7 +53,7 @@ local Items = {
 		},
 	},
 	TinRobot = { -- example from docs/03 §10.1 (its part is now "LeftArm")
-		id = "TinRobot", name = "Vintage Tin Robot", tier = 1, rarity = "Epic", category = "Toys", baseValue = 180,
+		id = "TinRobot", name = "Sir Clank, the Tin Robot", tier = 1, rarity = "Epic", category = "Toys", baseValue = 180,
 		model = "TinRobot",
 		flavor = "Wind it up and watch it march!",
 		recipe = {
@@ -85,7 +65,7 @@ local Items = {
 		},
 	},
 	Gramophone = {
-		id = "Gramophone", name = "Antique Gramophone", tier = 1, rarity = "Legendary", category = "Music", baseValue = 450,
+		id = "Gramophone", name = "The Silver-Tongue Gramophone", tier = 1, rarity = "Legendary", category = "Music", baseValue = 450,
 		model = "Gramophone",
 		recipe = {
 			{ type = "Wipe" },
@@ -112,11 +92,6 @@ local Items = {
 		model = "RotaryPhone",
 		recipe = { { type = "Wipe" }, { type = "Reassemble", parts = { "Handset" } }, { type = "Test", style = "Ring" } },
 	},
-	Marionette = {
-		id = "Marionette", name = "Wooden Marionette", tier = 2, rarity = "Uncommon", category = "Toys", baseValue = 180,
-		model = "Marionette",
-		recipe = { { type = "Wipe" }, { type = "Reassemble", parts = { "Leg" } }, { type = "Polish" } },
-	},
 	PocketWatch = {
 		id = "PocketWatch", name = "Pocket Watch", tier = 2, rarity = "Rare", category = "Decor", baseValue = 400,
 		model = "PocketWatch",
@@ -127,28 +102,8 @@ local Items = {
 			{ type = "Test", style = "Tick" },
 		},
 	},
-	TubeRadio = {
-		id = "TubeRadio", name = "Tube Radio", tier = 2, rarity = "Rare", category = "Electronics", baseValue = 420,
-		model = "TubeRadio",
-		recipe = {
-			{ type = "Wipe" },
-			{ type = "Replace", parts = { "Tube" } },
-			{ type = "Polish" },
-			{ type = "Test", style = "Tune" },
-		},
-	},
-	ShipInBottle = {
-		id = "ShipInBottle", name = "Ship in a Bottle", tier = 2, rarity = "Epic", category = "Decor", baseValue = 900,
-		model = "ShipInBottle",
-		recipe = {
-			{ type = "Wipe" },
-			{ type = "Reassemble", parts = { "Mast" } },
-			{ type = "Polish" },
-			{ type = "Test", style = "Light" },
-		},
-	},
 	Jukebox = {
-		id = "Jukebox", name = "Mini Jukebox", tier = 2, rarity = "Legendary", category = "Music", baseValue = 2250,
+		id = "Jukebox", name = "The Midnight Neon Jukebox", tier = 2, rarity = "Legendary", category = "Music", baseValue = 2250,
 		model = "Jukebox",
 		recipe = {
 			{ type = "Wipe" },
@@ -171,13 +126,74 @@ local Items = {
 			{ type = "Test", style = "Wind" },
 		},
 	},
-	ClockworkCarousel = {
-		id = "ClockworkCarousel", name = "Clockwork Carousel", tier = 2, rarity = "Relic", category = "Toys", baseValue = 9000,
-		model = "ClockworkCarousel",
+
+	-- ===== Item mix (Ace's decision, 2026-11-16): new items replace the hardest builds. Names for Epic and Legendary are proper names. =====
+	-- Tier 1 additions
+	SpinningTop = {
+		id = "SpinningTop", name = "Spinning Top", tier = 1, rarity = "Common", category = "Toys", baseValue = 15,
+		model = "SpinningTop",
+		recipe = { { type = "Wipe" }, { type = "Polish" }, { type = "Test", style = "Wind" } },
+	},
+	SlimeJar = {
+		id = "SlimeJar", name = "Slime Jar", tier = 1, rarity = "Common", category = "Toys", baseValue = 17,
+		model = "SlimeJar",
+		recipe = { { type = "Wipe" }, { type = "Polish" }, { type = "Test", style = "Shake" } },
+	},
+	StickerAlbum = {
+		id = "StickerAlbum", name = "Sticker Album", tier = 1, rarity = "Common", category = "Decor", baseValue = 19,
+		model = "StickerAlbum",
+		recipe = { { type = "Wipe" }, { type = "Polish" } },
+	},
+	PlushBunny = {
+		id = "PlushBunny", name = "Plush Bunny", tier = 1, rarity = "Uncommon", category = "Toys", baseValue = 36,
+		model = "PlushBunny",
+		recipe = { { type = "Wipe" }, { type = "Replace", parts = { "Eye" } }, { type = "Polish" } },
+	},
+	PocketCompass = {
+		id = "PocketCompass", name = "Pocket Compass", tier = 1, rarity = "Uncommon", category = "Decor", baseValue = 34,
+		model = "PocketCompass",
+		recipe = { { type = "Wipe" }, { type = "Polish" }, { type = "Test", style = "Switch" } },
+	},
+	InstantCamera = {
+		id = "InstantCamera", name = "Instant Camera", tier = 1, rarity = "Rare", category = "Electronics", baseValue = 85,
+		model = "InstantCamera",
+		recipe = { { type = "Wipe" }, { type = "Replace", parts = { "Lens" } }, { type = "Polish" }, { type = "Test", style = "Switch" } },
+	},
+	-- Tier 2 additions
+	LunchBox = {
+		id = "LunchBox", name = "Lunch Box", tier = 2, rarity = "Common", category = "Kitchen", baseValue = 72,
+		model = "LunchBox",
+		recipe = { { type = "Scrape" }, { type = "Polish" } },
+	},
+	LavaLamp = {
+		id = "LavaLamp", name = "Lava Lamp", tier = 2, rarity = "Uncommon", category = "Decor", baseValue = 165,
+		model = "LavaLamp",
+		recipe = { { type = "Wipe" }, { type = "Replace", parts = { "Bulb" } }, { type = "Test", style = "Switch" } },
+	},
+	Boombox = {
+		id = "Boombox", name = "Boombox", tier = 2, rarity = "Rare", category = "Music", baseValue = 410,
+		model = "Boombox",
+		recipe = { { type = "Scrape" }, { type = "Replace", parts = { "Dial" } }, { type = "Polish" }, { type = "Test", style = "Play" } },
+	},
+	PixelBrick = {
+		id = "PixelBrick", name = "The Pixel Brick", tier = 2, rarity = "Epic", category = "Electronics", baseValue = 890,
+		model = "PixelBrick",
 		recipe = {
 			{ type = "Wipe" },
 			{ type = "Scrape" },
-			{ type = "Replace", parts = { "Horse" } },
+			{ type = "Reassemble", parts = { "Button" } },
+			{ type = "Polish" },
+			{ type = "Test", style = "Play" },
+		},
+	},
+	-- Relic (Lost Masterpiece) replacing the Clockwork Carousel
+	GoldenCartridge = {
+		id = "GoldenCartridge", name = "The Golden Cartridge", tier = 2, rarity = "Relic", category = "Electronics", baseValue = 9000,
+		model = "GoldenCartridge",
+		recipe = {
+			{ type = "Wipe" },
+			{ type = "Scrape" },
+			{ type = "Replace", parts = { "Chip" } },
 			{ type = "Polish" },
 			{ type = "Test", style = "Play" },
 		},

@@ -267,14 +267,14 @@ function CustomerCheck.run()
 
 		-- auto checkout, tips
 		local q = newPlayer()
-		local lamp = shelve(q, "DeskLamp")
+		local lamp = shelve(q, "StickerAlbum")
 		local c1 = Cust.TrySpawn(q, 0, Random.new(11))
 		Cust.GetCustomers(q)[c1.id].typeId = "Kid"
 		Cust.ChooseItem(q, c1.id, Random.new(1))
 		local _, _, auto = Cust.Checkout(q, c1.id, false, tipRoll)
 		check("checkout: auto checkout has no +10%", auto ~= nil and auto.bonus == 0 and Inv.Get(q, lamp) == nil)
 		check("tip: a Kid (10% chance) does not tip on a 12% roll", auto.tip == 0)
-		local lamp2 = shelve(q, "DeskLamp")
+		local lamp2 = shelve(q, "StickerAlbum")
 		local c2 = Cust.TrySpawn(q, 100, Random.new(12))
 		Cust.GetCustomers(q)[c2.id].typeId = "Collector"
 		Cust.ChooseItem(q, c2.id, Random.new(1))
