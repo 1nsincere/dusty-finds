@@ -104,6 +104,21 @@ function PlotCheck.run()
 			end
 			return n == 6
 		end)())
+		-- an unanchored part falls out of the world in Play (seen once: every shop and the whole town vanished)
+		check("every part in Workspace.Plots and Workspace.Environment is Anchored", (function()
+			local loose = {}
+			for _, root in { workspace:FindFirstChild("Plots"), workspace:FindFirstChild("Environment") } do
+				for _, d in root:GetDescendants() do
+					if d:IsA("BasePart") and not d.Anchored then
+						table.insert(loose, d:GetFullName())
+					end
+				end
+			end
+			if #loose > 0 then
+				return false, `{#loose} loose, e.g. {loose[1]}`
+			end
+			return true
+		end)())
 		check("all decor starts hidden (Transparency 1, no collision)", (function()
 			for _, name in DECOR do
 				if not decorHiddenProperly(1, name) then
