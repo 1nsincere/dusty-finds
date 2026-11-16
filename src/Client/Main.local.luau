@@ -33,6 +33,7 @@ local ORDER = {
 	"AdminController", -- Dev 1: Studio-only dev commands (/fly, /tp, /noclip ...); does nothing on the live game
 	"RestorationMoreMinigamesController", -- Dev 1: Test, Scrape, Reassemble, Replace minigames (Dwayne registers Wipe/Polish in his own controller)
 	"MuseumController", -- Dev 1: the museum Collection pedestal opens the Collection Book
+	"WarehouseController", -- Dev 1: the Warehouse supply counter opens the Supply screen (crates are sold only there)
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")

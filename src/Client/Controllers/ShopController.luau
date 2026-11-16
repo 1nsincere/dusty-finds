@@ -165,8 +165,29 @@ function ShopController.IsSupplyOpen(): boolean
 	return supply ~= nil and supply.Window.Visible
 end
 
+-- Crates are sold at the Supply Warehouse (south end of Workshop Lane), so restocking means a walk. The server checks the same
+-- distance on RequestBuyCrate (Economy.SupplyMaxStuds); this client check only explains it instead of opening an empty window.
+local function distanceToSupplyCounter(): number
+	local env = workspace:FindFirstChild("Environment")
+	local districts = env and env:FindFirstChild("Districts")
+	local warehouse = districts and districts:FindFirstChild("Warehouse")
+	local counter = warehouse and warehouse:FindFirstChild("SupplyCounter")
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if counter == nil or root == nil or not counter:IsA("BasePart") or not root:IsA("BasePart") then
+		return math.huge
+	end
+	return (counter.Position - root.Position).Magnitude
+end
+
 function ShopController.OpenSupply()
 	if supply == nil then
+		return
+	end
+	if distanceToSupplyCounter() > Economy.SupplyMaxStuds then
+		local hud = others and others.HudController
+		if hud and hud.Notify then
+			hud.Notify("Info", "📦 Crates are sold at the Supply Warehouse, at the south end of Workshop Lane.")
+		end
 		return
 	end
 	local discovery = others and others.DiscoveryController
@@ -475,6 +496,16 @@ function ShopController.Start()
 		end
 
 		setUpUpgrades(playerGui, hud)
+
+		-- Walking away from the Warehouse counter closes the Supply window (a little slack so it doesn't flicker).
+		task.spawn(function()
+			while true do
+				task.wait(0.5)
+				if ShopController.IsSupplyOpen() and distanceToSupplyCounter() > Economy.SupplyMaxStuds + 8 then
+					ShopController.CloseSupply()
+				end
+			end
+		end)
 
 		-- Cash pill in both title bars: on phones the window covers the HUD money, so show it here too.
 		local cashLabels = {}

@@ -171,6 +171,21 @@ function ShipmentService.MaybeAddTimeCapsule(player: Player, crateId: string, bo
 	return added
 end
 
+-- The Warehouse supply counter (a Part placed in Studio). nil if this place has no warehouse.
+local function supplyCounter(): BasePart?
+	local env = workspace:FindFirstChild("Environment")
+	local districts = env and env:FindFirstChild("Districts")
+	local warehouse = districts and districts:FindFirstChild("Warehouse")
+	local counter = warehouse and warehouse:FindFirstChild("SupplyCounter")
+	return if counter and counter:IsA("BasePart") then counter else nil
+end
+
+-- True when the player is close enough to the Warehouse supply counter to buy crates (Economy.SupplyMaxStuds).
+function ShipmentService.IsNearSupply(player: Player): boolean
+	local counter = supplyCounter()
+	return counter ~= nil and Validate.withinDistance(player, counter, Economy.SupplyMaxStuds)
+end
+
 -- Buys a crate with cash. Returns ok, reason, uids.
 -- Reasons: unknown, free (use the free delivery), noData, level, tooManyBoxes, cash, addFailed.
 function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, string?, { string }?)
@@ -320,6 +335,12 @@ function ShipmentService.Start()
 
 	Remotes.RequestBuyCrate.OnServerEvent:Connect(function(player, crateId)
 		if not Validate.rateLimit(player, "RequestBuyCrate", 3) or type(crateId) ~= "string" then
+			return
+		end
+		-- Crates are sold at the Supply Warehouse (Environment.Districts.Warehouse.SupplyCounter), not from anywhere:
+		-- the player has to walk there. The server checks it so the client can't skip the walk.
+		if not ShipmentService.IsNearSupply(player) then
+			notify(player, "Info", "📦 Crates are sold at the Supply Warehouse, at the south end of Workshop Lane.")
 			return
 		end
 		local ok, reason = ShipmentService.BuyCrate(player, crateId)

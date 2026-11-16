@@ -165,7 +165,7 @@ function commands.whyStuck(player: Player)
 	end
 	if counted == 0 and counts.Unopened == 0 then
 		if data.cash >= cheapest then
-			table.insert(lines, `NEXT: buy a crate (cheapest ${cheapest})`)
+			table.insert(lines, `NEXT: buy a crate at the Supply Warehouse (cheapest ${cheapest})`)
 		else
 			problems += 1
 			table.insert(lines, `STUCK: no items, no boxes and only ${data.cash} (cheapest crate ${cheapest}). Claim the free delivery when it is ready.`)

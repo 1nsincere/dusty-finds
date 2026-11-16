@@ -15,6 +15,7 @@ local Economy = {
 	FirstBoxItemId = "RubberDuck", -- guaranteed tutorial box at the door
 	MaxWaitingBoxes = 3, -- docs/01 B1: at most 3 unopened boxes (one box = one crate purchase or one free delivery)
 	InteractMaxStuds = 25, -- how close the character must be to a counter / delivery point for a request
+	SupplyMaxStuds = 20, -- how close the character must be to the Warehouse supply counter to buy crates (RequestBuyCrate); the HUD box button and plot boards only point there
 
 	-- §2 Rarity-related globals (per-rarity numbers live in Rarities.luau)
 	GoldenChance = 0.02, -- 2% on any roll
