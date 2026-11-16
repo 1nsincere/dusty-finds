@@ -5,11 +5,11 @@
 
 local UiTheme = {}
 
-UiTheme.Teal = Color3.fromHex("0E7C7B") -- primary
-UiTheme.Coral = Color3.fromHex("F2784B") -- accent / call to action
-UiTheme.Cream = Color3.fromHex("FFF8EE") -- panels
-UiTheme.Ink = Color3.fromHex("1F2D3A") -- text
-UiTheme.Disabled = Color3.fromRGB(190, 185, 175)
+UiTheme.Teal = Color3.fromHex("1F7A7A") -- primary
+UiTheme.Coral = Color3.fromHex("D2694A") -- accent / call to action
+UiTheme.Cream = Color3.fromHex("22252B") -- panels
+UiTheme.Ink = Color3.fromHex("F4F0E8") -- text
+UiTheme.Disabled = Color3.fromRGB(74, 79, 88)
 UiTheme.Golden = Color3.fromHex("FFD43B")
 
 -- Keys match the rarity ids in Shared/Config/Rarities.luau.
