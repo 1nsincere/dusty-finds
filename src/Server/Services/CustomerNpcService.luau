@@ -5,7 +5,8 @@
 -- Owner: Dev 3 (Sean) (agreed with Ace: he owns CustomerService's rules, this file only reacts to it).
 -- Depends on: CustomerService (SetSpawnHandler/SetRemovedHandler, ChooseItem, Checkout), PlotService.GetPlot,
 -- ServerStorage.NPCs.<CustomerType>, plot CustomerPath.{Door,Browse1..N,CounterSpot,Exit}, DisplaySlots/Slot<N>,
--- Counter.CheckoutPrompt, Shared.Config.Economy.AutoCheckoutSeconds.
+-- Counter.CheckoutPrompt, Shared.Config.Economy.AutoCheckoutSeconds, Shared.Config.Customers (walkSpeed),
+-- walk/idle animations from the model's Animate folder (Roblox defaults if missing).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +14,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+local Customers = require(ReplicatedStorage.Shared.Config.Customers)
 
 local CustomerNpcService = {}
 local DEBUG = true
@@ -25,6 +27,9 @@ local BROWSE_PAUSE = 1.5 -- looks around at each browse point
 local SHELF_PAUSE = 2 -- looks at the item it picked
 local QUEUE_GAP = 2.5 -- studs between customers waiting at the counter
 local LIFT = Vector3.new(0, 3, 0) -- path markers sit on the floor; a placed model stands above them
+local IDLE_FALLBACK = "rbxassetid://507766388" -- Roblox default R15 idle, used if a model has no Animate.idle
+local WALK_FALLBACK = "rbxassetid://913402848" -- Roblox default R15 walk
+local WALK_ANIM_SPEED = 16 -- the walk animation matches a WalkSpeed of 16; slower NPCs step slower so feet do not skate
 
 type Npc = {
 	id: string,
@@ -269,6 +274,51 @@ local function runVisit(npc: Npc, plot: Instance)
 	end
 end
 
+-- ===== Animations =====
+-- The NPC templates carry Roblox's standard "Animate" LocalScript, but LocalScripts never run inside a workspace
+-- model, so the server plays walk/idle itself. Animations a server-owned Animator plays replicate to every player.
+
+local function animationFrom(model: Model, folderName: string, fallbackId: string): Animation
+	local animate = model:FindFirstChild("Animate")
+	local holder = animate and animate:FindFirstChild(folderName)
+	local found = holder and holder:FindFirstChildWhichIsA("Animation")
+	if found then
+		return found -- whatever an artist put in the model wins
+	end
+	local animation = Instance.new("Animation")
+	animation.AnimationId = fallbackId
+	return animation
+end
+
+local function startAnimations(model: Model, humanoid: Humanoid)
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if animator == nil then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	local ok, err = pcall(function()
+		local idle = animator:LoadAnimation(animationFrom(model, "idle", IDLE_FALLBACK))
+		local walk = animator:LoadAnimation(animationFrom(model, "walk", WALK_FALLBACK))
+		idle.Looped = true
+		walk.Looped = true
+		idle:Play()
+		-- Running fires with the current speed whenever it changes (also 0 when MoveTo ends).
+		humanoid.Running:Connect(function(speed: number)
+			if speed > 0.5 then
+				if not walk.IsPlaying then
+					walk:Play(0.2)
+				end
+				walk:AdjustSpeed(speed / WALK_ANIM_SPEED)
+			elseif walk.IsPlaying then
+				walk:Stop(0.2)
+			end
+		end)
+	end)
+	if not ok then
+		log.warn("animations failed for", model.Name, err) -- the NPC still walks, it just slides
+	end
+end
+
 -- CustomerService calls this (in its own thread) when a customer arrives. An error here = customer removed ("spawnFailed").
 local function onSpawn(player: Player, customer)
 	local plot = PlotService.GetPlot(player)
@@ -293,6 +343,11 @@ local function onSpawn(player: Player, customer)
 	if root then
 		root:SetNetworkOwner(nil) -- the server walks it; no player's physics should move it
 	end
+	local typeConfig = Customers[customer.typeId]
+	if typeConfig and typeConfig.walkSpeed then
+		humanoid.WalkSpeed = typeConfig.walkSpeed
+	end
+	startAnimations(model, humanoid)
 
 	local npc: Npc = {
 		id = customer.id,
