@@ -4,12 +4,14 @@
 -- Owner: Dev 3 (Sean). Depends on: Shared.Remotes (RequestVisit), UiTheme, Workspace.Plots (OwnerUserId attribute),
 -- StarterGui.Visit (Window.{Title,CloseButton,List,Empty}, RowTemplate → Name, Info, VisitButton), HUD.TopRight.Visit,
 -- and the other window controllers (Inventory/Shop/Settings/Collection close when Visit opens).
+-- Also hides Counter.LikePrompt where a like cannot work (own shop, empty plot, liked today; ClientState "likes").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
+local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local VisitController = {}
 local DEBUG = true
@@ -162,6 +164,44 @@ local function closeWhenOtherOpens(playerGui: Instance)
 	end
 end
 
+-- ===== Like prompts =====
+-- The server decides every like; this only hides Counter.LikePrompt where it can't work: my own shop, empty plots,
+-- and shops I already liked today (likes.givenToday, keyed by the owner's UserId as a string, for likes.day).
+-- The server never changes Enabled on LikePrompt, so the client is free to switch it.
+
+local likePrompts: { [Instance]: ProximityPrompt } = {}
+
+local function canLike(plot: Instance): boolean
+	local ownerId = plot:GetAttribute("OwnerUserId")
+	if type(ownerId) ~= "number" or ownerId == LOCAL_PLAYER.UserId then
+		return false
+	end
+	local likes = ClientState.Get("likes")
+	if type(likes) ~= "table" or likes.day ~= os.time() // 86400 then
+		return true -- nothing liked today (a new UTC day resets the list on the server too)
+	end
+	return not (type(likes.givenToday) == "table" and likes.givenToday[tostring(ownerId)] == true)
+end
+
+local function refreshAllLikePrompts()
+	for plot, prompt in likePrompts do
+		prompt.Enabled = canLike(plot)
+	end
+end
+
+local function watchLikePrompt(plot: Instance)
+	local counter = plot:WaitForChild("Counter", 10)
+	local prompt = counter and counter:WaitForChild("LikePrompt", 10)
+	if not (prompt and prompt:IsA("ProximityPrompt")) then
+		return
+	end
+	likePrompts[plot] = prompt
+	plot:GetAttributeChangedSignal("OwnerUserId"):Connect(function()
+		prompt.Enabled = canLike(plot)
+	end)
+	prompt.Enabled = canLike(plot)
+end
+
 function VisitController.Init(otherControllers)
 	others = otherControllers
 	log("Init")
@@ -192,8 +232,10 @@ function VisitController.Start()
 		if plots then
 			for _, plot in plots:GetChildren() do
 				plot:GetAttributeChangedSignal("OwnerUserId"):Connect(redrawIfOpen)
+				task.spawn(watchLikePrompt, plot)
 			end
 		end
+		ClientState.OnChanged("likes", refreshAllLikePrompts)
 
 		local hud = playerGui:WaitForChild("HUD", 10)
 		local hudButton = hud and hud:FindFirstChild("TopRight") and hud.TopRight:FindFirstChild("Visit")

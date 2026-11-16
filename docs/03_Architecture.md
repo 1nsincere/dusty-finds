@@ -126,7 +126,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   │                                    CustomerId, CustomerType, Wish, OwnerUserId, ItemId (once chosen)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
-│   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); later: likes, invites
+│   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); later: invites
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
     └── Log.luau            -- tagged debug printing
@@ -144,7 +144,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── CollectionController.luau   [Dev 3]
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
 │   ├── SettingsController.luau     [Dev 3]
-│   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit)
+│   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work
 │   └── TutorialController.luau     [Dev 3]
 └── Minigames/                      [Dev 2]
     ├── PointerInput.luau   -- unified mouse/touch → raycast hits
@@ -227,7 +227,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
 | `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
-| `RequestLikeShop` | `ownerUserId` | Dev 3 | not own shop, not liked today, near that counter |
+| `RequestLikeShop` | `ownerUserId` | Dev 3 | **Unused for now (2026-11-16):** likes come from `Counter.LikePrompt` Triggered on the server (Roblox checks the distance). Same rules: not own shop, not liked today |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
 | `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id, order |

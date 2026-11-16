@@ -50,6 +50,10 @@ local Economy = {
 	XpExponent = 1.6,
 	LevelUpRewardPerLevel = 50, -- cash = 50 x new level
 
+	-- §7 Likes (docs/02 §7, docs/01 E). 1 like per shop per visitor per UTC day; the owner's cash is capped per day.
+	LikeReward = 25,
+	LikeRewardMaxPerDay = 10,
+
 	-- docs/01_GameDesign.md B8 Restoration quality (final = average of step scores + tool bonus, capped at 100)
 	QualityThreeStarMin = 90, -- >= 90 -> 3 stars (Mint)
 	QualityTwoStarMin = 70, -- >= 70 -> 2 stars (Good), else 1 star (Fair)
