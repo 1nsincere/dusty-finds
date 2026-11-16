@@ -81,3 +81,6 @@ We reviewed every requested system against a three-person beginner team. The gam
 - **What changed vs docs/01 §E ("side by side on one street, walking next door"):** shops are 100-300 studs apart. Walking between streets takes about 10-20 s. The Visit list (HUD, teleports to a plot's door) is now REQUIRED, not optional: ShopSocialService must be built (Dev 1 server, Dev 3 HUD button).
 - **Risks:** more parts (about 3,000 in the world) and about 50 point lights: test on a low-end phone; StreamingEnabled is on (target radius 1024 covers the whole map).
 - **Reversible:** every plot is one model (PivotTo moves it); the art is under Workspace.Environment and Plots.PlotN.Facade.
+
+### D-Map2: one high street instead of three streets (2026-11-16, Dev 1, with Ace)
+Supersedes D-Map. The six shops now face each other across one promenade ("Workshop Lane"), plaza north, gate south (docs/Environment_Art.md, "New layout"). Reason: the three-street layout scattered shops with long empty walks and no clear destination. Plots were moved with `PivotTo` only, so every gameplay part keeps its place inside the plot. The Visit list (docs/01) is still built, but walking to a friend is now one short street.

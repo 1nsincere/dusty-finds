@@ -2,6 +2,8 @@
 
 Written by Ace's Claude session. The older report further down is from an earlier session; it is kept below.
 
+**LAYOUT CHANGED (2026-11-16, place v109): the six shops now sit on ONE street (Workshop Lane). Plots 1-3 are the west side facing east, Plots 4-6 the east side facing west, whole-plot PivotTo, nothing inside a plot changed. Sean: re-check customer paths in each shop and the Visit teleport if you can. Details: docs/Environment_Art.md "New layout".**
+
 ## Where main is (everything below is pushed unless marked "Studio only")
 - **Pull main BEFORE you press Play.** `Main.local.luau` now lists new client controllers; if one is missing in your Studio, the client waits forever. If a file did not reach your Studio, link Script Sync for `src/Client` (it must map to `StarterPlayerScripts.Client`).
 - **Restoration works by hand now.** Inventory Restore -> server session -> step runner (`Controllers/RestorationController.luau`) -> minigame per step -> Restored (stars, XP, finish card). Server rules: `Services/RestorationService.luau` (53 tests). Contract: `docs/Restoration_Contract.md`.
