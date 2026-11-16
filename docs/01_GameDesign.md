@@ -415,6 +415,7 @@ Trading (scams and duplication exploits, plus Roblox trading-policy complexity),
 
 ### J4. UX rules
 - **First 2 minutes are scripted:** free box waiting at the door → arrow → open → restore a Rubber Duck (Wipe → Polish) → put on shelf → a customer buys it → +$ → "Buy your first upgrade!" arrow. No text walls.
+  - Built (2026-11-16, `Shared/Tutorial.luau`): 4 steps `opened` → `restored` → `displayed` → `sold`, each one short hint (bottom centre) + a bouncing ▼ over the box / bench / first empty shelf / counter, then "🎉 Your shop is open! Try 🔨 Upgrades" with the Upgrades button glowing for 6 s. Steps advance from saved data (no Next button), so a returning player resumes; a Skip button ends it; `tutorial.done` stops it for good.
 - Every action gets feedback within 0.1 s (sound, tween, or particle) even if the server confirm comes later.
 - Never stack more than one modal. Opening a menu closes others.
 - If an action fails on the server, show a friendly toast ("Inventory full! Sell or upgrade storage.").
