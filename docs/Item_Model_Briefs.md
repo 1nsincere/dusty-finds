@@ -20,7 +20,7 @@ Style target: smooth, soft bevels, clean silhouette, 3,000 to 5,000 triangles, a
 | MusicBox | Music Box (R) | box + lathe | Box (rounded), Lid, Dancer figurine, Key, Comb | Reassemble `Dancer` | TODO |
 | InstantCamera | Instant Camera (R) | box + lathe | Body, Top, Lens (lathe), Flash, Viewfinder, Stripe | Replace `Lens` | TODO |
 | TinRobot | Sir Clank, the Tin Robot (E) | box + lathe | Head, Body, Arms, Legs, Antenna, Eyes, Key | Reassemble `LeftArm` | TODO |
-| CopperKettle | The Brass Baron Kettle (E) | lathe + tube | Body, Lid, Knob, Bands, Spout, Handle, Rivets | Reassemble `Lid` | PILOT (`kettle_hq.py`) |
+| CopperKettle | The Brass Baron Kettle (E) | lathe + tube | Body, Lid, Knob, Bands, Spout, Handle, Rivets | Reassemble `Lid` | DONE (`kettle_hq.py`, imported and wrapped, place v130) |
 | Gramophone | The Silver-Tongue Gramophone (L) | box + lathe + tube | Base box, Turntable, Horn (big flared lathe), Arm, Crank | Replace `Horn` | HARD |
 
 ## Tier 2 (Flea Market crate)
