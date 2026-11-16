@@ -265,6 +265,11 @@ local function watchCamera()
 	updateScale()
 end
 
+-- For client-only messages (no server involved, e.g. "Invites aren't available"): same look as a server Notify.
+function HudController.Notify(kind: string, text: string)
+	onNotify(kind, text)
+end
+
 -- ===== Lifecycle =====
 
 function HudController.Init(_others)

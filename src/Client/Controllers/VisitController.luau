@@ -2,12 +2,14 @@
 -- Purpose: the 👥 Visit window: one row per player on the server (you first, "Go home"); tapping Visit asks the
 -- server (RequestVisit) to put you at that shop's door. Live while open: rows update as players join/leave.
 -- Owner: Dev 3 (Sean). Depends on: Shared.Remotes (RequestVisit), UiTheme, Workspace.Plots (OwnerUserId attribute),
--- StarterGui.Visit (Window.{Title,CloseButton,List,Empty}, RowTemplate → Name, Info, VisitButton), HUD.TopRight.Visit,
+-- StarterGui.Visit (Window.{Title,CloseButton,InviteButton,List,Empty}, RowTemplate → Name, Info, VisitButton), HUD.TopRight.Visit,
 -- and the other window controllers (Inventory/Shop/Settings/Collection close when Visit opens).
 -- Also hides Counter.LikePrompt where a like cannot work (own shop, empty plot, liked today; ClientState "likes").
+-- Window.InviteButton opens Roblox's friend invite popup (SocialService:PromptGameInvite, client only).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SocialService = game:GetService("SocialService")
 
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
@@ -164,6 +166,45 @@ local function closeWhenOtherOpens(playerGui: Instance)
 	end
 end
 
+-- ===== Invite friends =====
+-- Roblox's own invite popup (SocialService). Client only: Roblox sends the invites, nothing for our server to check.
+
+local INVITE_COOLDOWN = 2
+local lastInvite = 0
+
+local function toast(text: string)
+	local hud = others and others.HudController
+	if hud and hud.Notify then
+		hud.Notify("Info", text)
+	end
+end
+
+local function inviteFriends()
+	local now = os.clock()
+	if now - lastInvite < INVITE_COOLDOWN then
+		return
+	end
+	lastInvite = now
+	-- CanSendGameInviteAsync asks Roblox's servers, so it can fail or be slow: pcall it.
+	local ok, canSend = pcall(SocialService.CanSendGameInviteAsync, SocialService, LOCAL_PLAYER)
+	if not ok then
+		log("invite check failed:", canSend)
+		toast("Couldn't open invites right now. Try again soon.")
+		return
+	end
+	if not canSend then
+		toast("Invites aren't available for your account.")
+		return
+	end
+	local shown, err = pcall(SocialService.PromptGameInvite, SocialService, LOCAL_PLAYER)
+	if shown then
+		log("invite popup opened")
+	else
+		log("invite popup failed:", err)
+		toast("Couldn't open invites right now. Try again soon.")
+	end
+end
+
 -- ===== Like prompts =====
 -- The server decides every like; this only hides Counter.LikePrompt where it can't work: my own shop, empty plots,
 -- and shops I already liked today (likes.givenToday, keyed by the owner's UserId as a string, for likes.day).
@@ -217,6 +258,11 @@ function VisitController.Start()
 			return
 		end
 		visitGui.Window.CloseButton.Activated:Connect(VisitController.Close)
+		local inviteButton = visitGui.Window:FindFirstChild("InviteButton")
+		if inviteButton then
+			inviteButton.BackgroundColor3 = UiTheme.Teal
+			inviteButton.Activated:Connect(inviteFriends)
+		end
 
 		-- Live list while open: players joining/leaving and plots being assigned.
 		local function redrawIfOpen()

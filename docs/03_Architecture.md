@@ -126,7 +126,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   │                                    CustomerId, CustomerType, Wish, OwnerUserId, ItemId (once chosen)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
-│   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); later: invites
+│   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
     └── Log.luau            -- tagged debug printing
@@ -300,7 +300,8 @@ Collection.Book.{Title,CloseButton,PageLabel,PrevButton,NextButton,Grid}   -- Gr
 Collection.EntryTemplate (hidden) → RarityStroke (UIStroke), Icon, ItemName, Info, GoldenTag
   -- entry: "?"/"???"/rarity (not found) → name + "Found" → best stars → gold stroke + 🌟 (golden found)
 Settings.Window.{Title,CloseButton,Toggles}   Settings.ToggleTemplate (hidden) → Label, Switch (TextButton "ON"/"OFF")
-Visit.Window.{Title,CloseButton,List,Empty}   Visit.RowTemplate (hidden) → Name, Info, VisitButton
+Visit.Window.{Title,CloseButton,InviteButton,List,Empty}   Visit.RowTemplate (hidden) → Name, Info, VisitButton
+  -- InviteButton: "📨 Invite" → SocialService:PromptGameInvite (client only)
   -- one row per player on the server, you first ("🏠 Your shop" + "Go home"); List = ScrollingFrame + UIListLayout
   -- one row per key, named after it: announcements, music, sfx, reduceEffects (= SettingsService keys)
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)
