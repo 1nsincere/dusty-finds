@@ -120,3 +120,48 @@ Done in one pass at Ace's go ("you have all my approvals"), so phases were not s
 - **Checks:** Play boot 14/14 services, PlotCheck 43/43, CustomerCheck 51/51, DevToolsCheck 27/27, live e2e 13/13, customers walk Door -> Browse1 -> CounterSpot -> Exit in Plots 1, 2, 4 and 6.
 - **Honest limits:** still blocky rather than rounded (roof shapes, filler bodies, flat-roof deck); the far void beyond the hills is plain blue; paving is very pale and plain; I could not take lowest-graphics or phone-emulator screenshots (cannot switch those from here) so please check them: pale colours and bloom may wash out on low settings, and 49 point lights plus about 3,050 parts are the likeliest cost on a cheap phone.
 - **Hand-built piece needed:** nothing mandatory, but a proper rounded roof set, a mesh for trees and a toy tram would lift it further.
+
+---
+
+## Premium restyle: "Modern Boutique District" (started 2026-11-16)
+
+**Restore point:** Team Create **v105** (saved by Ace, 12:53 PM), taken BEFORE this restyle. It still holds the "Sunny Workshop Town" look. All Studio art is outside Git, so v105 is the only way back. (Earlier restore points: v76 before the Sunny restyle, v77 after its phase 1.)
+
+**Before screenshots (taken 2026-11-16 from the Sunny Workshop Town):** street/Plot1 front, three-street overview. Inside Plot1: taken in Phase 1 (the capture tool timed out). What they show: saturated mint-green ground, cyan/purple/yellow roofs, flat SmoothPlastic everywhere, giant pale balls for hills and clouds that read as balloons, rounded cartoon trees. Friendly but toy-like.
+
+### Style guide (draft for Ace's approval; nothing built yet)
+**Mood.** A welcoming boutique quarter at golden hour sliding toward early evening: cinematic but friendly, warm, never gloomy. Think "a shopping street you want to walk down", not horror.
+
+**What we take as principles (research notes, honest about their limits).**
+- *The Mimic* (benchmark only): no official breakdown of its lighting exists in what I could find, so I take only the generic craft its look rests on: Future lighting, strong contrast, atmosphere that matches the sky, few but deliberate light sources, one consistent palette. Not its horror tone, layout or assets.
+- Roblox's own lighting docs: Future lighting, a matched Atmosphere (colour and haze blend ground and sky), separate Ambient / OutdoorAmbient, ColorCorrection for grading, subtle Bloom, SunRays. Contrast is the biggest "premium" lever; over-saturation tires the eye.
+- Performance warning (docs and devs): many dynamic lights under Future lighting are the main cost, and many players are on phones.
+- Japanese shopping streets (limited research): uniform street furniture (matching lamps and gates), lanterns and strings of lights overhead, wood and timber lattice against plain concrete or plaster, narrow fronts with vertical signs, plants and small planters, light and shadow rhythm along the walkway. Little found on glass fronts, so those come from the brief.
+
+**Palette (only these).** Neutrals: concrete D9D2C5, pale oak D8B98A, plaster F4F0E8, matte black 22252B, soft grey 9AA0A6. One accent per shop: teal 1F7A7A, terracotta D2694A, mustard E3B23C, plum 6E4A7E, sage 7FA37C, navy 2E4A7D. Signs only: warm white FFE9B0 + one coral. No muddy brown, beige-brown or olive. (Plot order for accents: P1 teal, P2 terracotta, P3 mustard, P4 plum, P5 sage, P6 navy.)
+
+**Lighting.** Future lighting, sun about 16.5-17.5h, warm sun against cool shadow fill, gentle contrast, bloom with a high threshold, a light atmosphere in a warm peach-to-blue gradient, no brown haze, only the sun casts shadows, point lights kept at today's count (49) or fewer: warm glow comes from emissive (Neon) bulbs and string lights, not extra lights.
+
+**Materials.** A small reused set: concrete, pale oak, plaster, brushed/matte black metal, paving stone, roof tile. Prefer MaterialVariants if Phase 2 shows they work; otherwise Roblox's built-in Concrete, Wood Planks, Smooth Plastic, Metal, Slate colored to the palette. Glass: real Glass material with a thin black frame.
+
+**Shape language.** Straight modern lines with small bevels and rounded corners (no toy balls). Large glass shopfronts with slim black frames, recessed doors, wide fascia signs, flat canopies or slim awnings, one distinct roof silhouette per shop. Hero detail on shopfronts, signs, entrances, clock tower, square; keep roofs, backs and the horizon simple.
+
+**Detail density.** Medium. Layered street furniture (pendant lamps, planters, outdoor tables, string lights over the square, benches) in repeating modular pieces, one model per prop. Trees with tapered trunks and layered canopies, no stacked spheres.
+
+**Inside the shops (as important as the street).** Warm plaster walls, pale oak shelves and counter, matte black fixtures, soft pendant glow. Shelf and wall colours stay neutral so item rarity and Golden colours read clearly; we change the shelf, never the item.
+
+**Avoid.** Saturated cartoon colours, flat default Studio blocks, muddy browns, overlapping point lights, anything that moves or collides unexpectedly, copying any real game's assets or layout, anything off-palette.
+
+**Hard limits (every phase).** No renames/resizes/moves of the gameplay parts (Floor, Walls, Counter, Sign, Spawn, DisplaySlots, ExhibitSlots, Benches, DecorSlots, CustomerPath, DeliveryPoint, SupplyBoard, Shelves); new objects only under Workspace.Environment or Plots.PlotN.Facade; part count +10% at most; counts reported each phase; no src/, Config, Remotes, data, commits or pushes.
+
+### Restyle log: Modern Boutique District (Dev 1, 2026-11-16, place v106; restore point v105)
+**Done in one pass (Ace approved all phases):**
+- *Phase 1 lighting:* ClockTime 17.1, Brightness 2.8, warm ColorShift_Top and cool ColorShift_Bottom, Atmosphere peach to blue (haze 0.9), grade contrast +0.12 saturation -0.04, bloom threshold 2.3, sun rays 0.1, DOF off, point-light shadows off. `Lighting.Technology` could not be set from a script (needs RobloxScript capability): **set it to Future by hand.**
+- *Phase 2 capability test:* EditableMesh: creating vertices and triangles and a MeshPart from them worked in Studio edit mode; NOT verified in a published game (needs the place's EditableMesh permission), so it is not used. MaterialVariant can be created but needs image assets for its maps; the generators were not used, so no PBR set exists. Creator Store search for a modular shop kit returned mixed styles, paid or stud-style assets and unclear licenses: nothing used. Method used instead: lighting and grade + palette lock + built-in materials (Concrete, WoodPlanks, Metal, Slate, Glass) + hero pieces from plain parts.
+- *Phases 3-6 (applied to every plot at once, no separate benchmark shop):* recolor of about 2,950 parts to the palette (nearest-colour fallback), concrete paving, oak trim, matte-black metal frames, slate roofs in the shop accent, fascia signs matte black with warm-white text, scalloped awnings replaced by flat canopies (120 parts removed, 12 added), 52 trees rebuilt with three layered canopy discs, 20 balloon-like hills deleted, `Environment.StreetDetail` (4 poles, 48 wire segments, 44 neon bulbs as a string-light square around the clock tower, 8 outdoor table sets). Clock tower, depot and stalls only recolored.
+- *Counts (before -> after):* parts 3,054 -> 3,025 (-1%); point lights 70 (49 enabled) -> 70 (49 enabled); MaterialVariants 0 -> 0.
+- *Checks after:* boot 15/15 services; `testAll` 577 passed, 0 failed; PlotCheck 44/44; CustomerCheck 51/51 (inside testAll).
+
+**Self-critique, the five cheapest-looking things (honest):** 1) Roofs are still plain angular slabs, now a glossy slate in the accent (needs a real roof mesh or trim kit). 2) Shopfront glass is still the old small windows, not the large slim-framed glass fronts of the brief (each front needs rebuilding). 3) The clock tower still has multicolor bunting diamonds (off the one-accent rule). 4) Trees are layered discs, better than balls but still stylized. 5) No PBR textures: surfaces are flat colour with built-in materials. I only partly fixed 1 (colour); 2 to 5 are not fixed and need a real build pass or assets.
+
+**Not verified:** lowest graphics level and the phone emulator (Ace to take and send); roof hiding on the new roofs (RoofController needs Script Sync); inside-Plot1 screenshot (capture timed out).

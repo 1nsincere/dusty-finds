@@ -1,3 +1,33 @@
+# CATCH-UP for Dwayne and Sean (latest, 2026-11-16: read this first)
+
+Written by Ace's Claude session. The older report further down is from an earlier session; it is kept below.
+
+## Where main is (everything below is pushed unless marked "Studio only")
+- **Pull main BEFORE you press Play.** `Main.local.luau` now lists new client controllers; if one is missing in your Studio, the client waits forever. If a file did not reach your Studio, link Script Sync for `src/Client` (it must map to `StarterPlayerScripts.Client`).
+- **Restoration works by hand now.** Inventory Restore -> server session -> step runner (`Controllers/RestorationController.luau`) -> minigame per step -> Restored (stars, XP, finish card). Server rules: `Services/RestorationService.luau` (53 tests). Contract: `docs/Restoration_Contract.md`.
+- **Minigames.** Dwayne: Wipe and Polish (`RestorationMinigamesController`, `RestorationView`, `PointerInput`) are merged. Ace: Test, Scrape, Reassemble, Replace in `src/Client/Minigames/` (`Socket`, `Reassemble`, `Replace`, `Scrape`, `Test`) registered by `RestorationMoreMinigamesController`. **Test works with no model** (tap the needle). Scrape/Reassemble/Replace use `ctx.model` + `ctx.attachPointer` from Dwayne's view; if the view or a model part is missing they fall back to a hold-the-button placeholder, so a step never gets stuck.
+- **Runner hook** (Dwayne, please keep): `RestorationController.RegisterMinigame(stepType, fn(ctx))`, `SetViewProvider(fn)`, `RunPlaceholder(ctx)`. `ctx` = `{uid, stepIndex, step, seed, sessionId, benchName, bench, startedAt, model, attachPointer, setProgress(0..1), complete(score)}`. `complete()` holds the report until the server's minimum step time has passed.
+- **Item models** (Studio only, not in Git): `ReplicatedStorage.Assets.Items.<ItemId>`: 19 placeholder blocks by Ace (attribute `Placeholder = true`, replace freely) + Dwayne's real RubberDuck. They follow `docs/Item_Model_Contract_DRAFT.md` (`Base`, `DirtSpots` + `Dirt` decal, `RustSpots` + `Rust` decal + `Layers`, `Sockets`/`LooseParts` with matching names and decoys for Replace, `PolishSurfaces`, `TestPoint`).
+- **Sean's work merged:** customer NPCs, Visit list + likes + invite, Restoration screen, banner, buyable Expansions, tutorial (4 steps, `TutorialService`), readable shelf tags. Ace wrote `Tests/TutorialCheck.luau` (19 checks) for the tutorial.
+- **PlotService builds Expansion rooms** (Back Room, Showroom) from `ServerStorage.Expansions`, so Expansions are safe to buy.
+- **Checks.** In Play: `game.ServerStorage.DevTools:Invoke("testAll", player)` runs every automated check (577, ends GREEN or RED); add `true` as 3rd argument to also walk the live loop. `PlotCheck` (44) and `DevToolsCheck` (27) must be run from the command bar (they read script Source). PlotCheck now also fails if any Plots/Environment part is unanchored.
+- **Dev commands (Studio only, chat):** `/cmds`, `/fly`, `/noclip`, `/speed n`, `/jump n`, `/zoom n`, `/tp x y z`, `/tp name`, `/plot n`, `/normal` (`AdminController`). Zoom is limited to 20 studs for players (`StarterPlayer.CameraMaxZoomDistance`).
+- **Security check done:** 589 malformed remote calls changed nothing and caused no server errors.
+- **Economy pacing re-check** is in `docs/02_Economy.md` (first sale about 2 min, first upgrade about 3 min, Lv 5 about 25 min).
+
+## Town restyle ("Modern Boutique District", Studio only; restore point v105)
+Ace asked for a premium, modern look. Done so far (place v106): warm golden-hour grading, one muted palette (see `docs/Environment_Art.md`), one accent per shop (P1 teal, P2 terracotta, P3 mustard, P4 plum, P5 sage, P6 navy), matte black fascia signs with warm-white text (the `OwnerName` label still gets the owner's name), flat modern canopies, layered trees, string lights and outdoor seating in the square, no balloon-like hills. Parts 3,054 -> 3,025; enabled point lights still 49.
+- **Please do NOT edit** `Workspace.Environment`, `Plots.PlotN.Facade`, `Lighting`, `Baseplate`. Gameplay parts were only recolored, never moved or renamed.
+- **Sean:** re-check HUD pill and panel contrast and shelf tags against the new warmer, darker light. **Dwayne:** re-check rarity and Golden colors on the new oak shelves and plaster walls, and the bench camera.
+- **One manual step for Ace:** set `Lighting.Technology = Future` in Properties (a script cannot set it).
+
+## Waiting on
+- Dwayne: nothing blocking; please test Scrape/Reassemble/Replace on your view with the placeholder models and tell Ace what to change.
+- Sean: shelf-tag and HUD check on the new light (above).
+- Ace: link Script Sync for `src/Client`; 2-player test; leave-mid-restore and customer-reserved save tests.
+
+---
+
 # While you were away: report (Dev 1 files)
 
 Nothing was committed or pushed. Everything is in your working tree (`git status` shows the new files).
