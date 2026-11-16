@@ -24,6 +24,7 @@ local ORDER = {
 	"RestorationService",
 	"DisplayService",
 	"CustomerService",
+	"CustomerNpcService", -- Sean: customer models/walking/checkout prompt; reacts to CustomerService
 	"UpgradeService",
 	"ShopSocialService",
 	"SettingsService",

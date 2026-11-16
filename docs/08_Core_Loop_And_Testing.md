@@ -65,8 +65,10 @@ Config decides which slot shows when: `decorSlots` on an upgrade in `Config/Upgr
 | Test | Command | Expected |
 |---|---|---|
 | Services, rolls, selling, upgrades | `require(game.ServerScriptService.Server.Tests.SystemsCheck).run()` | `[SystemsCheck] 129 passed, 0 failed` |
-| Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 28 passed, 0 failed` |
-| DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 20 passed, 0 failed` |
+| Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 44 passed, 0 failed` |
+| DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 27 passed, 0 failed` |
+| Customers | `require(game.ServerScriptService.Server.Tests.CustomerCheck).run()` | `[CustomerCheck] 51 passed, 0 failed` |
+| Restoration | `require(game.ServerScriptService.Server.Tests.RestorationCheck).run()` | `[RestorationCheck] 53 passed, 0 failed` |
 | Shelves and exhibits | `require(game.ServerScriptService.Server.Tests.DisplayCheck).run()` | `[DisplayCheck] 36 passed, 0 failed` |
 | Settings and playtime | `require(game.ServerScriptService.Server.Tests.SettingsCheck).run()` | `[SettingsCheck] 20 passed, 0 failed` |
 | Config data (Edit mode) | `require(game.ReplicatedStorage.Shared.Tests.ConfigCheck).run()` | `231+ passed, 0 failed` (prints the count) |
@@ -89,12 +91,15 @@ DT:Invoke("addXp", me, 20)                            -- XP through EconomyServi
 DT:Invoke("giveBox", me, "Starter")                  -- 3 Unopened items, open them with RequestOpenBox
 DT:Invoke("giveItem", me, "TinRobot", "Restored", 3)  -- itemId, state, stars, golden
 DT:Invoke("maxUpgrades", me)                         -- shows all decor, 12 display slots
+DT:Invoke("autoRestore", me, uid, 100)               -- restores a Dirty item through the REAL restoration rules (no minigames needed); score optional
 DT:Invoke("resetProfile", me)                        -- back to a brand-new player
 print(DT:Invoke("dump", me))                         -- all saved data
 ```
 
 `resetProfile` and `maxUpgrades` change your saved test profile (`PlayerData_DEV`). That is what they are for, but
 only use them on a profile you do not mind resetting. DevTools does nothing on a live server.
+
+**Dev explore commands (Studio only, chat):** `AdminController` (client) adds `/cmds`, `/fly [speed]` (WASD, Space up, Ctrl or Q down), `/noclip`, `/speed n`, `/jump n`, `/zoom n` (the game caps zoom at 20), `/tp x y z`, `/tp playerName`, `/plot n`, `/normal`. It does nothing outside Studio and changes nothing on the server (cash, items and levels stay in DevTools above).
 
 ## 6. Manual loop check (about 5 minutes)
 

@@ -92,6 +92,110 @@ function commands.giveBox(player: Player, crateId: any)
 	return #uids > 0, uids
 end
 
+-- autoRestore(player, uid, score?): runs a whole recipe through the REAL RestorationService rules (session, step order,
+-- minimum times via a synthetic clock, stars, XP, collection) so the loop can be tested without the minigames.
+-- score defaults to 100 for every step. Returns the final result { stars, xp, value, average } or the refusal reason.
+function commands.autoRestore(player: Player, uid: any, score: any)
+	if type(uid) ~= "string" then
+		return false, "uid must be a string (see dump)"
+	end
+	local stepScore = if score == nil then 100 else score
+	if not Validate.isNumber(stepScore) then
+		return false, "score must be a number 0 - 100"
+	end
+	local Res = S.RestorationService
+	local ok, reason, info = Res.StartRestore(player, uid, "Bench1", 0)
+	if not ok then
+		return false, reason
+	end
+	local session = Res.GetSession(player)
+	local clock = 0
+	local last
+	for stepIndex = info.stepIndex, #info.recipe do
+		clock += Economy.MinStepSeconds[info.recipe[stepIndex].type] or 0
+		local stepOk, stepReason, result = Res.ReportStepComplete(player, uid, stepIndex, stepScore, session.id, clock)
+		if not stepOk then
+			Res.ExitRestore(player, uid)
+			return false, stepReason
+		end
+		last = result
+	end
+	return true, last
+end
+
+-- whyStuck(player): a plain-language list of what the player can do next, or why they can't progress (first-10-minutes check)
+function commands.whyStuck(player: Player)
+	local data = S.DataService.Get(player)
+	if data == nil then
+		return false, "no data loaded"
+	end
+	local lines = {}
+	local counts = { Unopened = 0, Dirty = 0, InProgress = 0, Restored = 0, Displayed = 0, Exhibited = 0 }
+	for _, item in data.inventory do
+		counts[item.state] = (counts[item.state] or 0) + 1
+	end
+	local capacity = S.InventoryService.GetCapacity(player)
+	local counted = counts.Dirty + counts.InProgress + counts.Restored + counts.Displayed + counts.Exhibited
+	table.insert(lines, `cash ${data.cash}, level {data.level}; inventory {counted}/{capacity} (Unopened boxes {counts.Unopened}, Dirty {counts.Dirty}, InProgress {counts.InProgress}, Restored {counts.Restored}, on shelves {counts.Displayed}, exhibits {counts.Exhibited})`)
+	local cheapest = math.huge
+	for _, crate in Crates do
+		if crate.price > 0 and crate.requiredLevel <= data.level then
+			cheapest = math.min(cheapest, crate.price)
+		end
+	end
+	local problems = 0
+	if counts.Unopened > 0 then
+		table.insert(lines, `NEXT: open a box at the delivery point ({counts.Unopened} waiting)` .. (if counted >= capacity then " - BLOCKED: the inventory is full" else ""))
+		if counted >= capacity then
+			problems += 1
+		end
+	end
+	if counts.Dirty + counts.InProgress > 0 then
+		table.insert(lines, `NEXT: restore a Dirty item at the bench ({counts.Dirty + counts.InProgress} waiting)`)
+	end
+	if counts.Restored > 0 then
+		table.insert(lines, `NEXT: put a Restored item on a shelf or pedestal ({counts.Restored} waiting)`)
+	end
+	if counts.Displayed > 0 then
+		table.insert(lines, `customers can buy {counts.Displayed} displayed item(s)`)
+	end
+	if counted >= capacity and counts.Restored + counts.Displayed + counts.Exhibited == 0 then
+		problems += 1
+		table.insert(lines, "STUCK: the inventory is full of items that can't be sold yet (Dirty items can't be quick-sold). Needs the restoration UI, or buy Storage Racks, or this DevTools: autoRestore / resetProfile.")
+	end
+	if counted == 0 and counts.Unopened == 0 then
+		if data.cash >= cheapest then
+			table.insert(lines, `NEXT: buy a crate (cheapest ${cheapest})`)
+		else
+			problems += 1
+			table.insert(lines, `STUCK: no items, no boxes and only ${data.cash} (cheapest crate ${cheapest}). Claim the free delivery when it is ready.`)
+		end
+	end
+	local sessionNow = S.RestorationService.GetSession(player)
+	if sessionNow then
+		table.insert(lines, `restoration session open on {sessionNow.uid} (step {sessionNow.stepIndex})`)
+	end
+	table.insert(lines, if problems == 0 then "verdict: not stuck" else `verdict: {problems} problem(s)`)
+	return true, lines
+end
+
+-- e2e(player): walks the player through the whole loop on the LIVE services (see Tests/EndToEndCheck), then restores the profile
+function commands.e2e(player: Player)
+	local EndToEndCheck = require(script.Parent.Parent.Tests.EndToEndCheck)
+	local lines, passed, failed = EndToEndCheck.run(S, player, function(command: string, ...)
+		local handler = commands[command]
+		if handler == nil then
+			return false, "unknown command"
+		end
+		local ok, success, value = pcall(handler, player, ...)
+		if not ok then
+			return false, "command errored: " .. tostring(success)
+		end
+		return success, value
+	end)
+	return failed == 0, { passed = passed, failed = failed, lines = lines }
+end
+
 -- maxUpgrades(player): every upgrade to its max level for free (also shows decor and slots)
 function commands.maxUpgrades(player: Player)
 	for id, def in Upgrades do
@@ -109,6 +213,7 @@ function commands.resetProfile(player: Player)
 		end
 	end
 	S.PlotService.RefreshSlots(player)
+	S.DisplayService.SyncSlots(player) -- the shelves are empty now: clear their ItemId / Golden / Stars attributes
 	S.ShipmentService.GrantFirstBox(player)
 	return true, nil
 end

@@ -58,7 +58,7 @@ flowchart LR
 
 ### Dev 3: Sean, World, Customers & UI Lead
 - **Responsibilities:** what players see and walk around in, the customers, and every screen.
-- **Systems:** 6 plots + street, expansions and decor models, DisplayService, CustomerService (NPC spawning and movement), CustomerUIController, all UI (HUD, Inventory, Discovery, Upgrades, Supply, Collection, Settings, Toasts), TutorialController, ShopSocialService (likes, announcements, visit, invite), mobile layout.
+- **Systems:** 6 plots + street, expansions and decor models, DisplayService, CustomerNpcService (NPC models, walking, checkout prompt; agreed 2026-11-16: Ace owns CustomerService's decision rules, Sean's CustomerNpcService reacts to it), CustomerUIController, all UI (HUD, Inventory, Discovery, Upgrades, Supply, Collection, Settings, Toasts), TutorialController, ShopSocialService (likes, announcements, visit, invite), mobile layout.
 - **Depends on:** Dev 1 for data (ClientState and remotes), Dev 2 for item models on shelves.
 - **Deliverables:** greybox plot by Stage 2; display + customers by Stage 5; all MVP UI by Stage 9.
 - **Integration:** owns the **UI contract** (`03_Architecture.md` §8) and plot part names.
@@ -128,7 +128,7 @@ gantt
 
 ### Stage 5: Selling & customer system (2 weeks)
 - **Objectives:** turn restored items into money.
-- **Required:** DisplayService (place/remove, reservations); CustomerService (spawn, waypoint walk, wish, choose, checkout, auto-checkout); Quick Sell; SaleMade feedback; 4 NPC looks.
+- **Required:** DisplayService (place/remove, reservations); CustomerService [Dev 1: decisions] + CustomerNpcService [Dev 3: spawn, waypoint walk, counter, auto-checkout] (see docs/Customer_Server.md); Quick Sell; SaleMade feedback; 4 NPC looks.
 - **Dependencies:** Stages 3–4.
 - **Done when:** put 3 items on shelves → customers come in, show wishes, buy, pay correct price (verify against `Formulas.sellPrice`); 2 players' shops run customers at the same time without errors.
 - **Mistakes:** PathfindingService (not needed); server loops per NPC per frame; customers buying an item that was just removed (use reservations).

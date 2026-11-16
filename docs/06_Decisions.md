@@ -74,3 +74,10 @@ We reviewed every requested system against a three-person beginner team. The gam
 | U10 | Server size final | 6 / 8 | 6, test 8 in Stage 10 |
 | U11 | Update 1 priority order | co-op, Antique tier, haggling, daily crate | Decide after soft-launch feedback |
 | U12 | Script Sync vs Rojo | see D1 | Try Script Sync for 1 week in Stage 1; switch early if painful |
+
+## D-Map: three streets instead of one (Ace, 2026-11)
+- **Decision:** the town is three east-west streets (Market Street, Antique Row, Workshop Lane), 210 studs apart, joined by a north-south avenue on the west edge. Two shops face each other on each street. Spawn is on the avenue. Map is a workbench 500 x 700 studs.
+- **Why:** it looks and feels like a roleplay town, not a row of boxes; each street has its own landmark (clock tower, fountain, market stalls, depot).
+- **What changed vs docs/01 §E ("side by side on one street, walking next door"):** shops are 100-300 studs apart. Walking between streets takes about 10-20 s. The Visit list (HUD, teleports to a plot's door) is now REQUIRED, not optional: ShopSocialService must be built (Dev 1 server, Dev 3 HUD button).
+- **Risks:** more parts (about 3,000 in the world) and about 50 point lights: test on a low-end phone; StreamingEnabled is on (target radius 1024 covers the whole map).
+- **Reversible:** every plot is one model (PivotTo moves it); the art is under Workspace.Environment and Plots.PlotN.Facade.

@@ -346,8 +346,8 @@ Painting with brushes on textures, real mesh deformation, physics-based assembly
 ## E. Multiplayer Design
 
 ### E1. Server model
-- **6 plots per server**, side by side on one street. Each player is assigned a free plot on join; their shop sign shows their name.
-- No teleporting, private instances, or reserved servers in MVP. Visiting = walking next door (plus a "Visit" list in the HUD that teleports you to a plot's door within the same server).
+- **6 plots per server**, in a small town of three streets (Market Street, Antique Row, Workshop Lane) joined by a west avenue, two shops facing each other on each street (decision 2026-11, see docs/06 D-Map). Each player is assigned a free plot on join; their shop sign shows their name.
+- No private instances or reserved servers in MVP. Visiting = walking to the other street, or the "Visit" list in the HUD that teleports you to a plot's door within the same server. **The Visit list becomes necessary now that shops are 100-300 studs apart (ShopSocialService is still an empty skeleton).**
 
 ### E2. MVP social features
 | Feature | How it works | Why |
@@ -355,7 +355,7 @@ Painting with brushes on textures, real mesh deformation, physics-based assembly
 | **Visit shops** | Walk in, look around, inspect exhibits (nameplate + rarity) | Show-off loop |
 | **Like a shop** | Prompt at a shop's counter; 1 like per shop per visitor per day; owner gets +1 like and a tiny cash reward ($25, max 10 rewarded likes/day) | Positive social feedback, capped against farming |
 | **Rare-find announcements** | Epic and Legendary discoveries post a system chat message server-wide: *"Sean found a LEGENDARY Golden Gramophone!"* | Shared excitement; draws visitors |
-| **Invite friends** | HUD button → `SocialService:PromptGameInvite` | Growth |
+| **Invite friends** | "📨 Invite" button in the 👥 Visit window (decided 2026-11-16: keeps the phone HUD to 2 top-right buttons) → `SocialService:PromptGameInvite` | Growth |
 | **Safe by design** | Visitors **cannot interact** with anything in your shop (prompts only work for the owner). No griefing possible. | Kids' safety, no moderation burden |
 
 ### E3. Update 1: Helping friends
@@ -401,7 +401,7 @@ Trading (scams and duplication exploits, plus Roblox trading-policy complexity),
 
 | Interface | Layout | Function |
 |---|---|---|
-| **Main HUD** | Top-left money + rating pills; left vertical buttons (Inventory 🎒, Upgrades 🔨, Collection 📖, Supply 📦); top-right Settings ⚙ and Visit 👥; level/XP bar under the pills (bottom-right is the mobile jump button) | Always visible, minimal |
+| **Main HUD** | Top-left money + rating pills; a row of buttons under the XP bar (Inventory 🎒, Upgrades 🔨, Collection 📖, Supply 📦); top-right Settings ⚙ and Visit 👥; level/XP bar under the pills (bottom-left is the mobile thumbstick, bottom-right the jump button) | Always visible, minimal |
 | **Money display** | Teal pill, coin icon, number animates up/down, `+$480` floats on gain | Instant feedback |
 | **Inventory** | Center modal, 4-column grid of cards (rarity border, state icon, stars, value); filter tabs; capacity `8/16` | Choose what to restore, display, or sell |
 | **Shipment notification** | Coral banner slides from top: "📦 Free delivery arrived!" / "Crate delivered!", auto-hides after 4 s; box at the door has a bobbing ❓ marker | Draws player to the door |

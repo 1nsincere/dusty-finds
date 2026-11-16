@@ -104,6 +104,21 @@ function PlotCheck.run()
 			end
 			return n == 6
 		end)())
+		-- an unanchored part falls out of the world in Play (seen once: every shop and the whole town vanished)
+		check("every part in Workspace.Plots and Workspace.Environment is Anchored", (function()
+			local loose = {}
+			for _, root in { workspace:FindFirstChild("Plots"), workspace:FindFirstChild("Environment") } do
+				for _, d in root:GetDescendants() do
+					if d:IsA("BasePart") and not d.Anchored then
+						table.insert(loose, d:GetFullName())
+					end
+				end
+			end
+			if #loose > 0 then
+				return false, `{#loose} loose, e.g. {loose[1]}`
+			end
+			return true
+		end)())
 		check("all decor starts hidden (Transparency 1, no collision)", (function()
 			for _, name in DECOR do
 				if not decorHiddenProperly(1, name) then
@@ -181,6 +196,47 @@ function PlotCheck.run()
 		plot(2).DisplaySlots.Slot1:SetAttribute("ItemId", "Teacup")
 		plot(2).DisplaySlots.Slot1:SetAttribute("Golden", true)
 		plot(2).DisplaySlots.Slot1:SetAttribute("Stars", 3)
+
+		-- ===== expansion rooms (Back Room, Showroom), tested on plot 4: it is rotated 180 degrees in the real map =====
+		local p4 = plot(4)
+		local wall4 = p4.Walls.BackWall
+		local wallSize, wallPos = wall4.Size, wall4.Position
+		local function countNamed(root: Instance, name: string): number
+			local n = 0
+			for _, d in root:GetDescendants() do
+				if d.Name == name then
+					n += 1
+				end
+			end
+			return n
+		end
+		check("expansions: templates exist in ServerStorage.Expansions", game:GetService("ServerStorage"):FindFirstChild("Expansions") ~= nil and game:GetService("ServerStorage").Expansions:FindFirstChild("BackRoom") ~= nil and game:GetService("ServerStorage").Expansions:FindFirstChild("Showroom") ~= nil)
+		check("expansions: no rooms before buying, back wall closed", p4:FindFirstChild("Expansion_BackRoom") == nil and p4.Benches:FindFirstChild("Bench2") == nil and wall4.Transparency == 0 and wall4.CanCollide == true)
+		upgradesById[P[4]] = { BackRoom = 1 }
+		PlotService.RefreshSlots(P[4])
+		check("Back Room: the room is cloned into the plot", p4:FindFirstChild("Expansion_BackRoom") ~= nil)
+		check("Back Room: Bench2 (with its Prompt) is in the plot's Benches, where restoration looks", p4.Benches:FindFirstChild("Bench2") ~= nil and p4.Benches.Bench2:FindFirstChildWhichIsA("ProximityPrompt") ~= nil)
+		check("Back Room: the FishTank decor model is in DecorSlots and hidden until bought", p4.DecorSlots:FindFirstChild("FishTank") ~= nil and decorHiddenProperly(4, "FishTank"))
+		check("Back Room: the back wall opens by restyling only (same size and position)", wall4.Transparency == 1 and wall4.CanCollide == false and wall4.Size == wallSize and wall4.Position == wallPos)
+		check("Back Room: the Showroom half of the opening is closed by a fill", countNamed(p4, "WallFill") == 1)
+		local lp = p4.Floor.CFrame:PointToObjectSpace(p4.Expansion_BackRoom.Shell.Floor.Position)
+		check("Back Room: the floor lies behind the back wall in the plot's own axes (also on a rotated plot)", lp.Z > 20 and lp.Z < 44 and lp.X < 0, tostring(lp))
+		local bp = p4.Floor.CFrame:PointToObjectSpace(p4.Benches.Bench2.Position)
+		check("Back Room: Bench2 stands inside the room", bp.Z > 20 and bp.Z < 44 and bp.X < 0, tostring(bp))
+		upgradesById[P[4]] = { BackRoom = 1, FishTank = 1 }
+		PlotService.RefreshSlots(P[4])
+		check("Fish Tank shows once bought", decorShown(4, "FishTank"))
+		upgradesById[P[4]] = { BackRoom = 1, Showroom = 1, FishTank = 1 }
+		PlotService.RefreshSlots(P[4])
+		PlotService.RefreshSlots(P[4])
+		check("both rooms: Showroom added, fills removed, wall still open", p4:FindFirstChild("Expansion_Showroom") ~= nil and countNamed(p4, "WallFill") == 0 and wall4.Transparency == 1)
+		check("refreshing again does not duplicate rooms, benches or decor", countNamed(p4, "Expansion_BackRoom") == 1 and countNamed(p4, "Bench2") == 1 and countNamed(p4, "FishTank") == 1)
+		check("Showroom: the Fountain decor exists and is hidden until bought", p4.DecorSlots:FindFirstChild("Fountain") ~= nil and decorHiddenProperly(4, "Fountain"))
+		upgradesById[P[4]] = { Showroom = 1 }
+		PlotService.RefreshSlots(P[4])
+		check("losing the Back Room removes its room, bench and decor but keeps the Showroom", p4:FindFirstChild("Expansion_BackRoom") == nil and p4.Benches:FindFirstChild("Bench2") == nil and p4.DecorSlots:FindFirstChild("FishTank") == nil and p4:FindFirstChild("Expansion_Showroom") ~= nil)
+		releasingCallback(P[4])
+		check("release removes every room, bench and decor model and closes the wall again", p4:FindFirstChild("Expansion_Showroom") == nil and countNamed(p4, "Bench2") == 0 and p4.DecorSlots:FindFirstChild("Fountain") == nil and wall4.Transparency == 0 and wall4.CanCollide == true)
 
 		-- release and reuse
 		releasingCallback(P[2])

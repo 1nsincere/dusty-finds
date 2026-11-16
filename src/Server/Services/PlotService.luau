@@ -2,10 +2,11 @@
 -- Purpose: gives each player a free shop plot when their data loads, teleports them to it, shows their name on the
 -- sign, enables the display/exhibit slots they own, and resets the plot when they leave (docs/01 multiplayer section, docs/03 §2).
 -- Owner: Dev 1 (Ace). Depends on: DataService, Shared.Config (Economy, Upgrades), Workspace.Plots (Sean's greybox).
--- Server only. No remotes. Decor is shown from upgrade levels; expansion rooms (Back Room, Showroom) are not cloned yet.
+-- Server only. No remotes. Decor is shown from upgrade levels; expansion rooms (Back Room, Showroom) are cloned from ServerStorage.Expansions when owned.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
@@ -32,6 +33,15 @@ local function setSign(plot: Model, text: string)
 		label.Text = text
 	else
 		log.warn(plot.Name, "has no Sign.SurfaceGui.OwnerName TextLabel")
+	end
+	-- the big fascia signs on the building front (Facade) show the same name; optional, art only
+	local facade = plot:FindFirstChild("Facade")
+	if facade then
+		for _, descendant in facade:GetDescendants() do
+			if descendant:IsA("TextLabel") and descendant.Name == "OwnerName" then
+				descendant.Text = text
+			end
+		end
 	end
 end
 
@@ -102,11 +112,100 @@ local function applyDecor(plot: Model, upgrades: { [string]: number }?)
 	end
 end
 
+-- ===== Expansion rooms (Back Room, Showroom) =====
+-- Rooms are built in Studio under ServerStorage.Expansions/<name> in PLOT-LOCAL coordinates (plot Floor centre = origin) and cloned
+-- into the plot when the upgrade (Config effect.expansion) is owned. A room may carry Benches/<Bench2> and DecorSlots/<model>
+-- children: those are moved into the plot's own Benches / DecorSlots folders so the rest of the game finds them by name.
+-- Everything created is marked with the attribute ExpansionOf = <name> so it can be removed again (release, refund, resetProfile).
+local function removeExpansion(plot: Model, name: string)
+	local doomed = {}
+	for _, descendant in plot:GetDescendants() do
+		if descendant:GetAttribute("ExpansionOf") == name then
+			table.insert(doomed, descendant)
+		end
+	end
+	for _, instance in doomed do
+		instance:Destroy()
+	end
+end
+
+local function buildExpansion(plot: Model, template: Instance, name: string)
+	local floor = plot:FindFirstChild("Floor")
+	if floor == nil or not floor:IsA("BasePart") or not template:IsA("Model") then
+		log.warn(plot.Name, "can't build expansion", name)
+		return
+	end
+	local clone = template:Clone()
+	clone.Name = "Expansion_" .. name
+	clone:SetAttribute("ExpansionOf", name)
+	clone:PivotTo(floor.CFrame)
+	for _, folderName in { "Benches", "DecorSlots" } do
+		local source = clone:FindFirstChild(folderName)
+		local target = plot:FindFirstChild(folderName)
+		if source and target then
+			for _, child in source:GetChildren() do
+				child:SetAttribute("ExpansionOf", name)
+				child.Parent = target
+			end
+			source:Destroy()
+		end
+	end
+	clone.Parent = plot
+end
+
+-- Adds or removes each room from the upgrades, and opens the back wall while any room exists.
+-- The plot's BackWall is only restyled (Transparency / CanCollide), never resized or moved.
+local function applyExpansions(plot: Model, upgrades: { [string]: number }?)
+	local storage = ServerStorage:FindFirstChild("Expansions")
+	local owned = upgrades or {}
+	local ownedCount = 0
+	for _, def in Upgrades do
+		local name = def.effect and def.effect.expansion
+		if name then
+			local has = (owned[def.id] or 0) > 0
+			local built = plot:FindFirstChild("Expansion_" .. name) ~= nil
+			if has then
+				ownedCount += 1
+			end
+			if has and not built then
+				local template = storage and storage:FindFirstChild(name)
+				if template then
+					buildExpansion(plot, template, name)
+				else
+					log.warn("no ServerStorage.Expansions." .. name .. " model: the room is bought but invisible")
+				end
+			elseif not has and built then
+				removeExpansion(plot, name)
+			end
+		end
+	end
+	local walls = plot:FindFirstChild("Walls")
+	local backWall = walls and walls:FindFirstChild("BackWall")
+	if backWall and backWall:IsA("BasePart") then
+		local open = ownedCount > 0
+		backWall.Transparency = if open then 1 else 0
+		backWall.CanCollide = not open
+	end
+	if ownedCount >= 2 then
+		-- both rooms exist: the plaster fills that closed the other half of the opening are no longer needed
+		local fills = {}
+		for _, descendant in plot:GetDescendants() do
+			if descendant.Name == "WallFill" then
+				table.insert(fills, descendant)
+			end
+		end
+		for _, fill in fills do
+			fill:Destroy()
+		end
+	end
+end
+
 -- Rebuilds everything a plot shows from the owner's upgrades (nil = the empty "For Sale" look).
 local function applySlots(plot: Model, upgrades: { [string]: number }?)
 	local displayCount, exhibitCount = slotCounts(upgrades)
 	setSlots(plot:FindFirstChild("DisplaySlots"), displayCount)
 	setSlots(plot:FindFirstChild("ExhibitSlots"), exhibitCount)
+	applyExpansions(plot, upgrades) -- rooms first: they bring their own Bench2 and decor models
 	applyDecor(plot, upgrades)
 end
 

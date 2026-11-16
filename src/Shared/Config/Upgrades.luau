@@ -104,6 +104,7 @@ local Upgrades = {
 		id = "FishTank", name = "Fish Tank", tab = "Decor",
 		maxLevel = 1, costs = { 3000 }, requiredLevel = { 1 }, -- all decor unlocks at Lv 1 (Ace's decision)
 		requires = "BackRoom", -- but you must own the Back Room first (it has the Fish Tank slot)
+		decorSlots = { "FishTank" }, -- shown by PlotService from the Back Room template (ServerStorage.Expansions)
 		effect = { ratingPoints = { 6 } },
 		description = "Fish for the Back Room",
 	},
@@ -111,6 +112,7 @@ local Upgrades = {
 		id = "Fountain", name = "Fountain", tab = "Decor",
 		maxLevel = 1, costs = { 10000 }, requiredLevel = { 1 }, -- all decor unlocks at Lv 1 (Ace's decision)
 		requires = "Showroom", -- but you must own the Showroom first (it has the Fountain slot)
+		decorSlots = { "Fountain" }, -- shown by PlotService from the Showroom template (ServerStorage.Expansions)
 		effect = { ratingPoints = { 10 } },
 		description = "A fountain for the Showroom",
 	},
