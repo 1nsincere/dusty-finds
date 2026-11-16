@@ -65,7 +65,7 @@ Config decides which slot shows when: `decorSlots` on an upgrade in `Config/Upgr
 | Test | Command | Expected |
 |---|---|---|
 | Services, rolls, selling, upgrades | `require(game.ServerScriptService.Server.Tests.SystemsCheck).run()` | `[SystemsCheck] 129 passed, 0 failed` |
-| Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 44 passed, 0 failed` |
+| Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 46 passed, 0 failed` |
 | Tutorial | `require(game.ServerScriptService.Server.Tests.TutorialCheck).run()` | `[TutorialCheck] 19 passed, 0 failed` |
 | Minigames (Scrape, Socket, Test logic) | `require(game.ServerScriptService.Server.Tests.MinigamesCheck).run()` | `[MinigamesCheck] 24 passed, 0 failed` |
 | DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 27 passed, 0 failed` |

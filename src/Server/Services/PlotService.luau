@@ -139,6 +139,11 @@ local function buildExpansion(plot: Model, template: Instance, name: string)
 	clone.Name = "Expansion_" .. name
 	clone:SetAttribute("ExpansionOf", name)
 	clone:PivotTo(floor.CFrame)
+	-- a shop can be scaled (a 56 stud shop is 1.4x the 40 stud original): the template room is authored at 1x, so scale it with the plot
+	local scale = floor.Size.X / 40
+	if math.abs(scale - 1) > 0.001 then
+		clone:ScaleTo(scale)
+	end
 	for _, folderName in { "Benches", "DecorSlots" } do
 		local source = clone:FindFirstChild(folderName)
 		local target = plot:FindFirstChild(folderName)

@@ -219,6 +219,21 @@ function PlotCheck.run()
 		check("Back Room: the FishTank decor model is in DecorSlots and hidden until bought", p4.DecorSlots:FindFirstChild("FishTank") ~= nil and decorHiddenProperly(4, "FishTank"))
 		check("Back Room: the back wall opens by restyling only (same size and position)", wall4.Transparency == 1 and wall4.CanCollide == false and wall4.Size == wallSize and wall4.Position == wallPos)
 		check("Back Room: the Showroom half of the opening is closed by a fill", countNamed(p4, "WallFill") == 1)
+		-- a scaled shop (1.4x, 56 studs): the room has to scale with the plot
+		do
+			local p5 = plot(5)
+			p5:ScaleTo(1.4)
+			upgradesById[P[5]] = { BackRoom = 1 }
+			PlotService.RefreshSlots(P[5])
+			local room = p5:FindFirstChild("Expansion_BackRoom")
+			local templateFloor = game:GetService("ServerStorage").Expansions.BackRoom.Shell.Floor
+			check("scaled shop: the Back Room is scaled 1.4x with the plot", room ~= nil and math.abs(room.Shell.Floor.Size.X - templateFloor.Size.X * 1.4) < 0.05, room and tostring(room.Shell.Floor.Size))
+			local lp5 = p5.Floor.CFrame:PointToObjectSpace(room.Shell.Floor.Position)
+			check("scaled shop: the room lies behind the scaled back wall (Z 28 to 62)", lp5.Z > 28 and lp5.Z < 62, tostring(lp5))
+			upgradesById[P[5]] = nil
+			PlotService.RefreshSlots(P[5])
+			p5:ScaleTo(1)
+		end
 		local lp = p4.Floor.CFrame:PointToObjectSpace(p4.Expansion_BackRoom.Shell.Floor.Position)
 		check("Back Room: the floor lies behind the back wall in the plot's own axes (also on a rotated plot)", lp.Z > 20 and lp.Z < 44 and lp.X < 0, tostring(lp))
 		local bp = p4.Floor.CFrame:PointToObjectSpace(p4.Benches.Bench2.Position)

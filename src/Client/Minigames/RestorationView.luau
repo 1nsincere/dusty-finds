@@ -95,6 +95,20 @@ function RestorationView.new(ctx, onCancel)
 				end
 			end
 		end
+		-- A scaled shop (e.g. 1.4x, a 56 stud floor) has a bigger bench and a farther CameraPoint: scale the item by the same factor
+		-- so it looks the same on screen as in an unscaled shop. Plot scale = floor width / 40 (the original shop).
+		local plotFloor
+		do
+			local node: Instance? = bench
+			while node and not plotFloor do
+				plotFloor = node:FindFirstChild("Floor")
+				node = node.Parent
+			end
+		end
+		local plotScale = if plotFloor and plotFloor:IsA("BasePart") then plotFloor.Size.X / 40 else 1
+		if math.abs(plotScale - 1) > 0.001 then
+			self.model:ScaleTo(plotScale)
+		end
 		-- ItemAnchor is the resting surface; Base's bottom sits on it, using the plot's actual rotation.
 		self.model:PivotTo(anchor.CFrame * CFrame.new(0, anchor.Size.Y / 2 + self.model.PrimaryPart.Size.Y / 2, 0))
 		self.model.Parent = workspace
