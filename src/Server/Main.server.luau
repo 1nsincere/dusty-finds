@@ -28,6 +28,7 @@ local ORDER = {
 	"UpgradeService",
 	"ShopSocialService",
 	"SettingsService",
+	"TutorialService", -- Sean: saves tutorial.step/done (RequestTutorialStep), checked against Shared.Tutorial
 	"DevTools", -- Studio only: does nothing on live servers
 }
 

@@ -104,6 +104,7 @@ src/Shared/                                  (ReplicatedStorage.Shared)
 │   └── Economy.luau        -- global numbers (start cash, intervals, multipliers, XP curve)
 ├── Remotes.luau            -- declares + creates/gets every remote (§6)
 ├── Types.luau              -- type definitions (ItemInstance, PlayerData…)
+├── Tutorial.luau           -- [Dev 3] tutorial steps + IsStepDone/CurrentStep from saved data (client shows, server checks)
 ├── Formulas.luau           -- pure functions: sellPrice(), qualityStars(), xpToNext(), rating() (used by server AND UI previews)
 └── Util/
     ├── Signal.luau         -- tiny event helper (optional)
@@ -126,6 +127,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   │                                    CustomerId, CustomerType, Wish, OwnerUserId, ItemId (once chosen)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
+│   ├── TutorialService.luau     [Dev 3] RequestTutorialStep: saves tutorial.step / tutorial.done after checking the step against saved data (Shared.Tutorial)
 │   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
@@ -146,7 +148,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
 │   ├── SettingsController.luau     [Dev 3]
 │   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work
-│   └── TutorialController.luau     [Dev 3]
+│   └── TutorialController.luau     [Dev 3] tutorial hint + ▼ arrow from Shared.Tutorial; Skip; finish glow on HUD Upgrades
 └── Minigames/                      [Dev 2]
     ├── PointerInput.luau   -- unified mouse/touch → raycast hits
     ├── SpotClear.luau      -- Wipe + Scrape
@@ -231,7 +233,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | **Unused for now (2026-11-16):** likes come from `Counter.LikePrompt` Triggered on the server (Roblox checks the distance). Same rules: not own shop, not liked today |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
 | `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
-| `RequestTutorialStep` | `stepId` | Dev 3 | known id, order |
+| `RequestTutorialStep` | `stepId` | Dev 3 | known id (a `Shared.Tutorial` step id, "done" or "skip"); order = the step must already be true in saved data ("done" = all steps); rate limit 2/s |
 
 ### Server → Client (RemoteEvents)
 | Remote | Payload | Purpose |
@@ -308,6 +310,8 @@ Visit.Window.{Title,CloseButton,InviteButton,List,Empty}   Visit.RowTemplate (hi
   -- InviteButton: "📨 Invite" → SocialService:PromptGameInvite (client only)
   -- one row per player on the server, you first ("🏠 Your shop" + "Go home"); List = ScrollingFrame + UIListLayout
   -- one row per key, named after it: announcements, music, sfx, reduceEffects (= SettingsService keys)
+Tutorial.Hint (Frame, hidden, bottom centre) → Text (TextLabel), SkipButton (TextButton)   -- ScreenGui DisplayOrder 1 (windows cover it)
+  -- the ▼ arrow is a BillboardGui "TutorialArrow" made in code (PlayerGui, client only)
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)
 Toasts.UIScale  -- toasts = Notify kinds other than LevelUp/Upgrade (e.g. "Info"), 3 s, max 3 on screen
 ```
