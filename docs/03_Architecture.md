@@ -119,7 +119,11 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── ShipmentService.luau     [Dev 1] free delivery timer, crate purchase, rolls, opening
 │   ├── RestorationService.luau  [Dev 2] start/step/finish validation, quality calc
 │   ├── DisplayService.luau      [Dev 1 server rules, Dev 3 visuals] display & exhibit slots, slot attributes, reservations for customers
-│   ├── CustomerService.luau     [Dev 3] spawn/move NPCs, choose items, checkout, pay via Economy
+│   ├── CustomerService.luau     [Dev 1] customer DECISIONS: arrivals, type/wish, ChooseItem (reserve), Checkout, Leave
+│   ├── CustomerNpcService.luau  [Dev 3] customer BODIES: model from ServerStorage.NPCs, walk Door→Browse→shelf→
+│   │                                    counter queue→Exit, Counter.CheckoutPrompt (owner only), 8 s auto checkout;
+│   │                                    registers CustomerService.SetSpawnHandler/SetRemovedHandler. Model attributes:
+│   │                                    CustomerId, CustomerType, Wish, OwnerUserId, ItemId (once chosen)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
 │   └── ShopSocialService.luau     [Dev 3] likes, announcements, visit list, invites
