@@ -142,7 +142,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── RestorationController.luau  [Dev 2] bench view, camera, step runner
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
 │   ├── CollectionController.luau   [Dev 3]
-│   ├── CustomerUIController.luau   [Dev 3] thought bubbles, checkout prompt UI
+│   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
 │   ├── SettingsController.luau     [Dev 3]
 │   └── TutorialController.luau     [Dev 3]
 └── Minigames/                      [Dev 2]
