@@ -62,14 +62,22 @@ local function splitArgs(unfiltered: string): { string }
 end
 
 -- ===== Fly =====
+-- x = right, z = back (negative z = forward). Reads the keys directly: asking the PlayerModule every frame can wait forever.
 local function moveVector(): Vector3
-	local ok, controls = pcall(function()
-		return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")):GetControls()
-	end)
-	if ok and controls then
-		return controls:GetMoveVector() -- x = right, z = back (negative z = forward)
+	local x, z = 0, 0
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		x += 1
 	end
-	return Vector3.zero
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		x -= 1
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		z += 1
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		z -= 1
+	end
+	return Vector3.new(x, 0, z)
 end
 
 local function stopFly()
