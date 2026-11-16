@@ -6,7 +6,8 @@
 -- Shared.Config.Economy (MinStepSeconds), ClientState, RestorationUIController (chips, hint, progress bar, finish card).
 --
 -- MINIGAMES PLUG IN HERE (Dwayne): RestorationController.RegisterMinigame(stepType, function(ctx) ... return cleanup end)
---   ctx = { uid, stepIndex, step, seed, sessionId, setProgress(0..1), complete(score 0-100) }
+--   ctx = { uid, stepIndex, step, seed, sessionId, benchName, bench (Instance), startedAt, setProgress(0..1), complete(score 0-100) }
+--   complete() is safe to call as fast as the player is: the runner holds the report until the server minimum time has passed.
 --   call ctx.complete(100) once when the step is finished; return a cleanup function that removes your UI / connections.
 -- A step type with no registered minigame uses the PLACEHOLDER below (hold a button until the bar is full).
 
@@ -27,6 +28,7 @@ local others: { [string]: any } = {}
 
 type Session = { uid: string, recipe: { { [string]: any } }, stepIndex: number, sessionId: number?, seed: number? }
 local session: Session? = nil
+local activeBench: string? = nil -- the bench the player asked to restore at (Bench1 / Bench2)
 local cleanup: (() -> ())? = nil
 local minigames: { [string]: (any) -> (() -> ())? } = {}
 
@@ -51,6 +53,7 @@ end
 local function endSession()
 	stopStep()
 	session = nil
+	activeBench = nil
 end
 
 -- ===== Placeholder minigame: hold the button until the bar is full (real minigames replace it per step type) =====
@@ -119,6 +122,21 @@ local function placeholder(ctx): () -> ()
 end
 
 -- ===== Step runner =====
+-- The bench Instance of MY shop by name (Dwayne: use ctx.bench for the camera / item clone).
+local function findBench(name: string?): Instance?
+	local plots = workspace:FindFirstChild("Plots")
+	if plots == nil or name == nil then
+		return nil
+	end
+	for _, plot in plots:GetChildren() do
+		if plot:GetAttribute("OwnerUserId") == player.UserId then
+			local benches = plot:FindFirstChild("Benches")
+			return benches and benches:FindFirstChild(name)
+		end
+	end
+	return nil
+end
+
 local function startStep()
 	stopStep()
 	local current = session
@@ -138,6 +156,9 @@ local function startStep()
 		step = step,
 		seed = current.seed,
 		sessionId = current.sessionId,
+		benchName = activeBench, -- "Bench1" / "Bench2"; nil if the session was resumed without asking from this client
+		bench = findBench(activeBench), -- the bench Instance in my shop (nil if not found)
+		startedAt = os.clock(),
 		setProgress = function(fraction: number)
 			local view = ui()
 			if view and not reported then
@@ -153,8 +174,21 @@ local function startStep()
 			if view then
 				view.SetProgress(1)
 			end
-			Remotes.ReportStepComplete:FireServer(ctx.uid, ctx.stepIndex, score, ctx.sessionId)
-			log(`reported {ctx.uid} step {ctx.stepIndex} ({step.type}) score {score}`)
+			-- The server rejects a step finished faster than Economy.MinStepSeconds. Hold the report back until that time has
+			-- passed, so a fast player is never refused: minigames just call complete() whenever they are done.
+			local wait = (Economy.MinStepSeconds[step.type] or 0) + 0.25 - (os.clock() - ctx.startedAt)
+			local function send()
+				if session ~= current or session == nil or session.stepIndex ~= ctx.stepIndex then
+					return -- exited or moved on while we waited
+				end
+				Remotes.ReportStepComplete:FireServer(ctx.uid, ctx.stepIndex, score, ctx.sessionId)
+				log(`reported {ctx.uid} step {ctx.stepIndex} ({step.type}) score {score}`)
+			end
+			if wait > 0 then
+				task.delay(wait, send)
+			else
+				send()
+			end
 		end,
 	}
 	local runner = minigames[step.type] or placeholder
@@ -225,6 +259,7 @@ function RestorationController.RequestStartRestore(uid: string)
 		warn("[RestorationController] no bench found in my shop")
 		return
 	end
+	activeBench = bench
 	Remotes.RequestStartRestore:FireServer(uid, bench)
 	log("asked to restore", uid, "at", bench)
 end
