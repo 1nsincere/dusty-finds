@@ -180,3 +180,83 @@ def export_glb(path: str, objs):
     for o in objs:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True)
+
+
+def tube(name: str, points, radii, bevel: float = 0.05, resolution: int = 12):
+    """A smooth round tube along a Bezier path. points = [(x,y,z)...], radii = one scale per point (tapers the tube)."""
+    curve = bpy.data.curves.new(name, "CURVE")
+    curve.dimensions = "3D"
+    curve.bevel_depth = bevel
+    curve.bevel_resolution = 2
+    curve.use_fill_caps = True
+    curve.resolution_u = max(4, resolution // 2)
+    spline = curve.splines.new("BEZIER")
+    spline.bezier_points.add(len(points) - 1)
+    for i, (p, r) in enumerate(zip(points, radii)):
+        bp = spline.bezier_points[i]
+        bp.co = p
+        bp.radius = r
+        bp.handle_left_type = "AUTO"
+        bp.handle_right_type = "AUTO"
+    obj = bpy.data.objects.new(name, curve)
+    bpy.context.collection.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.convert(target="MESH")
+    obj = bpy.context.active_object
+    obj.select_set(False)
+    return obj
+
+
+def metal_material(obj, color_name: str, metallic: float, roughness: float):
+    mat = obj.data.materials[0]
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    bsdf.inputs["Metallic"].default_value = metallic
+    bsdf.inputs["Roughness"].default_value = roughness
+
+
+def preview_cycles(path: str, distance: float = 4.0, height: float = 1.6, look_z: float = 0.7, samples: int = 48):
+    """A proper (slow, CPU) render with soft lights so you can judge the surface quality. Not used by the game."""
+    import mathutils
+
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = samples
+    scene.cycles.use_denoising = True
+    scene.render.resolution_x = 1000
+    scene.render.resolution_y = 800
+    world = bpy.data.worlds.new("W")
+    world.use_nodes = True
+    bg = world.node_tree.nodes["Background"]
+    bg.inputs["Color"].default_value = (0.75, 0.82, 0.9, 1)
+    bg.inputs["Strength"].default_value = 1.1
+    scene.world = world
+    floor = bpy.data.meshes.new("floor")
+    fo = bpy.data.objects.new("floor", floor)
+    bpy.context.collection.objects.link(fo)
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=6)
+    bm.to_mesh(floor)
+    bm.free()
+    fm = bpy.data.materials.new("floormat")
+    fm.use_nodes = True
+    fm.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.78, 0.72, 0.62, 1)
+    fm.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.8
+    floor.materials.append(fm)
+    for loc, energy, size in [((3, -4, 5), 600, 4), ((-4, -2, 3), 250, 3)]:
+        ld = bpy.data.lights.new("L", "AREA")
+        ld.energy = energy
+        ld.size = size
+        lo = bpy.data.objects.new("L", ld)
+        bpy.context.collection.objects.link(lo)
+        lo.location = loc
+        lo.rotation_euler = (mathutils.Vector((0, 0, look_z)) - lo.location).to_track_quat("-Z", "Y").to_euler()
+    cam_data = bpy.data.cameras.new("Cam")
+    cam = bpy.data.objects.new("Cam", cam_data)
+    bpy.context.collection.objects.link(cam)
+    cam.location = (distance * 0.6, -distance, height)
+    cam.rotation_euler = (mathutils.Vector((0, 0, look_z)) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    scene.camera = cam
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
