@@ -280,7 +280,8 @@ HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton, emoji child
   -- a ROW under the XP bar (not a column): the bottom-left corner belongs to the phone thumbstick
 HUD.TopRight.{Settings,Visit} (ImageButton)
 HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv N" on top
-HUD.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
+Toasts.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
+  -- in Toasts (DisplayOrder 5), not HUD, so it shows above open windows (moved 2026-11-16)
 HUD.UIScale  -- HudController sets Scale by screen size
 StarterGui.ScreenOrientation = LandscapeSensor  -- landscape only (decision 2026-11-16): windows are ~600 px wide
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI

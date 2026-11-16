@@ -27,9 +27,9 @@ local BUY_COOLDOWN = 1.5 -- seconds the button shows "Ordering…" (also stops d
 
 -- Upgrades screen
 local UPGRADE_TABS = { "Tools", "Shop", "Decor", "Expansions" } -- = `tab` field in Config/Upgrades
--- Expansion rooms are not cloned into the plot yet (Dev 1, docs/08 §7), so they can't be bought from the UI
--- yet: nobody should pay for a room they can't see. Remove this when Back Room / Showroom models exist.
-local COMING_SOON_TABS = { Expansions = true }
+-- Tabs listed here show "Coming soon" instead of Buy (nobody should pay for something not built yet).
+-- Expansions unlocked 2026-11-16: PlotService now clones ServerStorage.Expansions.{BackRoom,Showroom} into the plot.
+local COMING_SOON_TABS: { [string]: boolean } = {}
 local UPGRADE_ICONS = {
 	CleaningBrush = "🧽", RepairToolkit = "🧰", Polisher = "✨",
 	-- Only older emoji: Roblox's emoji font draws newer ones (e.g. 🪴 🪧) as empty squares.
