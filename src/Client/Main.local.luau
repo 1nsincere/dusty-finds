@@ -31,6 +31,7 @@ local ORDER = {
 	"TutorialController",
 	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
 	"AdminController", -- Dev 1: Studio-only dev commands (/fly, /tp, /noclip ...); does nothing on the live game
+	"RestorationMoreMinigamesController", -- Dev 1: Test, Scrape, Reassemble, Replace minigames (Dwayne registers Wipe/Polish in his own controller)
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")

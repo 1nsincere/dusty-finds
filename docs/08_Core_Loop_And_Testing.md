@@ -66,6 +66,8 @@ Config decides which slot shows when: `decorSlots` on an upgrade in `Config/Upgr
 |---|---|---|
 | Services, rolls, selling, upgrades | `require(game.ServerScriptService.Server.Tests.SystemsCheck).run()` | `[SystemsCheck] 129 passed, 0 failed` |
 | Plots and decor | `require(game.ServerScriptService.Server.Tests.PlotCheck).run()` | `[PlotCheck] 44 passed, 0 failed` |
+| Tutorial | `require(game.ServerScriptService.Server.Tests.TutorialCheck).run()` | `[TutorialCheck] 19 passed, 0 failed` |
+| Minigames (Scrape, Socket, Test logic) | `require(game.ServerScriptService.Server.Tests.MinigamesCheck).run()` | `[MinigamesCheck] 24 passed, 0 failed` |
 | DevTools | `require(game.ServerScriptService.Server.Tests.DevToolsCheck).run()` | `[DevToolsCheck] 27 passed, 0 failed` |
 | Customers | `require(game.ServerScriptService.Server.Tests.CustomerCheck).run()` | `[CustomerCheck] 51 passed, 0 failed` |
 | Restoration | `require(game.ServerScriptService.Server.Tests.RestorationCheck).run()` | `[RestorationCheck] 53 passed, 0 failed` |
@@ -99,6 +101,7 @@ print(DT:Invoke("dump", me))                         -- all saved data
 `resetProfile` and `maxUpgrades` change your saved test profile (`PlayerData_DEV`). That is what they are for, but
 only use them on a profile you do not mind resetting. DevTools does nothing on a live server.
 
+**Run every check at once:** `game.ServerStorage.DevTools:Invoke("testAll", player)` returns one summary (about 577 checks, ends with GREEN or RED). Add `true` as a third argument to also walk the live loop (about 70 s, restores your profile). PlotCheck and DevToolsCheck read script Source, so Studio only lets the command bar run them: `testAll` skips them and says so. Run those two from the command bar.
 **Dev explore commands (Studio only, chat):** `AdminController` (client) adds `/cmds`, `/fly [speed]` (WASD, Space up, Ctrl or Q down), `/noclip`, `/speed n`, `/jump n`, `/zoom n` (the game caps zoom at 20), `/tp x y z`, `/tp playerName`, `/plot n`, `/normal`. It does nothing outside Studio and changes nothing on the server (cash, items and levels stay in DevTools above).
 
 ## 6. Manual loop check (about 5 minutes)
