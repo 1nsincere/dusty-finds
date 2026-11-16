@@ -6,3 +6,4 @@
 # generated Blender output (rebuild with tools/blender/*.py)
 assets/models/
 assets/previews/
+assets/template/
