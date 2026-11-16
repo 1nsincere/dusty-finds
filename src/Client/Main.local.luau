@@ -29,6 +29,7 @@ local ORDER = {
 	"VisitController", -- Sean: 👥 Visit window (RequestVisit)
 	"TutorialController",
 	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
+	"AdminController", -- Dev 1: Studio-only dev commands (/fly, /tp, /noclip ...); does nothing on the live game
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
