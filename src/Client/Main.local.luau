@@ -22,6 +22,7 @@ local ORDER = {
 	"DiscoveryController",
 	"RestorationController",
 	"RestorationUIController", -- Sean: Restoration screen (chips, hint, progress, finish card)
+	"RestorationMinigamesController", -- Dwayne: real Wipe/Polish adapters; keep with its module
 	"ShopController",
 	"CollectionController",
 	"CustomerUIController",
