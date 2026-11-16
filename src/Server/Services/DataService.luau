@@ -109,6 +109,23 @@ local function migrate(data)
 	if data.version < TEMPLATE.version then
 		data.version = TEMPLATE.version
 	end
+	-- Items that were removed from Config (the item-mix change, 2026-11-16) must not stay in an old profile: every service
+	-- looks items up in Config and would error on an unknown id. Drops them quietly (a few test profiles only; no live players yet).
+	local Items = require(ReplicatedStorage.Shared.Config.Items)
+	if type(data.inventory) == "table" then
+		for uid, item in data.inventory do
+			if type(item) ~= "table" or Items[item.itemId] == nil then
+				data.inventory[uid] = nil
+			end
+		end
+	end
+	if type(data.collection) == "table" then
+		for itemId in data.collection do
+			if Items[itemId] == nil then
+				data.collection[itemId] = nil
+			end
+		end
+	end
 end
 
 -- Run every callback in a list. One broken service must not stop the others, so each runs inside pcall.
