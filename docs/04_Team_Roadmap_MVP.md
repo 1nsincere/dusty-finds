@@ -58,7 +58,7 @@ flowchart LR
 
 ### Dev 3: Sean, World, Customers & UI Lead
 - **Responsibilities:** what players see and walk around in, the customers, and every screen.
-- **Systems:** 6 plots + street, expansions and decor models, DisplayService, CustomerNpcService (NPC spawning and movement, uses the Dev 1 CustomerService hooks), CustomerUIController, all UI (HUD, Inventory, Discovery, Upgrades, Supply, Collection, Settings, Toasts), TutorialController, ShopSocialService (likes, announcements, visit, invite), mobile layout.
+- **Systems:** 6 plots + street, expansions and decor models, DisplayService, CustomerNpcService (NPC models, walking, checkout prompt; agreed 2026-11-16: Ace owns CustomerService's decision rules, Sean's CustomerNpcService reacts to it), CustomerUIController, all UI (HUD, Inventory, Discovery, Upgrades, Supply, Collection, Settings, Toasts), TutorialController, ShopSocialService (likes, announcements, visit, invite), mobile layout.
 - **Depends on:** Dev 1 for data (ClientState and remotes), Dev 2 for item models on shelves.
 - **Deliverables:** greybox plot by Stage 2; display + customers by Stage 5; all MVP UI by Stage 9.
 - **Integration:** owns the **UI contract** (`03_Architecture.md` §8) and plot part names.

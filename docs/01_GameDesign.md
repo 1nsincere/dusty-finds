@@ -355,7 +355,7 @@ Painting with brushes on textures, real mesh deformation, physics-based assembly
 | **Visit shops** | Walk in, look around, inspect exhibits (nameplate + rarity) | Show-off loop |
 | **Like a shop** | Prompt at a shop's counter; 1 like per shop per visitor per day; owner gets +1 like and a tiny cash reward ($25, max 10 rewarded likes/day) | Positive social feedback, capped against farming |
 | **Rare-find announcements** | Epic and Legendary discoveries post a system chat message server-wide: *"Sean found a LEGENDARY Golden Gramophone!"* | Shared excitement; draws visitors |
-| **Invite friends** | HUD button → `SocialService:PromptGameInvite` | Growth |
+| **Invite friends** | "📨 Invite" button in the 👥 Visit window (decided 2026-11-16: keeps the phone HUD to 2 top-right buttons) → `SocialService:PromptGameInvite` | Growth |
 | **Safe by design** | Visitors **cannot interact** with anything in your shop (prompts only work for the owner). No griefing possible. | Kids' safety, no moderation burden |
 
 ### E3. Update 1: Helping friends

@@ -104,13 +104,15 @@ end
 local bannerQueue: { string } = {}
 local bannerBusy = false
 local bannerShownPosition: UDim2? = nil -- where Studio placed it; we slide in from above to here
+-- Toasts.Banner (Toasts draws above every window, DisplayOrder 5); HUD.Banner only as a fallback for an old place.
+local bannerFrame: Frame? = nil
 
 local function showNextBanner()
-	if bannerBusy or hud == nil or bannerShownPosition == nil or #bannerQueue == 0 then
+	if bannerBusy or bannerFrame == nil or bannerShownPosition == nil or #bannerQueue == 0 then
 		return
 	end
 	bannerBusy = true
-	local banner = hud.Banner
+	local banner = bannerFrame :: Frame
 	local shown = bannerShownPosition
 	local hidden = UDim2.new(shown.X.Scale, shown.X.Offset, 0, -banner.AbsoluteSize.Y - 20)
 
@@ -265,6 +267,11 @@ local function watchCamera()
 	updateScale()
 end
 
+-- For client-only messages (no server involved, e.g. "Invites aren't available"): same look as a server Notify.
+function HudController.Notify(kind: string, text: string)
+	onNotify(kind, text)
+end
+
 -- ===== Lifecycle =====
 
 function HudController.Init(_others)
@@ -286,11 +293,17 @@ function HudController.Start()
 			return
 		end
 		hud = foundHud :: ScreenGui
-		bannerShownPosition = foundHud.Banner.Position
 
 		toasts = playerGui:WaitForChild("Toasts", 5) :: ScreenGui?
 		if toasts == nil then
 			warn("[HudController] PlayerGui.Toasts not found: Info messages will not show")
+		end
+		local banner = (toasts and toasts:FindFirstChild("Banner")) or foundHud:FindFirstChild("Banner")
+		if banner and banner:IsA("Frame") then
+			bannerFrame = banner
+			bannerShownPosition = banner.Position
+		else
+			warn("[HudController] Toasts.Banner not found: good-news banners will not show")
 		end
 
 		workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)

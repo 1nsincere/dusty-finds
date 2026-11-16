@@ -164,6 +164,7 @@ Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 
 - XP to go from level *L* to *L+1* = **round(40 × L^1.6)**. Cumulative: Lv 5 ≈ 760 XP · Lv 10 ≈ 5,350 · Lv 15 ≈ 16,100.
 - **Level-up reward:** $50 × new level, plus unlock popups ("Flea Market crates unlocked!").
 - **MVP level cap: 15** (raised with each content update).
+- **Likes (social, docs/01 E):** an owner gets **$25 per like**, cash for at most **10 likes per UTC day** (more likes still count, no cash). A visitor can like each shop once per UTC day. Config: `Economy.LikeReward`, `Economy.LikeRewardMaxPerDay`.
 
 | Level | Unlock |
 |---|---|

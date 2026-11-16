@@ -21,10 +21,12 @@ local ORDER = {
 	"DisplayController",
 	"DiscoveryController",
 	"RestorationController",
+	"RestorationUIController", -- Sean: Restoration screen (chips, hint, progress, finish card)
 	"ShopController",
 	"CollectionController",
 	"CustomerUIController",
 	"SettingsController",
+	"VisitController", -- Sean: 👥 Visit window (RequestVisit)
 	"TutorialController",
 	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
 }

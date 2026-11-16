@@ -2,7 +2,7 @@
 -- Purpose: gives each player a free shop plot when their data loads, teleports them to it, shows their name on the
 -- sign, enables the display/exhibit slots they own, and resets the plot when they leave (docs/01 multiplayer section, docs/03 §2).
 -- Owner: Dev 1 (Ace). Depends on: DataService, Shared.Config (Economy, Upgrades), Workspace.Plots (Sean's greybox).
--- Server only. No remotes. Decor is shown from upgrade levels; expansion rooms (Back Room, Showroom) are not cloned yet.
+-- Server only. No remotes. Decor is shown from upgrade levels; expansion rooms (Back Room, Showroom) are cloned from ServerStorage.Expansions when owned.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

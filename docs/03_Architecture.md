@@ -119,11 +119,14 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── ShipmentService.luau     [Dev 1] free delivery timer, crate purchase, rolls, opening
 │   ├── RestorationService.luau  [Dev 1 rules, agreed with Dev 2] start/step/finish validation, quality calc, session ids, failed-save handling (docs/Restoration_Contract.md)
 │   ├── DisplayService.luau      [Dev 1 server rules, Dev 3 visuals] display & exhibit slots, slot attributes, reservations for customers
-│   ├── CustomerService.luau     [Dev 1] customer decisions: spawn rules, wish, choose item, checkout, pay via Economy; hooks SetSpawnHandler/SetRemovedHandler
-│   ├── CustomerNpcService.luau  [Dev 3, to be written] NPC models, walking, counter queue, Checkout prompt (see docs/Customer_Server.md)
+│   ├── CustomerService.luau     [Dev 1] customer DECISIONS: arrivals, type/wish, ChooseItem (reserve), Checkout, Leave
+│   ├── CustomerNpcService.luau  [Dev 3] customer BODIES: model from ServerStorage.NPCs, walk Door→Browse→shelf→
+│   │                                    counter queue→Exit, Counter.CheckoutPrompt (owner only), 8 s auto checkout;
+│   │                                    registers CustomerService.SetSpawnHandler/SetRemovedHandler. Model attributes:
+│   │                                    CustomerId, CustomerType, Wish, OwnerUserId, ItemId (once chosen)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
-│   └── ShopSocialService.luau     [Dev 3] likes, announcements, visit list, invites
+│   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
     └── Log.luau            -- tagged debug printing
@@ -137,10 +140,12 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── DisplayController.luau      [Dev 3] shelf/pedestal prompts (my plot) + item visuals on every plot from slot attributes
 │   ├── DiscoveryController.luau    [Dev 3 UI, Dev 2 VFX]
 │   ├── RestorationController.luau  [Dev 2] bench view, camera, step runner
+│   ├── RestorationUIController.luau [Dev 3] Restoration screen only: chips/hint/progress/Exit/finish card from RestoreSession, item.stepIndex, ItemRestored
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
 │   ├── CollectionController.luau   [Dev 3]
-│   ├── CustomerUIController.luau   [Dev 3] thought bubbles, checkout prompt UI
+│   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
 │   ├── SettingsController.luau     [Dev 3]
+│   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work
 │   └── TutorialController.luau     [Dev 3]
 └── Minigames/                      [Dev 2]
     ├── PointerInput.luau   -- unified mouse/touch → raycast hits
@@ -223,7 +228,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
 | `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
-| `RequestLikeShop` | `ownerUserId` | Dev 3 | not own shop, not liked today, near that counter |
+| `RequestLikeShop` | `ownerUserId` | Dev 3 | **Unused for now (2026-11-16):** likes come from `Counter.LikePrompt` Triggered on the server (Roblox checks the distance). Same rules: not own shop, not liked today |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
 | `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id, order |
@@ -276,7 +281,8 @@ HUD.LeftButtons.{Inventory,Upgrades,Collection,Supply} (ImageButton, emoji child
   -- a ROW under the XP bar (not a column): the bottom-left corner belongs to the phone thumbstick
 HUD.TopRight.{Settings,Visit} (ImageButton)
 HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv N" on top
-HUD.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
+Toasts.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
+  -- in Toasts (DisplayOrder 5), not HUD, so it shows above open windows (moved 2026-11-16)
 HUD.UIScale  -- HudController sets Scale by screen size
 StarterGui.ScreenOrientation = LandscapeSensor  -- landscape only (decision 2026-11-16): windows are ~600 px wide
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
@@ -287,7 +293,9 @@ Assets.UI.ItemCard (TextButton) → RarityStroke (UIStroke), StateIcon, GoldenTa
 Discovery.Card.{RarityBanner,Name,Dots,Value,NewTag,RestoreButton,StoreButton}
 Discovery.Card.{GoldenTag,Counter,Hint}  RarityBanner → Text   Dots → Dot1..Dot5   NewTag/GoldenTag → Text
   -- "Name" clashes with Instance.Name: code must use Card:FindFirstChild("Name")
-Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}
+Restoration.{Hint,StepChips,Progress,ExitButton,FinishCard}   (ScreenGui DisplayOrder 4: above windows, below Toasts)
+  StepChips → ChipTemplate (hidden TextLabel)   Progress → Fill   FinishCard → Title, ItemName, Stars, Value, DoneButton (+ UIScale)
+  -- Dev 2 calls RestorationUIController.SetProgress(0..1) / SetHint(text); Exit calls RestorationController.Exit() if it exists
 Upgrades.Window.{Title,Cash,CloseButton,Tabs,List}  Tabs.{Tools,Shop,Decor,Expansions} (= Config `tab`)
 Upgrades.UpgradeTemplate (hidden) → Glow (UIStroke), Icon, Title, Dots (→ Dot1..Dot3), Effect, BuyButton
 Supply.Window.{Title,Cash,CloseButton,List}   -- Cash: "💰 $N" pill, live (windows cover HUD money on phones)
@@ -296,6 +304,9 @@ Collection.Book.{Title,CloseButton,PageLabel,PrevButton,NextButton,Grid}   -- Gr
 Collection.EntryTemplate (hidden) → RarityStroke (UIStroke), Icon, ItemName, Info, GoldenTag
   -- entry: "?"/"???"/rarity (not found) → name + "Found" → best stars → gold stroke + 🌟 (golden found)
 Settings.Window.{Title,CloseButton,Toggles}   Settings.ToggleTemplate (hidden) → Label, Switch (TextButton "ON"/"OFF")
+Visit.Window.{Title,CloseButton,InviteButton,List,Empty}   Visit.RowTemplate (hidden) → Name, Info, VisitButton
+  -- InviteButton: "📨 Invite" → SocialService:PromptGameInvite (client only)
+  -- one row per player on the server, you first ("🏠 Your shop" + "Go home"); List = ScrollingFrame + UIListLayout
   -- one row per key, named after it: announcements, music, sfx, reduceEffects (= SettingsService keys)
 Toasts.Container (Frame + UIListLayout, bottom-center)   Toasts.ToastTemplate (Frame, hidden) → Text (TextLabel)
 Toasts.UIScale  -- toasts = Notify kinds other than LevelUp/Upgrade (e.g. "Info"), 3 s, max 3 on screen
