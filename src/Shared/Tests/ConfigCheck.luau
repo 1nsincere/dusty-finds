@@ -193,9 +193,54 @@ function ConfigCheck.run()
 			tier2 += 1
 		end
 	end
-	check("item count is 20", total == 20, `found {total}`)
+	check("item count is 22 (20 MVP + 2 Relics)", total == 22, `found {total}`)
 	check("tier 1 has 12 items", tier1 == 12, `found {tier1}`)
-	check("tier 2 has 8 items", tier2 == 8, `found {tier2}`)
+	check("tier 2 has 10 items (8 + 2 Relics)", tier2 == 10, `found {tier2}`)
+
+	-- 6b. Special pulls (Relics + Time Capsule): Relic never in a crate's odds, chances are sane, relics exist for the tiers that roll them
+	check("no crate lists Relic in its odds above 0", (function()
+		for _, crate in Crates do
+			if (crate.odds.Relic or 0) ~= 0 then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Relic chances are between 0 and 5% and name real crates", (function()
+		for crateId, chance in Economy.RelicChance do
+			if Crates[crateId] == nil or Crates[crateId].price <= 0 or chance <= 0 or chance > 0.05 then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("every crate with a Relic chance has a Relic item in its tier", (function()
+		for crateId in Economy.RelicChance do
+			local found = false
+			for _, item in Items do
+				if item.rarity == "Relic" and item.tier == Crates[crateId].tier then
+					found = true
+				end
+			end
+			if not found then
+				return false
+			end
+		end
+		return true
+	end)())
+	check("Time Capsule chances name real bought crates, odds add up to 100", (function()
+		local sum = 0
+		for _, pct in Economy.TimeCapsuleOdds do
+			sum += pct
+		end
+		for crateId, chance in Economy.TimeCapsuleChance do
+			if Crates[crateId] == nil or Crates[crateId].price <= 0 or chance <= 0 or chance > 0.2 then
+				return false
+			end
+		end
+		return sum == 100 and Economy.TimeCapsuleBonusItems >= 1
+	end)())
+	check("Free Delivery never rolls a Relic or a capsule", Economy.RelicChance.FreeDelivery == nil and Economy.TimeCapsuleChance.FreeDelivery == nil)
 
 	-- Extra: rarities and customers are consistent
 	local seenIndexes, dupIndex = {}, false
@@ -205,7 +250,7 @@ function ConfigCheck.run()
 		end
 		seenIndexes[rarity.index] = true
 	end
-	check("rarities have 5 different index values", not dupIndex and #sortedKeys(Rarities) == 5)
+	check("rarities have 6 different index values", not dupIndex and #sortedKeys(Rarities) == 6)
 	for _, customerId in sortedKeys(Customers) do
 		local c = Customers[customerId]
 		check(

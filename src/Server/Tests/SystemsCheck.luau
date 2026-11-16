@@ -387,7 +387,7 @@ function SystemsCheck.run()
 			fleaTier2 = fleaTier2 and Items[itemId].tier == 2
 		end
 		check("Shipment: Flea Market only drops tier 2", fleaTier2)
-		check("Shipment: Flea Market average ~ $204 (docs/02 §3)", near(fleaSum / total, 204, 8), fleaSum / total)
+		check("Shipment: Flea Market average ~ $219 ($204 plus the Relic chance, docs/02 §3b)", near(fleaSum / total, 219, 9), fleaSum / total)
 		local freeCommonOnlyUpTo = true
 		seeded = Random.new(7)
 		for _ = 1, 20000 do
@@ -401,6 +401,49 @@ function SystemsCheck.run()
 		check("Shipment: unknown crate rolls nothing", Shipment.RollItem("Nope") == nil)
 		local a1, a2 = Shipment.RollItem("Starter", Random.new(5)), Shipment.RollItem("Starter", Random.new(5))
 		check("Shipment: same seed gives the same item", a1 == a2)
+
+		-- ===== Special pulls: Lost Masterpiece (Relic) and Time Capsule =====
+		seeded = Random.new(31337)
+		local relicCount, relicTierOk, relicGolden = 0, true, false
+		for _ = 1, total do
+			local itemId, golden = Shipment.RollItem("FleaMarket", seeded)
+			if Items[itemId].rarity == "Relic" then
+				relicCount += 1
+				relicTierOk = relicTierOk and Items[itemId].tier == 2
+				relicGolden = relicGolden or golden
+			end
+		end
+		check("Relic: Flea Market rolls a Relic ~0.2% of items", near(relicCount / total * 100, 0.2, 0.08), relicCount / total * 100)
+		check("Relic: only tier 2 Relics, never Golden", relicTierOk and not relicGolden)
+		local relicLeak = false
+		for _, crateId in { "FreeDelivery", "Starter" } do
+			seeded = Random.new(77)
+			for _ = 1, 50000 do
+				local itemId = Shipment.RollItem(crateId, seeded)
+				if Items[itemId].rarity == "Relic" then
+					relicLeak = true
+				end
+			end
+		end
+		check("Relic: Free Delivery and Starter never drop a Relic", not relicLeak)
+		local alwaysLow = { NextNumber = function() return 0 end, NextInteger = function(_, a) return a end }
+		check("Relic: a forced low roll in Flea Market gives the first Relic, not Golden", (function()
+			local itemId, golden = Shipment.RollItem("FleaMarket", alwaysLow)
+			return Items[itemId].rarity == "Relic" and golden == false
+		end)())
+		Shipment.SetRandom(Random.new(2024)) -- the buying tests below must not hit a random Time Capsule
+		local capPlayer = newPlayer()
+		fakeDS.Set(capPlayer, "cash", 5000)
+		local capBox = select(3, Shipment.BuyCrate(capPlayer, "Starter"))
+		local before = #capBox
+		local addedCap = Shipment.MaybeAddTimeCapsule(capPlayer, "Starter", capBox, alwaysLow)
+		check("Time Capsule: a forced roll adds the bonus items to the same box", addedCap == require(Config.Economy).TimeCapsuleBonusItems and #capBox == before + addedCap, `added {addedCap}`)
+		check("Time Capsule: bonus items are Unopened and share the box id", (function()
+			local first, last = Inventory.Get(capPlayer, capBox[1]), Inventory.Get(capPlayer, capBox[#capBox])
+			return last ~= nil and last.state == "Unopened" and last.boxId == first.boxId
+		end)())
+		check("Time Capsule: Free Delivery never has one", Shipment.MaybeAddTimeCapsule(capPlayer, "FreeDelivery", capBox, alwaysLow) == 0)
+		check("Time Capsule: a normal roll (high) adds nothing", Shipment.MaybeAddTimeCapsule(capPlayer, "Starter", { capBox[1] }, { NextNumber = function() return 0.99 end, NextInteger = function(_, a) return a end }) == 0)
 
 		-- ===== ShipmentService: buying =====
 		local b = newPlayer()

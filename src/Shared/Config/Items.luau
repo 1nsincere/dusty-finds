@@ -1,5 +1,5 @@
 -- Items.luau (ReplicatedStorage.Shared.Config.Items)
--- Purpose: all 20 MVP item definitions (docs/02_Economy.md §4, shape from docs/03_Architecture.md §10.1).
+-- Purpose: all 22 item definitions (20 MVP + 2 Relics) (docs/02_Economy.md §4, shape from docs/03_Architecture.md §10.1).
 -- Owner: Dev 1 (Ace). Depends on: nothing (rarity and category names must match Rarities.luau / Economy.Categories).
 -- Recipe step parameters come from the "(...)" notes in docs/02, e.g. "Reassemble (wheel)" -> parts = { "Wheel" }.
 -- Only TinRobot has layers / greenZone / flavor because docs/03 §10.1 gives those; Dev 2 tunes the rest.
@@ -154,6 +154,30 @@ local Items = {
 			{ type = "Wipe" },
 			{ type = "Scrape" },
 			{ type = "Replace", parts = { "Record" } },
+			{ type = "Polish" },
+			{ type = "Test", style = "Play" },
+		},
+	},
+
+	-- ===== Relics (2): the Lost Masterpieces. Special pull only (Economy.RelicChance), never in a crate's odds table =====
+	StarlightOrrery = {
+		id = "StarlightOrrery", name = "Starlight Orrery", tier = 2, rarity = "Relic", category = "Decor", baseValue = 6000,
+		model = "StarlightOrrery",
+		recipe = {
+			{ type = "Wipe" },
+			{ type = "Scrape" },
+			{ type = "Reassemble", parts = { "Ring" } },
+			{ type = "Polish" },
+			{ type = "Test", style = "Wind" },
+		},
+	},
+	ClockworkCarousel = {
+		id = "ClockworkCarousel", name = "Clockwork Carousel", tier = 2, rarity = "Relic", category = "Toys", baseValue = 9000,
+		model = "ClockworkCarousel",
+		recipe = {
+			{ type = "Wipe" },
+			{ type = "Scrape" },
+			{ type = "Replace", parts = { "Horse" } },
 			{ type = "Polish" },
 			{ type = "Test", style = "Play" },
 		},

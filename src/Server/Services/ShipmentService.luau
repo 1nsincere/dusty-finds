@@ -43,6 +43,11 @@ local function itemsOf(tier: number, rarity: string): { string }
 	return ids
 end
 
+-- Tests call this so the buying tests are deterministic (the Time Capsule chance uses the module Random).
+function ShipmentService.SetRandom(random: Random)
+	rng = random
+end
+
 -- Rolls ONE item for a crate: rarity from the crate's odds, then a random item of that rarity in the crate's tier,
 -- then a 2% Golden chance. `random` is optional (tests pass a seeded Random). Returns itemId, golden.
 function ShipmentService.RollItem(crateId: string, random: Random?): (string?, boolean)
@@ -51,6 +56,15 @@ function ShipmentService.RollItem(crateId: string, random: Random?): (string?, b
 		return nil, false
 	end
 	local r = random or rng
+
+	-- Special pull 1, LOST MASTERPIECE: a tiny chance per item to be a Relic. Checked first; never Golden; Free Delivery has no entry.
+	local relicChance = Economy.RelicChance[crateId]
+	if relicChance and r:NextNumber() < relicChance then
+		local relics = itemsOf(crate.tier, "Relic")
+		if #relics > 0 then
+			return relics[r:NextInteger(1, #relics)], false
+		end
+	end
 
 	local roll = r:NextNumber() * 100
 	local running = 0
@@ -114,6 +128,49 @@ local function notify(player: any, kind: string, text: string)
 	end
 end
 
+-- Special pull 2, TIME CAPSULE: a bought crate may hold a sealed capsule = extra bonus items from better odds (Rare, Epic, Legendary).
+-- The bonus items join the same box (same boxId), so the box simply holds more items; no new data field and no new remote.
+-- Returns how many bonus items were added (0 if the crate had no capsule or nothing could be added).
+function ShipmentService.MaybeAddTimeCapsule(player: Player, crateId: string, boxUids: { string }, random: Random?): number
+	local chance = Economy.TimeCapsuleChance[crateId]
+	local crate = Crates[crateId]
+	local r = random or rng
+	if chance == nil or crate == nil or r:NextNumber() >= chance or #boxUids == 0 then
+		return 0
+	end
+	local first = InventoryService.Get(player, boxUids[1])
+	local boxId = first and first.boxId
+	local added = 0
+	for _ = 1, Economy.TimeCapsuleBonusItems do
+		local roll = r:NextNumber() * 100
+		local running, chosen = 0, "Rare"
+		for _, rarity in { "Rare", "Epic", "Legendary" } do
+			running += Economy.TimeCapsuleOdds[rarity] or 0
+			if roll < running then
+				chosen = rarity
+				break
+			end
+		end
+		local pool = itemsOf(crate.tier, chosen)
+		if #pool > 0 then
+			local uid = InventoryService.Add(player, pool[r:NextInteger(1, #pool)], {
+				state = "Unopened",
+				golden = r:NextNumber() < Economy.GoldenChance,
+				crateId = crateId,
+				boxId = boxId,
+			})
+			if uid then
+				table.insert(boxUids, uid)
+				added += 1
+			end
+		end
+	end
+	if added > 0 then
+		notify(player, "Delivery", "⏳ TIME CAPSULE! Your crate held a sealed capsule: bonus treasures inside!")
+	end
+	return added
+end
+
 -- Buys a crate with cash. Returns ok, reason, uids.
 -- Reasons: unknown, free (use the free delivery), noData, level, tooManyBoxes, cash, addFailed.
 function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, string?, { string }?)
@@ -143,6 +200,7 @@ function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, st
 		EconomyService.AddCash(player, crate.price, "Refund")
 		return false, reason, nil
 	end
+	ShipmentService.MaybeAddTimeCapsule(player, crateId, uids)
 	log.info(`bought {crateId}: {#uids} items`)
 	notify(player, "Delivery", "Crate delivered!")
 	return true, nil, uids
@@ -226,7 +284,11 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 	if Validate.isPlayer(player) then
 		Remotes.BoxOpened:FireClient(player, uid, item.itemId, item.golden, isNew)
 	end
-	if def.rarity == "Legendary" then
+	if def.rarity == "Relic" then
+		-- unique wording for the rarest pull in the game, shown to everyone on the server
+		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
+		Remotes.Announcement:FireAllClients(`✨ LOST MASTERPIECE! {name} unearthed the {def.name}!`, def.rarity)
+	elseif def.rarity == "Legendary" then
 		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
 		Remotes.Announcement:FireAllClients(`{name} found a Legendary {def.name}!`, def.rarity)
 	end
