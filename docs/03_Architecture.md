@@ -219,7 +219,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | Remote | Args | Owner | Server validates |
 |---|---|---|---|
 | `RequestOpenBox` | `uid: string` | Dev 1 | item is mine, state `Unopened`, capacity |
-| `RequestBuyCrate` | `crateId: string` | Dev 1 | crate exists, level, cash, max 3 unopened boxes waiting |
+| `RequestBuyCrate` | `crateId: string` | Dev 1 | crate exists, level, cash, max 3 unopened boxes waiting, **player within `Economy.SupplyMaxStuds` of `Environment.Districts.Warehouse.SupplyCounter`** (crates are sold only at the Warehouse) |
 | `RequestClaimFreeDelivery` | — | Dev 1 | timer elapsed, near DeliveryPoint |
 | `RequestStartRestore` | `uid, benchName` | Dev 2 | item mine & `Dirty`/`InProgress`, bench in my plot, free, near bench |
 | `ReportStepComplete` | `uid, stepIndex, score, sessionId` | Dev 2 | active session (id matches), correct step, min duration passed, score number 0–100 |
