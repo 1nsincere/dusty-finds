@@ -190,7 +190,7 @@ for x in (-12.0, -4.0, 4.0, 12.0):
     add("Glass", fy(x, Z0 + 2.05, arch(3.1, 6.9), 12 - T / 2 - 0.04, 12 - T / 2 + 0.04))
 for s in (-1, 1):
     for x in (WX0 + 3.0, WX1 - 3.0):
-        add("Glass", fy(s * x, Z0 + 1.85, arch(2.7, 5.5), -10 + T / 2 - 0.04, -10 + T / 2 + 0.04))
+        add("Glass", fy(s * x, Z0 + 1.8, arch(2.9, 5.7), -10 + T / 2 - 0.06, -10 + T / 2 + 0.06))
         add("Shutters", c.box("sh", (1.4, 0.15, 5.2), (s * x - 2.1, -10.2, Z0 + 4.4)))
         add("Shutters", c.box("sh", (1.4, 0.15, 5.2), (s * x + 2.1, -10.2, Z0 + 4.4)))
 # bands, cornices, quoins
@@ -248,8 +248,8 @@ h2.rotation_euler = (0, math.radians(25), 0)
 add("Iron", h2)
 add("Gold", cyl("finial", 0.2, 2.2, (0, -12.4, Z0 + 28.2), 8))
 add("Gold", c.sphere("ball", 0.45, (0, -12.4, Z0 + 29.4), segments=10, rings=6))
-add("Gold", c.box("signband", (12, 0.3, 1.5), (0, -14.65, Z0 + 10.8)))
-bpy.ops.object.text_add(location=(0, -14.85, Z0 + 10.35), rotation=(math.pi / 2, 0, 0))
+add("Gold", c.box("signband", (12, 0.3, 1.6), (0, -14.65, Z0 + 20.4)))  # on the pavilion, above the loggia roof
+bpy.ops.object.text_add(location=(0, -14.85, Z0 + 19.95), rotation=(math.pi / 2, 0, 0))
 txt = bpy.context.active_object
 txt.data.body = "DEPOT"
 txt.data.size = 1.25
