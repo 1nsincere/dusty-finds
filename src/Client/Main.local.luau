@@ -34,6 +34,7 @@ local ORDER = {
 	"RestorationMoreMinigamesController", -- Dev 1: Test, Scrape, Reassemble, Replace minigames (Dwayne registers Wipe/Polish in his own controller)
 	"MuseumController", -- Dev 1: the museum Collection pedestal opens the Collection Book
 	"WarehouseController", -- Dev 1: the Warehouse supply counter opens the Supply screen (crates are sold only there)
+	"MyShopController", -- Dev 1 (Sean approved): 🏠 My Shop HUD button, teleports you back to your own shop (RequestVisit)
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")

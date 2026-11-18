@@ -222,6 +222,7 @@ function PlotCheck.run()
 		-- a scaled shop (1.4x, 56 studs): the room has to scale with the plot
 		do
 			local p5 = plot(5)
+			local p5Scale = p5:GetScale() -- the live shops are already 1.4x since the circle-park layout: put it back afterwards
 			p5:ScaleTo(1.4)
 			upgradesById[P[5]] = { BackRoom = 1 }
 			PlotService.RefreshSlots(P[5])
@@ -232,12 +233,14 @@ function PlotCheck.run()
 			check("scaled shop: the room lies behind the scaled back wall (Z 28 to 62)", lp5.Z > 28 and lp5.Z < 62, tostring(lp5))
 			upgradesById[P[5]] = nil
 			PlotService.RefreshSlots(P[5])
-			p5:ScaleTo(1)
+			p5:ScaleTo(p5Scale)
 		end
+		-- limits written for the 40-stud shop, scaled by the plot's real size (56-stud shops are 1.4x)
+		local k4 = p4.Floor.Size.X / 40
 		local lp = p4.Floor.CFrame:PointToObjectSpace(p4.Expansion_BackRoom.Shell.Floor.Position)
-		check("Back Room: the floor lies behind the back wall in the plot's own axes (also on a rotated plot)", lp.Z > 20 and lp.Z < 44 and lp.X < 0, tostring(lp))
+		check("Back Room: the floor lies behind the back wall in the plot's own axes (also on a rotated plot)", lp.Z > 20 * k4 and lp.Z < 44 * k4 and lp.X < 0, tostring(lp))
 		local bp = p4.Floor.CFrame:PointToObjectSpace(p4.Benches.Bench2.Position)
-		check("Back Room: Bench2 stands inside the room", bp.Z > 20 and bp.Z < 44 and bp.X < 0, tostring(bp))
+		check("Back Room: Bench2 stands inside the room", bp.Z > 20 * k4 and bp.Z < 44 * k4 and bp.X < 0, tostring(bp))
 		upgradesById[P[4]] = { BackRoom = 1, FishTank = 1 }
 		PlotService.RefreshSlots(P[4])
 		check("Fish Tank shows once bought", decorShown(4, "FishTank"))

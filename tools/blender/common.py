@@ -115,7 +115,7 @@ def sphere(name: str, radius: float, location=(0, 0, 0), scale=(1, 1, 1), segmen
     bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=location, segments=segments, ring_count=rings)
     obj = bpy.context.active_object
     obj.scale = scale
-    bpy.ops.object.transform_apply(scale=True)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)  # keep the origin at the object, so later rotations pivot on it
     obj.name = name
     return obj
 
@@ -124,7 +124,7 @@ def box(name: str, size, location=(0, 0, 0)):
     bpy.ops.mesh.primitive_cube_add(size=1, location=location)
     obj = bpy.context.active_object
     obj.scale = size
-    bpy.ops.object.transform_apply(scale=True)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)  # keep the origin at the object, so later rotations pivot on it
     obj.name = name
     return obj
 
