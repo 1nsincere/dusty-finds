@@ -27,6 +27,8 @@ import textures as tx  # noqa: E402
 c.PALETTE.update({"sand": "EFE2C4", "white": "FBF7EC", "glass": "3E6A8A", "stone": "CFC5B0", "wood": "6B4A2E", "leaf": "3F7F3A",
                   "pink": "E0458C", "gold": "E3B23C", "accent": "1F7A7A", "stripe": "FBF7EC", "velvet": "8E1F2F", "jar": "7FB7A5"})
 c.reset_scene()
+STYLE = os.environ.get("DF_SHOP_STYLE", "A").upper()   # A Curio Emporium, B Bahay na bato, C Escolta Art Deco
+SUFFIX = "" if STYLE == "A" else "_" + STYLE
 G = {}
 F0 = 0.5          # plot floor top
 H1 = 12.5         # ground floor wall top (the existing collision walls stop here)
@@ -295,25 +297,37 @@ for x in (-12.0, 0.0, 12.0):
     add("UpGlass", front(x, H1 + 1.65, rect(2.9, 4.9), OUT - T / 2 - 0.04, OUT - T / 2 + 0.04))
     box("UpTrim", (x, H1 + 1.45, -OUT - 0.35), (4.4, 0.3, 0.8))
     box("UpTrim", (x, H1 + 7.6, -OUT - 0.25), (4.2, 0.35, 0.6))
-    for s in (-1, 1):
-        box("UpAccent", (x + s * 2.3, H1 + 4.4, -OUT - 0.25), (1.3, 5.4, 0.15))
-        for k in range(7):
-            box("UpAccent", (x + s * 2.3, H1 + 2.0 + k * 0.75, -OUT - 0.33), (1.15, 0.09, 0.16))
+    if STYLE == "A":
+        for s in (-1, 1):
+            box("UpAccent", (x + s * 2.3, H1 + 4.4, -OUT - 0.25), (1.3, 5.4, 0.15))
+            for k in range(7):
+                box("UpAccent", (x + s * 2.3, H1 + 2.0 + k * 0.75, -OUT - 0.33), (1.15, 0.09, 0.16))
+    elif STYLE == "B":   # sliding capiz panels: wooden grid over the glass, ventanilla panel below
+        for k in range(1, 4):
+            box("UpWood", (x - 1.55 + k * 0.78, H1 + 4.4, -OUT - 0.1), (0.12, 5.5, 0.14))
+        for k in range(1, 4):
+            box("UpWood", (x, H1 + 1.65 + k * 1.38, -OUT - 0.1), (3.1, 0.12, 0.14))
+        box("UpAccent", (x, H1 + 0.9, -OUT - 0.2), (3.4, 0.9, 0.15))
+    else:                # Art Deco: tall fins either side of every window
+        for s in (-1, 1):
+            box("UpTrim", (x + s * 2.4, H1 + 4.6, -OUT - 0.35), (0.5, 8.6, 0.7))
 for z in (-8.0, 8.0):
     for sx in (-1, 1):
         add("UpGlass", side(z, H1 + 1.85, rect(2.9, 4.9), sx * (OUT - T / 2) - 0.04, sx * (OUT - T / 2) + 0.04))
         box("UpTrim", (sx * (OUT + 0.3), H1 + 1.65, z), (0.8, 0.3, 4.0))
-# balcony on the middle window: slab, brackets, wrought-iron rail, flower boxes on the side windows
-box("UpTrim", (0, H1 + 1.3, -OUT - 1.2), (7.0, 0.4, 2.4))
-for s in (-1, 1):
+# balcony on the middle window: slab, brackets, wrought-iron rail, flower boxes on the side windows (style A only)
+BALC = STYLE == "A"
+if BALC: box("UpTrim", (0, H1 + 1.3, -OUT - 1.2), (7.0, 0.4, 2.4))
+for s in (-1, 1) if BALC else ():
     box("UpTrim", (s * 2.8, H1 + 0.7, -OUT - 0.8), (0.5, 0.9, 1.5))
-box("UpIron", (0, H1 + 3.1, -OUT - 2.35), (7.0, 0.12, 0.12))
-box("UpIron", (0, H1 + 1.7, -OUT - 2.35), (7.0, 0.1, 0.1))
-for s in (-1, 1):
+if BALC:
+    box("UpIron", (0, H1 + 3.1, -OUT - 2.35), (7.0, 0.12, 0.12))
+    box("UpIron", (0, H1 + 1.7, -OUT - 2.35), (7.0, 0.1, 0.1))
+for s in (-1, 1) if BALC else ():
     box("UpIron", (s * 3.45, H1 + 3.1, -OUT - 1.2), (0.12, 0.12, 2.3))
-for i in range(18):
+for i in range(18 if BALC else 0):
     box("UpIron", (-3.4 + i * 0.4, H1 + 2.4, -OUT - 2.35), (0.06, 1.4, 0.06))
-for x in (-12.0, 12.0):
+for x in ((-12.0, 12.0) if STYLE != "C" else ()):
     box("UpWood", (x, H1 + 1.25, -OUT - 0.7), (3.4, 0.6, 0.8))
     for k in range(4):
         add("UpLeaves", blob(0.45, B(x - 1.2 + k * 0.8, H1 + 1.7, -OUT - 0.75)))
@@ -329,36 +343,73 @@ add("UpGold", c.box("bladeframe", (0.18, 2.9, 3.7), B(-OUT - 2.2, H1 + 3.1, -OUT
 
 # ===================== ROOF (hidden while inside) =====================
 RB = H2 + 0.5
-RISE = 7.0
-y0, y1 = -OUT - 1.4, OUT + 1.4      # Blender y range (front at +y)
-x0, x1 = -OUT - 1.4, OUT + 1.4
-run = (y1 - y0) / 2
-th = math.atan2(RISE, run)
-L = math.hypot(run, RISE)
-for s in (-1, 1):   # slopes face front (+y, s=1) and back (-y, s=-1); ridge along x
-    ey = s * run
-    dyy, dz = -s * run / L, RISE / L
-    ny, nz = s * math.sin(th), math.cos(th)
+if STYLE == "A":
+    RB = H2 + 0.5
+    RISE = 7.0
+    y0, y1 = -OUT - 1.4, OUT + 1.4      # Blender y range (front at +y)
+    x0, x1 = -OUT - 1.4, OUT + 1.4
+    run = (y1 - y0) / 2
+    th = math.atan2(RISE, run)
+    L = math.hypot(run, RISE)
+    for s in (-1, 1):   # slopes face front (+y, s=1) and back (-y, s=-1); ridge along x
+        ey = s * run
+        dyy, dz = -s * run / L, RISE / L
+        ny, nz = s * math.sin(th), math.cos(th)
 
-    def P(a, v, xx, ey=ey, dyy=dyy, dz=dz, ny=ny, nz=nz):
-        return (xx, ey + dyy * a + ny * v, RB + dz * a + nz * v)
-    add("Roof", mesh_from("slab", [P(0, -0.35, x0), P(L, -0.35, x0), P(L, -0.35, x1), P(0, -0.35, x1), P(0, 0, x0), P(L, 0, x0), P(L, 0, x1), P(0, 0, x1)],
-                          [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]))
-    semi = [(0.42 * math.cos(math.pi * k / 6), 0.42 * math.sin(math.pi * k / 6)) for k in range(7)]
-    xx = x0 + 0.45
-    while xx < x1 - 0.3:
-        add("Roof", prism(semi, -0.3, L, lambda u, a, v, xx=xx, P=P: P(a, v, xx + u)))
-        xx += 0.9
-add("Roof", cyl("ridge", 0.55, x1 - x0 + 0.3, (0, 0, RB + RISE + 0.15), 10, (0, math.pi / 2, 0)))
-for sx in (-1, 1):   # gable end walls
-    add("UpWalls", prism([(-OUT, 0), (OUT, 0), (0, RISE - 0.6)], sx * OUT - 0.6, sx * OUT, lambda u, a, v: (a, u, RB - 0.2 + v)))
-    add("UpTrim", cyl("oculus", 1.1, 0.4, (sx * (OUT + 0.05), 0, RB + 2.6), 20, (0, math.pi / 2, 0)))
-# chimney and a glazed skylight lantern
-box("UpStone", (12.0, RB + RISE * 0.55, 8.0), (2.2, 5.5, 2.2))
-box("UpTrim", (12.0, RB + RISE * 0.55 + 2.9, 8.0), (2.7, 0.4, 2.7))
-box("UpTrim", (-6.0, RB + RISE - 0.6, 0), (6.0, 1.2, 4.0))
-add("UpGlass", c.box("sky", (5.4, 3.4, 1.4), B(-6.0, RB + RISE + 0.6, 0)))
-box("UpTrim", (-6.0, RB + RISE + 1.5, 0), (6.4, 0.4, 4.4))
+        def P(a, v, xx, ey=ey, dyy=dyy, dz=dz, ny=ny, nz=nz):
+            return (xx, ey + dyy * a + ny * v, RB + dz * a + nz * v)
+        add("Roof", mesh_from("slab", [P(0, -0.35, x0), P(L, -0.35, x0), P(L, -0.35, x1), P(0, -0.35, x1), P(0, 0, x0), P(L, 0, x0), P(L, 0, x1), P(0, 0, x1)],
+                              [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]))
+        semi = [(0.42 * math.cos(math.pi * k / 6), 0.42 * math.sin(math.pi * k / 6)) for k in range(7)]
+        xx = x0 + 0.45
+        while xx < x1 - 0.3:
+            add("Roof", prism(semi, -0.3, L, lambda u, a, v, xx=xx, P=P: P(a, v, xx + u)))
+            xx += 0.9
+    add("Roof", cyl("ridge", 0.55, x1 - x0 + 0.3, (0, 0, RB + RISE + 0.15), 10, (0, math.pi / 2, 0)))
+    for sx in (-1, 1):   # gable end walls
+        add("UpWalls", prism([(-OUT, 0), (OUT, 0), (0, RISE - 0.6)], sx * OUT - 0.6, sx * OUT, lambda u, a, v: (a, u, RB - 0.2 + v)))
+        add("UpTrim", cyl("oculus", 1.1, 0.4, (sx * (OUT + 0.05), 0, RB + 2.6), 20, (0, math.pi / 2, 0)))
+    # chimney and a glazed skylight lantern
+    box("UpStone", (12.0, RB + RISE * 0.55, 8.0), (2.2, 5.5, 2.2))
+    box("UpTrim", (12.0, RB + RISE * 0.55 + 2.9, 8.0), (2.7, 0.4, 2.7))
+    box("UpTrim", (-6.0, RB + RISE - 0.6, 0), (6.0, 1.2, 4.0))
+    add("UpGlass", c.box("sky", (5.4, 3.4, 1.4), B(-6.0, RB + RISE + 0.6, 0)))
+    box("UpTrim", (-6.0, RB + RISE + 1.5, 0), (6.4, 0.4, 4.4))
+
+elif STYLE == "B":
+    # tall hip roof with a wide overhang (bahay na bato), ridge along x, tiles from the clay texture
+    o = 2.4
+    RISE = 9.0
+    X0, X1, Y0, Y1 = -OUT - o, OUT + o, -OUT - o, OUT + o
+    hh = (Y1 - Y0) / 2 - 6.0
+    v = [(X0, Y0, RB), (X1, Y0, RB), (X1, Y1, RB), (X0, Y1, RB), (-hh, 0, RB + RISE), (hh, 0, RB + RISE)]
+    f = [(0, 1, 5, 4), (2, 3, 4, 5), (1, 2, 5), (3, 0, 4), (3, 2, 1, 0)]
+    add("Roof", mesh_from("hip", v, f))
+    add("UpTrim", c.box("eave", (X1 - X0 + 0.2, Y1 - Y0 + 0.2, 0.5), (0, 0, RB - 0.2)))
+    for k in range(9):  # carved eave brackets along the front
+        add("UpWood", c.box("bracket", (0.5, 1.8, 0.9), (-OUT + 2.0 + k * (2 * OUT - 4.0) / 8, OUT + 1.0, RB - 0.8)))
+    add("Roof", cyl("ridge", 0.55, 2 * hh + 0.4, (0, 0, RB + RISE + 0.1), 10, (0, math.pi / 2, 0)))
+    box("UpStone", (12.0, RB + 6.5, 8.0), (2.2, 6.0, 2.2))
+else:
+    # Art Deco: flat roof behind a parapet, stepped centre tower over the door with a sunburst and the year plaque
+    box("UpTrim", (0, H2 + 0.2, 0), (2 * OUT + 0.4, 0.5, 2 * OUT + 0.4))
+    for s in (-1, 1):
+        box("UpWalls", (0, H2 + 1.6, s * (OUT - 0.4)), (2 * OUT, 2.4, 0.8))
+        box("UpWalls", (s * (OUT - 0.4), H2 + 1.6, 0), (0.8, 2.4, 2 * OUT))
+    for (w, hgt, dz) in ((16.0, 4.0, 0.0), (10.0, 7.0, 0.3), (5.0, 9.5, 0.6)):
+        box("UpWalls", (0, H2 + hgt / 2, -OUT + 0.6 - dz), (w, hgt, 1.2))
+        box("UpTrim", (0, H2 + hgt + 0.2, -OUT + 0.6 - dz), (w + 0.6, 0.4, 1.6))
+    for k in range(7):   # sunburst rays
+        a = math.pi * (k + 0.5) / 7
+        r = c.box("ray", (0.3, 0.15, 2.6), B(1.3 * math.cos(a), H2 + 5.0 + 1.3 * math.sin(a), -OUT - 1.35))
+        r.rotation_euler = (0, -(a - math.pi / 2), 0)
+        add("UpGold", r)
+    add("UpGold", cyl("sun", 0.9, 0.2, B(0, H2 + 5.0, -OUT - 1.4), 16, (math.pi / 2, 0, 0)))
+    for x in (-OUT + 1.0, -6.5, 6.5, OUT - 1.0):   # vertical fins rising through the parapet
+        box("UpTrim", (x, H1 + (H2 + 3.5 - H1) / 2, -OUT - 0.4), (0.9, H2 + 3.5 - H1, 0.9))
+    for k in range(3):   # horizontal speed lines
+        box("UpAccent", (0, H1 + 0.6 + k * 0.45, -OUT - 0.3), (2 * OUT + 0.2, 0.15, 0.25))
+    box("UpIron", (12.0, H2 + 2.6, 10.0), (3.0, 2.8, 3.0))   # rooftop water tank
 
 # ===================== FINISH =====================
 SPEC = {"Walls": "sand", "Stone": "stone", "Trim": "white", "Gold": "gold", "Glass": "glass", "Wood": "wood", "Leaves": "leaf", "Flowers": "pink",
@@ -368,19 +419,25 @@ SPEC = {"Walls": "sand", "Stone": "stone", "Trim": "white", "Gold": "gold", "Gla
 TEX = {"Walls": "plaster", "UpWalls": "plaster", "Stone": "stone", "UpStone": "stone", "Trim": "limestone", "UpTrim": "limestone",
        "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay"}
 SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars"}
+if STYLE == "B":
+    SPEC.update({"Walls": "stone", "UpWalls": "wood"})
+    TEX.update({"Walls": "stone", "UpWalls": "wood"})
+elif STYLE == "C":
+    SPEC.update({"Walls": "white", "UpWalls": "white"})
 final = []
 for name, objs in G.items():
     obj = join(objs, "Shop_" + name)
     c.finish(obj, "Shop_" + name, SPEC[name], smooth=name in SMOOTH)
     if name in TEX:
         uv_box(obj, 8.0 if name != "Floor" else 4.0)
-        tx.apply(obj, TEX[name], "Shop_" + name + "_mat", (0.97, 0.9, 0.78) if name in ("Walls", "UpWalls") else None)
+        tint = {"A": (0.97, 0.9, 0.78), "B": None, "C": (0.98, 0.95, 0.88)}[STYLE] if name in ("Walls", "UpWalls") else None
+        tx.apply(obj, TEX[name], "Shop_" + name + "_mat", tint)
     final.append(obj)
 
 os.makedirs(c.OUT_MODELS, exist_ok=True)
 os.makedirs(c.OUT_PREVIEWS, exist_ok=True)
 print("SHOP triangles", c.triangle_count(final), [(o.name, c.triangle_count([o])) for o in final])
-c.export_glb(os.path.join(c.OUT_MODELS, "Shop.glb"), final)
+c.export_glb(os.path.join(c.OUT_MODELS, "Shop" + SUFFIX + ".glb"), final)
 
 
 def render(path, cam_loc, target, lens=35, samples=40, hide_upper=False, res=(1200, 860)):
@@ -442,7 +499,10 @@ def render(path, cam_loc, target, lens=35, samples=40, hide_upper=False, res=(12
     bpy.ops.render.render(write_still=True)
 
 
-render(os.path.join(c.OUT_PREVIEWS, "Shop_front.png"), (34, 70, 20), (0, 0, 11))
+render(os.path.join(c.OUT_PREVIEWS, "Shop" + SUFFIX + "_front.png"), (34, 70, 20), (0, 0, 11))
+if STYLE != "A":
+    print("done")
+    raise SystemExit
 render(os.path.join(c.OUT_PREVIEWS, "Shop_inside.png"), (0, 34, 46), (0, -2, 0), 28, 40, hide_upper=True)
 render(os.path.join(c.OUT_PREVIEWS, "Shop_door.png"), (-9, 40, 7), (0, 20, 6), 32, 32, res=(1000, 760))
 print("done")

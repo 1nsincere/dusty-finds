@@ -232,3 +232,32 @@ Plan: assets/template + Downloads/DustyFinds_Phase2_Blueprint.png (Phase 2). Cha
 - Step B finishing + first step C model (place v172-v174): stone pilasters and plinth bands on every terrace face; balustrades, handrails, end posts and lamp posts on all 38 stairways; Dwayne's old pipeline test bakery archived. tools/blender/bridge.py -> Bridge.glb (stone segmental arch, voussoirs, keystone, balustrade, stair parapets, lanterns, flower boxes; ~7,400 tris) placed at all 14 bridges as visual-only MeshParts (Workspace.CanalTownWow.BridgesArt; template ServerStorage.BridgeTemplate; the 2 south-canal bridges stretched to 19.2). The blockout bridge parts stay as the invisible walking surface. Canal walls/caps and railings are now solid, plus invisible RailColliders along every railing, so the canals can only be crossed on the bridges (tested with a real character: blocked between bridges, over the deck on bridges 3, 9 and 14); all shops, the museum and the warehouse still reachable.
 - Plan v2 (Ace's df_blueprint.py / DustyFinds_Phase2_Blueprint_Detailed.svg, place v177): shops at the plan's spots (Plot1 (74,61) +6, Plot2 (105,-75) +4, Plot3 (-190,50) +4, Plot4 (-186,-240) +4 with a 20-stud landing, Plot5 (-32,-126) +2, Plot6 (-190,-85) +8); curved West Canal (12 wide) looping from the west edge past Shop 2 into a basin at (-10,-246.5), curved South Canal (16 wide) from the basin to the east canal; 6-stud walks at +4 on both banks with solid walls/caps and invisible rail colliders; 8 bridge crossings (blockout deck +8.5 + 6 steps to the walk + 7 street steps; Blender bridge mesh on top, Workspace.CanalTownWow.BridgesArt, frames in CanalTownBlockout.BridgeFrames); plan streets; entrance gate at z -338, spawn (-80,-318); Kainan (-30,-298) and Supermart/Sulit (-122,-298) beside the entrance; court, gardens, domed hall, market lane boxes at the plan spots; clashing houses/decor archived (ServerStorage.OldLayoutArchive.PlanV2Clears), sari-sari re-lotted. Adjustments vs the plan: east canal kept at x -272 (12 wide), plaza kept at (-80,0) r 82, stairs 0.5-stud steps, bridge at (-272,100) instead of 51 (51 lands on Shop 3's back room).
 - Checks: PlotCheck 46/46, testAll 645/0 with the live loop, all shops/museum/warehouse reachable without jumping, real character blocked at the west canal away from bridges and over the deck on bridge 2.
+
+## Elevation pass to the plan SVG (2026-11-18)
+- Checked against `DustyFinds_Phase2_Blueprint_Detailed.svg`. Already matching: water +0.6, canal walks +4, bridge decks +8.5, depot terrace +4, shop terrace order.
+- Museum podium +6 -> +8: terrace, museum model, Collection pedestal, trees raised; N/E/W stairs rebuilt (19 steps, 0.38 x 0.8); new grand stair from the plaza (9 steps). Old stairs archived in `ServerStorage.EnvArchive.MuseumStairs_v1`.
+- Hillside (SVG section B) on the strip beyond the east canal, z -96..181: lower street +4, terrace +8.5 (`Elevation.Hillside.HillA_*`), upper street +16 (`HillB`). 3 recessed stairs +4 -> +8.5, 3 stairs +8.5 -> +16. Row-1 houses moved up to +8.5, 5 new houses (`HillHouse`) on +16.
+- Housing blocks: north-east (x 50..140) and south edge (x -280..-145) get +4 terraces with recessed stairs and placeholder houses (`Elevation.ResTerraces`), to be replaced by the house kit.
+- Jeepney and tricycle moved out of the museum podium onto the Depot terrace (-153,172) / (-150,148). Tree stuck in the Warehouse roof archived.
+- Kept on purpose: 0.5-ish stair risers (the SVG's 0.16 x 0.30 reads as a ramp at Roblox scale); streets/shops stay within 1 stud of the SVG heights (moving everything by <1 stud would bury props for no visible change).
+- Tests: all suites 632/0, PlotCheck 46/0, EndToEnd 13/0; real character walks up the grand stair into the museum and up the hillside to +16.
+
+## East Quarter: map widened, shops 3/5/6 moved off the plaza (2026-11-18)
+- Map widened 160 studs east (x 170 -> 330): Baseplate, Ground.East, Horizon edges/apron/lip/table legs moved. West canal continued straight to the new edge (z ~15).
+- New boulevard x 190..206 (both sides of the canal) + links at z 146, z -167, z -349.
+- Shops 3, 6, 5 moved to the boulevard, doors facing -X, floors at (258, z 160 / -100 / -270), same heights as before (+5 / +9 / +3 floor). New terraces `Elevation.EastQuarter` with double stairs (two flights along the facade meeting at a centre landing).
+- Old terraces/stairs/pilasters archived in `ServerStorage.EnvArchive.OldShopSpots_3_5_6`; their old spots by the plaza are now open ground.
+- Fixed: stair cheek wedges built today sloped the wrong way (WedgePart is tall at +Z local); all 26 flipped.
+- Tests: PlotCheck 46/0, EndToEnd 13/0, pathfinding spawn -> each moved shop OK, real character climbs both double stairs into the shop.
+
+## Building models waiting for import (2026-11-18)
+All in `assets/models/` (scripts in `tools/blender/`). Each piece faces -Y in Blender; parts are named `<Piece>_<Group>`.
+
+| File | Pieces | Triangles | Placement plan (world) |
+|---|---|---|---|
+| Depot.glb | Depot | 12.0k | Depot terrace, centre (-196, top 4.0, 150), front to -Z; archive `Environment.Landmarks.Depot`, `CanalTownAssembly.Landmarks.DepotCanopy` |
+| Warehouse.glb | Warehouse | 9.0k | centre (-46, floor 2.6, 224), entrance to -Z (street z 184..197). Keep `Districts.Warehouse.SupplyCounter` + `SupplyDesk` exactly where they are (they end up 4 studs inside the door); archive the other old warehouse parts |
+| Houses.glb | HouseA..E | 7.1k (all 5) | replace HillHouse / ResHouse copies and old row houses; fill the east land and the old shop spots by the plaza; pastel SurfaceAppearance.Color per copy, optional 1.15x scale |
+| Stores.glb | Kainan, Sulit, SariSari, Bakery | 19.4k | Kainan centre (-45, 0.7, -310) front to -X; Sulit Mart centre (-116, 0.7, -309) front to +X; Bakery + Sari-sari on the old shop-5 spot east of the main street (front to -X, z -110 / -150); archive the old `Buildings.Kainan` / `Buildings.Supermart` |
+| Landmarks.glb | DomedHall, ClockTower, Gate | 20.4k | Domed hall centre (88, 0.4, -225) front to +Z (street z -167); clock tower (-140, 0.4, 89) replacing the old tower; gate across the main street end at (-74, 0.7, -334), front to -Z |
+| Shop_B.glb / Shop_C.glb | shop shell styles B (bahay na bato) and C (Escolta Art Deco) | 15.5k / 14.6k | same plot coordinates and group names as Shop.glb, so they swap into `ShopShellTemplate` per plot (e.g. P1 A, P2 B, P3 C, P4 A, P5 B, P6 C) |
