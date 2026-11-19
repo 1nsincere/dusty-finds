@@ -30,6 +30,7 @@ local ORDER = {
 	"SettingsService",
 	"TutorialService", -- Sean: saves tutorial.step/done (RequestTutorialStep), checked against Shared.Tutorial
 	"JeepneyService", -- Dev 1: ambient jeepneys on the entrance-level loop (TownT2.Transit), Sakay prompt
+	"TricycleService", -- Dev 1: ambient tricycles (TownT2.Transit.TrikeRoutes, TODA stand), shares Lib/TrafficRules with the jeepneys
 	"DevTools", -- Studio only: does nothing on live servers
 }
 
