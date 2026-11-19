@@ -1,7 +1,9 @@
 -- LightingController.luau
 -- Purpose: the day/night cycle and the town's mood. Blends Lighting, Atmosphere, Bloom, colour grade and sun rays
--- through Config.DayNight keyframes; at night lanterns switch on, house/landmark windows glow, every shop gets a warm
--- ceiling light and the lamps closest to the camera get real PointLights. Client only: every change is local.
+-- through Config.DayNight keyframes. Night is lit by the sky (moonlight + ambient) plus the Philippine-style street
+-- lights (TownT2.StreetLights), each with its own fixed orange SpotLight that is on all night; decorative lanterns and
+-- windows only take a warm tint, and every shop gets one fixed warm ceiling light. No lights follow the camera, so
+-- nothing switches on/off as you move. Client only: every change is local.
 -- Owner: Dev 1 (Ace). Depends on: Shared.Config.DayNight, ClientState (settings.reduceEffects), Lighting children
 -- (Atmosphere, BloomEffect, ColorCorrectionEffect, SunRaysEffect, Sky), Workspace.Plots.PlotN.Floor.
 -- Time = workspace:GetServerTimeNow(), so all players on a server share the same time of day without any remote.
@@ -17,7 +19,6 @@ local LightingController = {}
 local DEBUG = true
 
 local UPDATE_EVERY = 0.1 -- seconds between look updates (the clock moves slowly; 10 Hz is smooth)
-local POOL_EVERY = 0.5 -- seconds between re-picking which lamps get a real light
 local LAMP_NAMES = { StairPostLamp = true, Lantern = true, Bulb = true, PierLamp = true }
 local WINDOW_ROOTS = { "BlenderHouses", "BlenderBuildings" } -- under Workspace.CanalTownWow
 
@@ -25,7 +26,8 @@ type Saved = { material: Enum.Material, color: Color3, transparency: number, ref
 
 local lamps: { [BasePart]: Saved } = {}
 local windows: { [BasePart]: Saved } = {}
-local pool: { PointLight } = {}
+local streetLenses: { [BasePart]: Light } = {} -- SodiumLens -> its fixed SpotLight (all on at night, no distance logic)
+local fillLights: { Light } = {} -- invisible NightFill PointLights (all on at night unless Reduce effects)
 local shopLights: { PointLight } = {}
 local lightsOn: boolean? = nil
 local reduceEffects = false
@@ -117,14 +119,18 @@ local function isWindowPart(part: BasePart): boolean
 end
 
 local function applyLamp(part: BasePart, saved: Saved, on: boolean)
-	part.Material = if on then Enum.Material.Neon else Enum.Material.SmoothPlastic
-	part.Color = if on then rgb(DayNight.LAMP_GLOW) else saved.color
+	local cfg = DayNight.LAMP_NIGHT
+	-- many bulbs are Neon in the model itself: by day they are always matte, at night they glow only if cfg.glow
+	local dayMaterial = if saved.material == Enum.Material.Neon then Enum.Material.SmoothPlastic else saved.material
+	part.Material = if on and cfg.glow then Enum.Material.Neon else dayMaterial
+	part.Color = if on then rgb(cfg.color) else saved.color
 end
 
 local function applyWindow(part: BasePart, saved: Saved, on: boolean)
 	if on then
-		part.Material = Enum.Material.Neon
-		part.Color = rgb(DayNight.WINDOW_GLOW)
+		local cfg = DayNight.WINDOW_NIGHT
+		part.Material = if cfg.glow then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		part.Color = rgb(cfg.color)
 		part.Transparency = 0
 		part.Reflectance = 0
 	else
@@ -135,8 +141,47 @@ local function applyWindow(part: BasePart, saved: Saved, on: boolean)
 	end
 end
 
+local function applyStreetLight(lens: BasePart, light: Light, on: boolean)
+	local cfg = DayNight.STREET_LIGHT
+	lens.Material = if on then Enum.Material.Neon else Enum.Material.SmoothPlastic
+	lens.Color = rgb(if on then cfg.lensNight else cfg.lensDay)
+	light.Color = rgb(cfg.color)
+	light.Brightness = cfg.brightness
+	light.Range = cfg.range
+	if light:IsA("SpotLight") then
+		light.Angle = cfg.angle
+	end
+	light.Enabled = on
+end
+
+local function applyFill(light: Light)
+	local cfg = DayNight.NIGHT_FILL
+	light.Color = rgb(cfg.color)
+	light.Brightness = cfg.brightness
+	if light:IsA("PointLight") then
+		light.Range = cfg.range
+	end
+	light.Enabled = lightsOn == true and not reduceEffects
+end
+
 local function consider(inst: Instance)
 	if not inst:IsA("BasePart") then
+		return
+	end
+	if inst.Name == "NightFill" then
+		local light = inst:FindFirstChildWhichIsA("Light")
+		if light and not table.find(fillLights, light) then
+			table.insert(fillLights, light)
+			applyFill(light)
+		end
+		return
+	end
+	if inst.Name == "SodiumLens" and streetLenses[inst] == nil then
+		local light = inst:FindFirstChildWhichIsA("Light")
+		if light then
+			streetLenses[inst] = light
+			applyStreetLight(inst, light, lightsOn == true)
+		end
 		return
 	end
 	if lamps[inst] == nil and isLampPart(inst) then
@@ -176,61 +221,18 @@ local function setLights(on: boolean)
 	for _, light in shopLights do
 		light.Enabled = on
 	end
-	if not on then
-		for _, light in pool do
-			light.Enabled = false
+	for lens, light in streetLenses do
+		if lens.Parent then
+			applyStreetLight(lens, light, on)
+		else
+			streetLenses[lens] = nil
 		end
+	end
+	for _, light in fillLights do
+		applyFill(light)
 	end
 	if DEBUG then
 		print(`[LightingController] lights {if on then "ON" else "OFF"} ({#shopLights} shops)`)
-	end
-end
-
--- Give the closest lamps to the camera a real light (cheap: a fixed small pool of lights moves around).
-local function updatePool()
-	local size = if reduceEffects or not lightsOn then 0 else DayNight.LAMP_LIGHT_POOL
-	local camera = workspace.CurrentCamera
-	if not camera then
-		return
-	end
-	local here = camera.CFrame.Position
-	local nearest: { { part: BasePart, d: number } } = {}
-	if size > 0 then
-		for part in lamps do
-			if part.Parent then
-				table.insert(nearest, { part = part, d = (part.Position - here).Magnitude })
-			end
-		end
-		table.sort(nearest, function(x, y)
-			return x.d < y.d
-		end)
-	end
-	for i, light in pool do
-		local pick = if i <= size then nearest[i] else nil
-		if pick then
-			local attachment = light.Parent :: Attachment
-			attachment.WorldPosition = pick.part.Position
-			light.Enabled = true
-		else
-			light.Enabled = false
-		end
-	end
-end
-
-local function makePool()
-	local cfg = DayNight.LAMP_LIGHT
-	for i = 1, DayNight.LAMP_LIGHT_POOL do
-		local attachment = Instance.new("Attachment")
-		attachment.Name = "LampLight" .. i
-		attachment.Parent = workspace.Terrain
-		local light = Instance.new("PointLight")
-		light.Range = cfg.range
-		light.Brightness = cfg.brightness
-		light.Color = rgb(cfg.color)
-		light.Shadows = false
-		light.Enabled = false
-		light.Parent = attachment
-		table.insert(pool, light)
 	end
 end
 
@@ -318,28 +320,24 @@ function LightingController.Start()
 	reduceEffects = ClientState.Get("settings.reduceEffects") == true
 	ClientState.OnChanged("settings", function()
 		reduceEffects = ClientState.Get("settings.reduceEffects") == true
-		updatePool()
+		for _, light in fillLights do
+			applyFill(light)
+		end
 	end)
 
-	makePool()
 	for _, inst in workspace:GetDescendants() do
 		consider(inst)
 	end
 	workspace.DescendantAdded:Connect(consider) -- streamed-in or rebuilt art
 	task.spawn(makeShopLights)
 
-	local sinceLook, sincePool = UPDATE_EVERY, POOL_EVERY
+	local sinceLook = UPDATE_EVERY
 	updateLook()
 	RunService.Heartbeat:Connect(function(dt)
 		sinceLook += dt
-		sincePool += dt
 		if sinceLook >= UPDATE_EVERY then
 			sinceLook = 0
 			updateLook()
-		end
-		if sincePool >= POOL_EVERY then
-			sincePool = 0
-			updatePool()
 		end
 	end)
 	if DEBUG then

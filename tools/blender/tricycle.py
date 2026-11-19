@@ -93,7 +93,8 @@ SY0, SY1 = -3.4, 2.8  # sidecar Y range
 SC = (SX0 + SX1) / 2
 SW = SX1 - SX0
 MX = 1.45  # motorcycle centre line
-BASE_TOP, CAB_TOP = 2.35, 5.3
+# cab roof raised 1.3 (2026-11-20) so tall avatars sitting in the sidecar (hips ~2.8) clear it
+BASE_TOP, CAB_TOP = 2.35, 6.6
 
 
 def spoked_wheel(x, y, r, w):

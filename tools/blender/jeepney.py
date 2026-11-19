@@ -54,7 +54,9 @@ dash = V.paint("Dash", V.rgb("3A3D44"), rough=0.6)
 body, chromeparts, wheels = [], [], []
 B, C, Wl = body.append, chromeparts.append, wheels.append
 Y0, Y1 = -6.2, 10.6  # passenger body from the windshield to the rear
-BELT, WTOP, HDR = 5.35, 7.75, 8.55  # belt line, window top, header top (roof sits on the header)
+# belt line, window top, header top (roof sits on the header). Cabin raised 1 stud (2026-11-20) so tall avatars'
+# heads clear the roof: seated hips sit ~5.0 above the road, so the ceiling is now ~9.5.
+BELT, WTOP, HDR = 5.35, 8.75, 9.55
 
 
 def roof(name, y0, y1, half_w=4.5, top=9.55, eave=8.5, shoulder=0.95, mat=None):
@@ -136,15 +138,15 @@ C(V.box("RearBumper", (8.2, 0.5, 0.45), (0, Y1 + 0.35, 2.15), chrome, bevel=0.1)
 B(V.box("RearStep", (3.4, 1.0, 0.22), (0.7, Y1 + 0.75, 1.55), steel_flat))
 C(V.tube("GrabBar", [(2.45, Y1 + 0.25, 2.6), (2.45, Y1 + 0.25, WTOP)], 0.08, chrome))
 # roof
-B(roof("Roof", Y0 - 0.45, Y1 + 0.35, mat=steel_flat))
+B(roof("Roof", Y0 - 0.45, Y1 + 0.35, top=HDR + 1.0, eave=HDR - 0.05, mat=steel_flat))
 # ---- cab: windshield, dash, front wall --------------------------------------------------------------------------
 B(V.box("CabFront", (8.0, 0.35, 1.9), (0, Y0, 3.55), steel))
 B(V.box("Dash", (7.4, 0.9, 0.45), (0, Y0 + 0.35, 4.7), dash))
-B(V.box("Windshield", (7.2, 0.08, 2.6), (0, Y0 - 0.05, 6.35), glass))
-C(V.box("WindFrameTop", (7.6, 0.2, 0.18), (0, Y0 - 0.1, 7.7), chrome))
+B(V.box("Windshield", (7.2, 0.08, WTOP - 5.15), (0, Y0 - 0.05, (5.05 + WTOP) / 2), glass))
+C(V.box("WindFrameTop", (7.6, 0.2, 0.18), (0, Y0 - 0.1, WTOP - 0.05), chrome))
 C(V.box("WindFrameBot", (7.6, 0.2, 0.18), (0, Y0 - 0.1, 5.0), chrome))
 for s in (-1, 1):
-    B(V.box("WindPost", (0.35, 0.4, 3.3), (s * 3.85, Y0, 6.35), steel_flat))
+    B(V.box("WindPost", (0.35, 0.4, WTOP - 4.4), (s * 3.85, Y0, (4.7 + WTOP) / 2), steel_flat))
 # ---- hood, grille, headlights, bumper, horses ----------------------------------------------------------------
 B(V.box("Hood", (6.4, 4.0, 1.5), (0, -8.2, 3.85), steel, bevel=0.35, segments=4))
 B(V.box("GrilleBack", (5.0, 0.2, 1.6), (0, -10.15, 3.7), black))
@@ -198,7 +200,7 @@ for s, face in ((1, "+X"), (-1, "-X")):
     signs.append(V.sign_quad("InfoBoard", (s * 4.3, 1.8, 3.75), 2.6, 1.95, face, uv[3], push=0.02))
     signs.append(V.sign_quad("RearBoard", (s * 4.23, 9.4, 6.6), 1.9, 1.7, face, uv[(3, 0.35)], push=0.02))
     signs.append(V.sign_quad("SidePlate", (s * 4.27, 9.85, 4.55), 1.15, 0.4, face, uv[2], push=0.04))
-signs.append(V.sign_quad("SmallBoard", (0, Y0 - 0.2, 8.15), 6.0, 0.55, "-Y", uv[1], push=0.02))
+signs.append(V.sign_quad("SmallBoard", (0, Y0 - 0.2, HDR - 0.4), 6.0, 0.55, "-Y", uv[1], push=0.02))
 signs.append(V.sign_quad("PlateFront", (0, -10.92, 2.15), 2.0, 0.5, "-Y", uv[2], push=0.01))
 signs.append(V.sign_quad("PlateRear", (-2.5, Y1 + 0.2, 3.3), 2.0, 0.5, "+Y", uv[2], push=0.01))
 signs.append(V.sign_quad("Sticker", (-2.5, Y1 + 0.2, 4.55), 1.1, 0.55, "+Y", uv[6], push=0.01))
