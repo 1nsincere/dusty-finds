@@ -11,3 +11,5 @@ assets/template/
 # Python bytecode from the Blender scripts
 __pycache__/
 *.pyc
+assets/jeepney/
+assets/tricycle/

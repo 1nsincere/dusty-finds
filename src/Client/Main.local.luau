@@ -35,6 +35,7 @@ local ORDER = {
 	"MuseumController", -- Dev 1: the museum Collection pedestal opens the Collection Book
 	"WarehouseController", -- Dev 1: the Warehouse supply counter opens the Supply screen (crates are sold only there)
 	"MyShopController", -- Dev 1 (Sean approved): 🏠 My Shop HUD button, teleports you back to your own shop (RequestVisit)
+	"LightingController", -- Dev 1: day/night cycle, night lamps and window glow (Config.DayNight)
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
