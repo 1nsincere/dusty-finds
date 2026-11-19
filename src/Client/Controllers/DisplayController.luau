@@ -54,6 +54,22 @@ local function makeItemVisual(itemId: string, golden: boolean): (Instance, BaseP
 	local template = models and models:FindFirstChild(itemId)
 	if template and template:IsA("Model") then
 		local model = template:Clone()
+		-- Shelf items are restored: put each loose part in its socket, then drop the restoration helpers
+		-- (dirt/rust decals, ghost sockets, tray decoys) so only the finished item shows.
+		local sockets, loose = model:FindFirstChild("Sockets"), model:FindFirstChild("LooseParts")
+		if sockets and loose then
+			for _, piece in loose:GetChildren() do
+				local socket = sockets:FindFirstChild(piece.Name)
+				if socket and socket:IsA("BasePart") and piece:IsA("BasePart") then
+					piece.CFrame = socket.CFrame
+					piece.Parent = model
+				end
+			end
+		end
+		for _, helper in { "Sockets", "LooseParts", "DirtSpots", "RustSpots" } do
+			local folder = model:FindFirstChild(helper)
+			if folder then folder:Destroy() end
+		end
 		for _, part in model:GetDescendants() do
 			if part:IsA("BasePart") then
 				part.Anchored = true
@@ -97,6 +113,23 @@ local function renderSlot(slot: BasePart)
 	-- Models are measured as a whole (bounding box), so the LOWEST part touches the pad
 	-- even if the pivot isn't at the bottom (Item Model Contract: pivot at Base's centre).
 	local slotTop = slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0)
+	-- Shelf pads all face the plot's front, but shelves run along the side walls, so a shaped item would stand
+	-- sideways to the customer. Turn shelf items to face out of their shelf, toward the middle of the shop floor.
+	if slot.Parent and slot.Parent.Name == "DisplaySlots" then
+		local floor: Instance? = nil
+		local node: Instance? = slot.Parent
+		while node and not floor do
+			floor = node:FindFirstChild("Floor")
+			node = node.Parent
+		end
+		if floor and floor:IsA("BasePart") then
+			local out = slot.CFrame.RightVector
+			if out:Dot(floor.Position - slot.Position) < 0 then
+				out = -out
+			end
+			slotTop = CFrame.lookAt(slotTop.Position, slotTop.Position + out, slot.CFrame.UpVector)
+		end
+	end
 	local boxCFrame, boxSize
 	if visual:IsA("Model") then
 		visual:PivotTo(slotTop)

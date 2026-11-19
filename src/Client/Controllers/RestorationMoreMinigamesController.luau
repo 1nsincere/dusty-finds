@@ -9,6 +9,7 @@
 -- which Dwayne's RestorationView supplies through RestorationController.SetViewProvider. Without them the step falls back to the
 -- hold-the-button placeholder, so the loop never gets stuck.
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -136,19 +137,102 @@ local function runTest(ctx)
 	end
 end
 
+-- ===== Repair feedback (Reassemble/Replace): what is selected, where it goes, right or wrong =====
+local SELECT_COLOR = Color3.fromHex("FFD43B")
+local SOCKET_COLOR = Color3.fromHex("5BC0EB")
+local WRONG_COLOR = Color3.fromHex("E0524D")
+
+local function burst(part: BasePart)
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = part
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Lifetime = NumberRange.new(0.3, 0.6)
+	emitter.Speed = NumberRange.new(1, 3)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.LightEmission = 1
+	emitter.Enabled = false
+	emitter.Parent = attachment
+	emitter:Emit(12)
+	Debris:AddItem(attachment, 1.2)
+end
+
+-- Returns the fx table Socket.luau calls, plus a cleanup. Highlights live in the item view model, so they go with it.
+local function repairFx(model: Instance)
+	local made: { Instance } = {}
+	local selected = Instance.new("Highlight")
+	selected.Name = "SelectedPart"
+	selected.FillColor = SELECT_COLOR
+	selected.OutlineColor = SELECT_COLOR
+	selected.FillTransparency = 0.6
+	selected.DepthMode = Enum.HighlightDepthMode.Occluded
+	selected.Enabled = false
+	selected.Parent = model
+	table.insert(made, selected)
+	local sockets = model:FindFirstChild("Sockets")
+	if sockets then -- the empty spots glow so you can see where parts go
+		local glow = Instance.new("Highlight")
+		glow.Name = "SocketGlow"
+		glow.Adornee = sockets
+		glow.FillColor = SOCKET_COLOR
+		glow.OutlineColor = SOCKET_COLOR
+		glow.FillTransparency = 0.5
+		glow.DepthMode = Enum.HighlightDepthMode.Occluded
+		glow.Parent = model
+		table.insert(made, glow)
+	end
+	local fx = {}
+	function fx.select(part: Instance)
+		selected.Adornee = part
+		selected.FillColor, selected.OutlineColor = SELECT_COLOR, SELECT_COLOR
+		selected.Enabled = true
+	end
+	function fx.place(part: Instance, socket: Instance)
+		selected.Enabled = false
+		if socket:IsA("BasePart") then
+			socket.Transparency = 1 -- the ghost is filled now
+			socket.CanQuery = false
+		end
+		if part:IsA("BasePart") then
+			task.delay(0.25, function()
+				if part.Parent then burst(part) end
+			end)
+		end
+	end
+	function fx.wrong(part: Instance, _socket: Instance)
+		selected.Adornee = part
+		selected.FillColor, selected.OutlineColor = WRONG_COLOR, WRONG_COLOR
+		selected.Enabled = true
+		task.delay(0.4, function()
+			if selected.Parent and selected.FillColor == WRONG_COLOR then selected.Enabled = false end
+		end)
+	end
+	return fx, function()
+		for _, instance in made do
+			instance:Destroy()
+		end
+	end
+end
+
 -- ===== Model minigames: need ctx.model and ctx.attachPointer from the RestorationView =====
-local function runWithModel(Game)
+local function runWithModel(Game, withRepairFx: boolean?)
 	return function(ctx)
 		if ctx.model == nil or type(ctx.attachPointer) ~= "function" then
 			log(`{ctx.step.type}: no item view yet, using the placeholder`)
 			return controller.RunPlaceholder(ctx)
 		end
+		local fx, cleanupFx = nil, nil
+		if withRepairFx then
+			fx, cleanupFx = repairFx(ctx.model)
+		end
 		local ok, game_ = pcall(Game.new, ctx.model, ctx.step, function(fraction)
 			ctx.setProgress(fraction)
 		end, function(score)
 			ctx.complete(score)
-		end)
+		end, fx)
 		if not ok then
+			if cleanupFx then cleanupFx() end
 			warn(`[RestorationMoreMinigames] {ctx.step.type} could not start ({tostring(game_)}), using the placeholder`)
 			return controller.RunPlaceholder(ctx)
 		end
@@ -158,6 +242,7 @@ local function runWithModel(Game)
 				pcall(detach)
 			end
 			game_:Destroy()
+			if cleanupFx then cleanupFx() end
 		end
 	end
 end
@@ -173,8 +258,8 @@ function RestorationMoreMinigamesController.Start()
 	end
 	controller.RegisterMinigame("Test", runTest)
 	controller.RegisterMinigame("Scrape", runWithModel(ScrapeGame))
-	controller.RegisterMinigame("Reassemble", runWithModel(ReassembleGame))
-	controller.RegisterMinigame("Replace", runWithModel(ReplaceGame))
+	controller.RegisterMinigame("Reassemble", runWithModel(ReassembleGame, true))
+	controller.RegisterMinigame("Replace", runWithModel(ReplaceGame, true))
 	log("registered Test, Scrape, Reassemble, Replace")
 end
 

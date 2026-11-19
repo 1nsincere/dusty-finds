@@ -1,11 +1,35 @@
 -- Rub.luau
 -- Purpose: production movement-based Polish adapted from tested surface-entry and sample guards.
 -- Owner: Dev 2 (Dwayne). Depends on: disposable Model.PolishSurfaces and explicit movement tuning.
--- Preserve original colour/material; only reflectance changes. Completion is local, not a reward.
+-- Surfaces start dull (colour pulled toward grime, no shine) and return to their ORIGINAL colour/material as you rub,
+-- so the finished item keeps its identity (Item Model Contract). Completion is local, not a reward.
+
+local Debris = game:GetService("Debris")
 
 local Rub = {}
 Rub.__index = Rub
 local DEBUG = true
+local GRIME = Color3.fromRGB(105, 92, 78) -- what an unpolished surface is tinted toward
+local DULL_AMOUNT = 0.45 -- how far toward GRIME the surface starts
+local SHINE = 0.3 -- reflectance reached at 100%
+
+-- Small sparkle burst when the polish completes (client-only visual).
+local function sparkle(part: BasePart)
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = part
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 250, 220))
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Lifetime = NumberRange.new(0.4, 0.8)
+	emitter.Speed = NumberRange.new(1, 3)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.LightEmission = 1
+	emitter.Enabled = false
+	emitter.Parent = attachment
+	emitter:Emit(14)
+	Debris:AddItem(attachment, 1.5)
+end
 
 local function positiveNumber(value)
 	return type(value) == "number" and value == value and value > 0 and value < math.huge
@@ -38,6 +62,12 @@ function Rub.new(model, stepConfig, onProgress, onComplete)
 		end
 	end
 	assert(self.count > 0, "PolishSurfaces needs at least one direct child surface Part")
+	-- Start dull: the player sees the colour come back while rubbing.
+	for part, original in self.surfaces do
+		original.dull = original.color:Lerp(GRIME, DULL_AMOUNT)
+		part.Color = original.dull
+		part.Reflectance = 0
+	end
 	onProgress(0, 0, self.count)
 	if DEBUG then
 		print(`[PolishRub] ready: {self.count} surfaces; target {tuning.requiredTravel} viewport units`)
@@ -95,8 +125,8 @@ function Rub:OnDrag(hit, delta, _dt)
 		self.travel + math.min(distance, self.tuning.maxCreditPerSample))
 	local progress = self.travel / self.tuning.requiredTravel
 	for surface, original in self.surfaces do
-		surface.Reflectance = original.reflectance + (0.3 - original.reflectance) * progress
-
+		surface.Color = original.dull:Lerp(original.color, progress)
+		surface.Reflectance = original.reflectance + (SHINE - original.reflectance) * progress
 	end
 	local milestone = math.floor(progress * 4)
 	if milestone > self.milestone then
@@ -110,6 +140,9 @@ function Rub:OnDrag(hit, delta, _dt)
 		self.completed = true
 		self.held = false
 		self.lastSurface = nil
+		for surface in self.surfaces do
+			sparkle(surface)
+		end
 		if DEBUG then
 			print("[PolishRub] complete: local Polish score 100; await server confirmation")
 		end
