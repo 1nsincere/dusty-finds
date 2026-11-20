@@ -27,6 +27,13 @@ local RestorationMoreMinigamesController = {}
 local DEBUG = true
 local player = Players.LocalPlayer
 local controller: any = nil
+local sounds: any = nil -- SoundController (optional)
+
+local function playSound(name: string)
+	if sounds then
+		sounds.Play(name)
+	end
+end
 
 local TEST_LABELS = { Switch = "Flip the switch!", Wind = "Wind it up!", Shake = "Give it a shake!", Play = "Press play!" }
 
@@ -184,11 +191,13 @@ local function repairFx(model: Instance)
 	end
 	local fx = {}
 	function fx.select(part: Instance)
+		playSound("pick")
 		selected.Adornee = part
 		selected.FillColor, selected.OutlineColor = SELECT_COLOR, SELECT_COLOR
 		selected.Enabled = true
 	end
 	function fx.place(part: Instance, socket: Instance)
+		task.delay(0.2, playSound, "snap")
 		selected.Enabled = false
 		if socket:IsA("BasePart") then
 			socket.Transparency = 1 -- the ghost is filled now
@@ -201,6 +210,7 @@ local function repairFx(model: Instance)
 		end
 	end
 	function fx.wrong(part: Instance, _socket: Instance)
+		playSound("wrong")
 		selected.Adornee = part
 		selected.FillColor, selected.OutlineColor = WRONG_COLOR, WRONG_COLOR
 		selected.Enabled = true
@@ -249,6 +259,7 @@ end
 
 function RestorationMoreMinigamesController.Init(others: { [string]: any })
 	controller = others.RestorationController
+	sounds = others.SoundController
 end
 
 function RestorationMoreMinigamesController.Start()
