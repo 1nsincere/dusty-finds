@@ -27,6 +27,9 @@ local CLIENT_TO_SERVER = {
 	"RequestVisit",
 	"RequestSaveSettings",
 	"RequestTutorialStep",
+	"RequestGiveChange", -- cashier: (amount) the change the owner counted out for the customer at the till
+	"RequestCloseCashier", -- cashier: owner closed the till window (the customer keeps waiting / auto-checks out)
+	"RequestTravel", -- travel menu: (placeId) teleport to a Config.Travel place (server checks id, cooldown, state)
 }
 
 -- Server -> Client notifications
@@ -38,6 +41,7 @@ local SERVER_TO_CLIENT = {
 	"ItemRestored",
 	"SaleMade",
 	"Announcement",
+	"CashierUpdate", -- cashier: { state = "open"|"wrong"|"done"|"closed", due, paid, item, attempts }
 }
 
 -- The only RemoteFunction we allow (client asks once for its full data after the profile loads)

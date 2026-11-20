@@ -36,6 +36,11 @@ DayNight.STREET_LIGHT = {
 -- no distance logic; turned off with "Reduce effects" for weak devices.
 DayNight.NIGHT_FILL = { color = { 255, 214, 172 }, brightness = 0.42, range = 55 }
 
+-- Inside a shop: a warm, cozy grade on top of the time-of-day look (blended in/out as you walk through the door).
+-- Shop interior lights themselves are placed parts (Plots.PlotN.ShopProps.ShopLights, attributes Day / Night =
+-- brightness): pendant lamps, shelf washes, counter spot; the workbench lamp is part of the Workbench model.
+DayNight.INDOOR = { ccTint = { 255, 236, 214 }, tintAmount = 0.6, ccSat = 0.04, ccContrast = 0.04, bloom = 0.08 }
+
 -- Decorative lantern heads/bulbs at night: a DIM orange glow (dark enough that a plaza full of them doesn't bloom into
 -- a wall of bright dots). They give no real light; the street lights do that. glow = false = matte warm tint only.
 DayNight.LAMP_NIGHT = { color = { 196, 120, 62 }, glow = true }

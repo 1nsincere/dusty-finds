@@ -28,6 +28,7 @@ local lamps: { [BasePart]: Saved } = {}
 local windows: { [BasePart]: Saved } = {}
 local streetLenses: { [BasePart]: Light } = {} -- SodiumLens -> its fixed SpotLight (all on at night, no distance logic)
 local fillLights: { Light } = {} -- invisible NightFill PointLights (all on at night unless Reduce effects)
+local shopLights2: { [Light]: BasePart } = {} -- shop interior lights (ShopProps.ShopLights parts, attributes Day/Night brightness)
 local shopLights: { PointLight } = {}
 local lightsOn: boolean? = nil
 local reduceEffects = false
@@ -168,6 +169,17 @@ local function consider(inst: Instance)
 	if not inst:IsA("BasePart") then
 		return
 	end
+	if inst:GetAttribute("ShopLight") then
+		local light = inst:FindFirstChildWhichIsA("Light")
+		if light and not shopLights2[light] then
+			shopLights2[light] = inst
+			local level = if lightsOn then inst:GetAttribute("Night") else inst:GetAttribute("Day")
+			if type(level) == "number" then
+				light.Brightness = level
+			end
+		end
+		return
+	end
 	if inst.Name == "NightFill" then
 		local light = inst:FindFirstChildWhichIsA("Light")
 		if light and not table.find(fillLights, light) then
@@ -231,6 +243,16 @@ local function setLights(on: boolean)
 	for _, light in fillLights do
 		applyFill(light)
 	end
+	for light, part in shopLights2 do
+		if part.Parent then
+			local level = part:GetAttribute(if on then "Night" else "Day")
+			if type(level) == "number" then
+				light.Brightness = level
+			end
+		else
+			shopLights2[light] = nil
+		end
+	end
 	if DEBUG then
 		print(`[LightingController] lights {if on then "ON" else "OFF"} ({#shopLights} shops)`)
 	end
@@ -261,6 +283,27 @@ local function makeShopLights()
 	end
 end
 
+-- Inside a shop (standing over a plot's Floor, under the roof): a warmer, slightly softer grade for the cozy shop look.
+local function isIndoors(): boolean
+	local character = game:GetService("Players").LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local plots = workspace:FindFirstChild("Plots")
+	if not root or not plots then
+		return false
+	end
+	for _, plot in plots:GetChildren() do
+		local floor = plot:FindFirstChild("Floor")
+		if floor and floor:IsA("BasePart") then
+			local rel = floor.CFrame:PointToObjectSpace(root.Position)
+			if math.abs(rel.X) <= floor.Size.X / 2 and math.abs(rel.Z) <= floor.Size.Z / 2 and rel.Y > -2 and rel.Y < 16 then
+				return true
+			end
+		end
+	end
+	return false
+end
+local indoorBlend = 0 -- eases 0 -> 1 when walking in, so the grade change is smooth
+
 local function updateLook()
 	local clock, segment = currentClock()
 	local a, b, t = sample(clock)
@@ -287,10 +330,15 @@ local function updateLook()
 	if bloom then
 		bloom.Intensity = n("bloom")
 	end
+	indoorBlend += ((if isIndoors() then 1 else 0) - indoorBlend) * 0.15
+	local indoor = DayNight.INDOOR
 	if grade then
-		grade.TintColor = c("ccTint")
-		grade.Saturation = n("ccSat")
-		grade.Contrast = n("ccContrast")
+		grade.TintColor = c("ccTint"):Lerp(rgb(indoor.ccTint), indoorBlend * indoor.tintAmount)
+		grade.Saturation = n("ccSat") + indoor.ccSat * indoorBlend
+		grade.Contrast = n("ccContrast") + indoor.ccContrast * indoorBlend
+	end
+	if bloom then
+		bloom.Intensity = n("bloom") + indoor.bloom * indoorBlend
 	end
 	if sunRays then
 		sunRays.Enabled = not reduceEffects
@@ -329,7 +377,7 @@ function LightingController.Start()
 		consider(inst)
 	end
 	workspace.DescendantAdded:Connect(consider) -- streamed-in or rebuilt art
-	task.spawn(makeShopLights)
+	-- (the old single night ceiling light per shop is replaced by the placed ShopProps.ShopLights; makeShopLights unused)
 
 	local sinceLook = UPDATE_EVERY
 	updateLook()

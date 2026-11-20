@@ -245,17 +245,38 @@ local function hookSlot(slot: BasePart, plot: Instance, info)
 	plot:GetAttributeChangedSignal("OwnerUserId"):Connect(refresh)
 end
 
-local function hookPlot(plot: Instance)
-	for folderName, info in KINDS do
-		local folder = plot:FindFirstChild(folderName)
-		if folder then
-			for _, slot in folder:GetChildren() do
-				if slot:IsA("BasePart") then
-					hookSlot(slot, plot, info)
-				end
-			end
-		end
+-- Streaming-safe: a slot part can arrive after we start (player spawned away from the shop) and is a NEW instance each
+-- time it streams back in (its prompt/visual went with the old one). So hook every slot whenever it appears, and drop
+-- our bookkeeping when it leaves.
+local hooked: { [BasePart]: boolean } = {}
+
+local function tryHookSlot(slot: Instance, plot: Instance)
+	if not slot:IsA("BasePart") or hooked[slot] then
+		return
 	end
+	local folder = slot.Parent
+	local info = folder and KINDS[folder.Name]
+	if not info then
+		return
+	end
+	hooked[slot] = true
+	hookSlot(slot, plot, info)
+	slot.AncestryChanged:Connect(function(_, parent)
+		if parent == nil or not slot:IsDescendantOf(workspace) then
+			hooked[slot] = nil
+			clearVisual(slot)
+			removeCooldownUntil[slot] = nil
+		end
+	end)
+end
+
+local function hookPlot(plot: Instance)
+	for _, inst in plot:GetDescendants() do
+		tryHookSlot(inst, plot)
+	end
+	plot.DescendantAdded:Connect(function(inst)
+		tryHookSlot(inst, plot)
+	end)
 end
 
 -- ===== Lifecycle =====
@@ -279,7 +300,8 @@ function DisplayController.Start()
 		for _, plot in plots:GetChildren() do
 			hookPlot(plot)
 		end
-		log(`ready: {#plots:GetChildren()} plots hooked`)
+		plots.ChildAdded:Connect(hookPlot) -- a plot model that streams in later
+		log(`ready: {#plots:GetChildren()} plots hooked (slots hook as they stream in)`)
 	end)
 end
 

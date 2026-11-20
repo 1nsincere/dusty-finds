@@ -16,6 +16,7 @@ local ClientState = require(script.Parent:WaitForChild("ClientState"))
 ClientState.Load()
 
 local ORDER = {
+	"SoundController", -- Dev 1: music, ambience, UI + game sounds (Config.Sounds); first so other controllers can call it
 	"HudController",
 	"InventoryController",
 	"DisplayController",
@@ -36,6 +37,10 @@ local ORDER = {
 	"WarehouseController", -- Dev 1: the Warehouse supply counter opens the Supply screen (crates are sold only there)
 	"MyShopController", -- Dev 1 (Sean approved): 🏠 My Shop HUD button, teleports you back to your own shop (RequestVisit)
 	"LightingController", -- Dev 1: day/night cycle, night lamps and window glow (Config.DayNight)
+	"CashierController", -- Dev 1: the till screen (count out the change; CashierUpdate / RequestGiveChange)
+	"HudSkinController", -- Dev 1: dark angular HUD/window/toast skin + white glyph icons (Config.UiSkin); restyle only
+	"TravelController", -- Dev 1: Travel menu (map-pin HUD button -> RequestTravel)
+	"SprintController", -- Dev 1: hold Shift / lightning button to sprint
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
