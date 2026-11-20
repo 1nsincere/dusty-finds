@@ -150,6 +150,8 @@ local function startStep()
 		return
 	end
 	local reported = false
+	local lastFraction = 0
+	local sound = others.SoundController -- optional: work loop while progressing, a chime when the step is done
 	local ctx
 	ctx = {
 		uid = current.uid,
@@ -165,6 +167,10 @@ local function startStep()
 			if view and not reported then
 				view.SetProgress(fraction)
 			end
+			if sound and not reported and fraction > lastFraction then
+				sound.Work(step.type)
+			end
+			lastFraction = math.max(lastFraction, fraction)
 		end,
 		complete = function(score: number)
 			if reported or session ~= current or session == nil or session.stepIndex ~= ctx.stepIndex then
@@ -174,6 +180,9 @@ local function startStep()
 			local view = ui()
 			if view then
 				view.SetProgress(1)
+			end
+			if sound then
+				sound.Play("stepDone")
 			end
 			-- The server rejects a step finished faster than Economy.MinStepSeconds. Hold the report back until that time has
 			-- passed, so a fast player is never refused: minigames just call complete() whenever they are done.
@@ -307,12 +316,48 @@ function RestorationController.Init(others_: { [string]: any })
 	log("Init")
 end
 
+-- Bench "Restore" prompts: shown only on benches in MY shop, only while nobody is restoring there (server attribute
+-- InUse) and I'm not mid-session. E opens my inventory on the "Needs restoring" tab; picking an item starts restoring.
+local function benchPromptLoop()
+	local plots = workspace:WaitForChild("Plots", 30)
+	if not plots then
+		return
+	end
+	local myId = Players.LocalPlayer.UserId
+	local hooked: { [ProximityPrompt]: boolean } = {}
+	while true do
+		for _, plot in plots:GetChildren() do
+			local benches = plot:FindFirstChild("Benches")
+			if benches then
+				local mine = plot:GetAttribute("OwnerUserId") == myId
+				for _, bench in benches:GetChildren() do
+					local prompt = bench:FindFirstChild("Prompt")
+					if prompt and prompt:IsA("ProximityPrompt") then
+						if not hooked[prompt] then
+							hooked[prompt] = true
+							prompt.Triggered:Connect(function()
+								local inventory = others.InventoryController
+								if inventory and inventory.Open and session == nil then
+									inventory.Open("NeedsRestoring")
+								end
+							end)
+						end
+						prompt.Enabled = mine and session == nil and bench:GetAttribute("InUse") == nil
+					end
+				end
+			end
+		end
+		task.wait(0.3)
+	end
+end
+
 function RestorationController.Start()
 	Remotes.RestoreSession.OnClientEvent:Connect(onSession)
 	Remotes.ItemRestored.OnClientEvent:Connect(function()
 		endSession()
 	end)
 	ClientState.OnChanged("inventory", onInventoryChanged)
+	task.spawn(benchPromptLoop)
 	log("Start")
 end
 

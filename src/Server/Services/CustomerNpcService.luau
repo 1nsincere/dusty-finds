@@ -21,6 +21,7 @@ local DEBUG = true
 local log = Log.new("CustomerNpcService", DEBUG)
 
 local CustomerService, PlotService = nil, nil
+local CashierService = nil -- Ace: the till (counter tap opens it; auto-checkout waits while it's open)
 
 local WALK_TIMEOUT = 6 -- seconds per waypoint; after that the NPC is placed there so it can never get stuck
 local BROWSE_PAUSE = 1.5 -- looks around at each browse point
@@ -190,6 +191,14 @@ local function hookCheckoutPrompt(plot: Instance)
 		if front == nil or not front.atCounter or front.gone then
 			return
 		end
+		-- Cashier (Ace): open the till; the sale happens when the owner gives the right change (CashierService).
+		-- Without the CashierService the old instant checkout still works.
+		if CashierService then
+			if not CashierService.IsOpenFor(tapper, front.id) then
+				CashierService.Open(tapper, front.id)
+			end
+			return
+		end
 		front.atCounter = false
 		refreshPrompt(tapper)
 		local ok, reason, result = CustomerService.Checkout(tapper, front.id, true)
@@ -266,7 +275,20 @@ local function runVisit(npc: Npc, plot: Instance)
 	-- At the counter: the owner can tap Checkout (+10%); otherwise it pays by itself after AutoCheckoutSeconds.
 	npc.atCounter = true
 	refreshPrompt(npc.player)
-	if waitWhileHere(npc, Economy.AutoCheckoutSeconds or 8) then
+	-- Auto-checkout after AutoCheckoutSeconds, but never while the owner has the till open for this customer.
+	local waited = 0
+	local limit = Economy.AutoCheckoutSeconds or 8
+	while not npc.gone do
+		local serving = CashierService ~= nil and CashierService.IsOpenFor(npc.player, npc.id)
+		if not serving then
+			waited += 0.25
+			if waited >= limit then
+				break
+			end
+		end
+		task.wait(0.25)
+	end
+	if not npc.gone then
 		npc.atCounter = false
 		refreshPrompt(npc.player)
 		local ok, reason = CustomerService.Checkout(npc.player, npc.id, false)
@@ -388,6 +410,7 @@ end
 function CustomerNpcService.Init(services)
 	CustomerService = services.CustomerService
 	PlotService = services.PlotService
+	CashierService = services.CashierService
 	log.info("Init")
 end
 

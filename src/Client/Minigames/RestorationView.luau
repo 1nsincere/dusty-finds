@@ -16,6 +16,11 @@ local PointerInput = require(script.Parent.PointerInput)
 local RestorationView = {}
 RestorationView.__index = RestorationView
 local nextViewId = 0
+-- First-person bench camera (studs, before plot scale): how far in front of the item the eyes are, how high above it,
+-- and the field of view.
+local FP_DISTANCE = 3.4
+local FP_HEIGHT = 3.2
+local FP_FOV = 62
 
 -- SetViewProvider contract: plain functions, because the runner and Ace's adapters call them without a receiver.
 function RestorationView.Provider(ctx, onCancel)
@@ -119,13 +124,37 @@ function RestorationView.new(ctx, onCancel)
 		nextViewId += 1
 		self.binding = "RestorationView" .. nextViewId
 		ContextActionService:BindActionAtPriority(self.binding, function() return Enum.ContextActionResult.Sink end, false, 3000, table.unpack(Enum.PlayerActions:GetEnumItems()))
+		-- First-person view (Ace, 2026-11-20): the camera sits where the player's eyes are when standing at the bench (on the
+		-- CameraPoint side, closer and lower), looking down at the item; the player's own character is hidden meanwhile.
+		local function firstPersonCFrame(): CFrame
+			local toPoint = point.Position - anchor.Position
+			local flat = Vector3.new(toPoint.X, 0, toPoint.Z)
+			flat = if flat.Magnitude > 0.01 then flat.Unit else anchor.CFrame.LookVector
+			local itemCentre = anchor.Position + Vector3.new(0, anchor.Size.Y / 2 + 0.9 * plotScale, 0)
+			local eye = anchor.Position + flat * FP_DISTANCE * plotScale + Vector3.new(0, FP_HEIGHT * plotScale, 0)
+			return CFrame.lookAt(eye, itemCentre)
+		end
+		self.hidden = {}
+		local character = Players.LocalPlayer.Character
+		if character then
+			for _, part in character:GetDescendants() do
+				if part:IsA("BasePart") or part:IsA("Decal") then
+					self.hidden[part] = part.LocalTransparencyModifier
+					part.LocalTransparencyModifier = 1
+				end
+			end
+		end
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.CFrame = point.CFrame
+		camera.FieldOfView = FP_FOV
+		camera.CFrame = firstPersonCFrame()
 		camera.Focus = CFrame.new(anchor.Position)
 		RunService:BindToRenderStep(self.binding, Enum.RenderPriority.Camera.Value + 1, function()
 			if not self.destroyed and camera == workspace.CurrentCamera and point:IsDescendantOf(workspace) then
-				camera.CFrame = point.CFrame
+				camera.CFrame = firstPersonCFrame()
 				camera.Focus = CFrame.new(anchor.Position)
+				for part in self.hidden do -- Roblox resets this on some parts while zooming; keep the body hidden
+					if part.Parent then part.LocalTransparencyModifier = 1 end
+				end
 			end
 		end)
 		local function cancel()
@@ -178,6 +207,9 @@ function RestorationView:Destroy()
 		ContextActionService:UnbindAction(self.binding)
 	end
 	if self.model then self.model:Destroy() end
+	for part, value in self.hidden or {} do
+		if part.Parent then part.LocalTransparencyModifier = value end
+	end
 	local camera, saved = self.camera, self.savedCamera
 	if saved and camera.Parent and workspace.CurrentCamera == camera then
 		local humanoid = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")

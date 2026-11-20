@@ -238,7 +238,9 @@ end
 -- Pays the sale. `tapped` = the owner tapped Checkout (+10%); false = auto checkout. Removes the customer.
 -- Returns ok, reason, result = { price, bonus, tip, total } (the same table InventoryService.CompleteSale gives).
 -- Reasons: noCustomer, noItem (no item chosen yet), or CompleteSale's own (notDisplayed, noPrice, removeFailed).
-function CustomerService.Checkout(player: any, customerId: any, tapped: boolean, random: Random?): (boolean, string?, { [string]: number }?)
+-- tapped = served at the till with the right change first try (+checkout bonus); served = served at the till at all
+-- (tip possible). Auto-checkout passes neither: no bonus, no tip.
+function CustomerService.Checkout(player: any, customerId: any, tapped: boolean, random: Random?, served: boolean?): (boolean, string?, { [string]: number }?)
 	local customer = customers[player] and type(customerId) == "string" and customers[player][customerId]
 	if not customer then
 		return false, "noCustomer", nil
@@ -249,6 +251,7 @@ function CustomerService.Checkout(player: any, customerId: any, tapped: boolean,
 	local ok, reason, result = InventoryService.CompleteSale(player, customer.uid, {
 		wishMatched = customer.wishMatched,
 		checkout = tapped == true,
+		noTip = tapped ~= true and served ~= true, -- served at the till may earn a tip; auto-checkout never does
 		tipBonus = CustomerTypes[customer.typeId].tipBonus,
 		random = random,
 	})

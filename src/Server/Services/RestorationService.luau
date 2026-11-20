@@ -63,8 +63,19 @@ local function toolBonus(upgrades: { [string]: number }): number
 	return total
 end
 
+-- The bench Instance a player is restoring at: its "InUse" attribute hides the bench's Restore prompt for everyone
+-- (clients read it) and is cleared however the session ends (finished, exit, player left).
+local busyBench: { [Player]: Instance } = {}
+
 local function endSession(player: Player)
 	sessions[player] = nil
+	local bench = busyBench[player]
+	if bench then
+		busyBench[player] = nil
+		if bench.Parent then
+			bench:SetAttribute("InUse", nil)
+		end
+	end
 end
 
 local function sendSession(player: Player, session: Session, recipe: any)
@@ -273,7 +284,15 @@ function RestorationService.Start()
 			reply(player, false, "tooFar")
 			return
 		end
+		if bench:GetAttribute("InUse") and busyBench[player] ~= bench then
+			reply(player, false, "alreadyRestoring")
+			return
+		end
 		local ok, reason = RestorationService.StartRestore(player, uid, benchName)
+		if ok then
+			busyBench[player] = bench
+			bench:SetAttribute("InUse", player.UserId)
+		end
 		reply(player, ok, reason)
 	end)
 

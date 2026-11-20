@@ -236,7 +236,7 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 	local random: Random = opts.random or Random.new()
 	local tip = 0
 	local chance = Formulas.tipChance(CollectionBookService.GetRatingStars(player), opts.tipBonus)
-	if random:NextNumber() < chance then
+	if opts.noTip ~= true and random:NextNumber() < chance then -- auto-checkout (owner didn't serve) gives no tip
 		tip = Formulas.tipAmount(price, random:NextNumber(Economy.TipMinFraction, Economy.TipMaxFraction))
 	end
 

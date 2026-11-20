@@ -31,8 +31,12 @@ local Economy = {
 	TipChancePerRatingStar = 0.05,
 	TipMinFraction = 0.10, -- tip amount = 10-25% of price
 	TipMaxFraction = 0.25,
-	CheckoutBonusFraction = 0.10, -- +10% if the owner taps Checkout before auto-checkout
-	AutoCheckoutSeconds = 8,
+	CheckoutBonusFraction = 0.10, -- +10% if the owner serves at the till and gives the right change first try
+	AutoCheckoutSeconds = 20, -- an unserved customer pays by itself after this (exact money, no tip, no bonus)
+	-- Cashier till: the customer pays with a rounder amount; the owner counts out the change with these bills.
+	CashierPayRoundTo = { 5, 10, 20, 50, 100 }, -- the customer's payment = price rounded UP to one of these (always > price)
+	CashierBills = { 1, 5, 10, 20, 50 }, -- the buttons in the till
+	CashierMaxChange = 10000, -- validation cap for RequestGiveChange
 
 	-- Special pulls (docs/02 §3b): two surprises on top of the normal odds.
 	-- 1) LOST MASTERPIECE: chance per rolled item (by crate id) that the item is a Relic instead. Free Delivery never rolls one.
