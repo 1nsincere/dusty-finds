@@ -42,6 +42,10 @@ local Economy = {
 	-- 1) LOST MASTERPIECE: chance per rolled item (by crate id) that the item is a Relic instead. Free Delivery never rolls one.
 	--    About 1 in 500 Flea Market items (the Starter tier has no Relic); Relics are never Golden.
 	RelicChance = { FleaMarket = 0.002 },
+	-- 1b) MYTHIC and SECRET (2026-11-20): rarer still, checked before the Relic pull. Never Golden.
+	--     About 1 in 1,250 (Mythic) and 1 in 5,000 (Secret) Flea Market items.
+	MythicChance = { FleaMarket = 0.0008 },
+	SecretChance = { FleaMarket = 0.0002 },
 	-- 2) TIME CAPSULE: chance per BOUGHT crate that it holds a sealed capsule: extra bonus items with better odds.
 	TimeCapsuleChance = { FleaMarket = 0.03, Starter = 0.015 },
 	TimeCapsuleBonusItems = 2,
@@ -59,7 +63,7 @@ local Economy = {
 	RatingStarMinPoints = { 0, 8, 20, 40, 65 },
 
 	-- §7 XP and levels
-	MaxLevel = 15, -- MVP cap
+	MaxLevel = 50, -- was 15 (2026-11-20)
 	XpBase = 40, -- XP from level L to L+1 = round(XpBase x L^XpExponent)
 	XpExponent = 1.6,
 	LevelUpRewardPerLevel = 50, -- cash = 50 x new level

@@ -9,6 +9,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -36,6 +37,8 @@ local QUALITY_NAMES = { "Fair", "Good", "Mint" } -- index = stars (docs/01 B8)
 
 local others = nil
 local gui: ScreenGui? = nil
+local finishing = false
+local cardTween: Tween? = nil
 local current: { uid: string, recipe: { any }, stepIndex: number, sessionId: number? }? = nil
 
 local function log(...)
@@ -67,25 +70,26 @@ end
 
 -- ===== Drawing =====
 
-local function drawChips()
-	local screen, session = gui, current
-	if screen == nil or session == nil then
-		return
-	end
+local function drawChips(screen, recipe, stepIndex, docked)
 	local chips = screen.StepChips
+	local gap = chips.UIListLayout.Padding.Offset
+	local currentWidth = if docked then 104 else 120
+	local otherWidth = if docked then 16 else 22
+	chips.Size = UDim2.new(0, currentWidth + (#recipe - 1) * (otherWidth + gap), chips.Size.Y.Scale, chips.Size.Y.Offset)
 	for _, child in chips:GetChildren() do
 		if child:IsA("GuiObject") and child.Name ~= "ChipTemplate" then
 			child:Destroy()
 		end
 	end
-	for index, step in session.recipe do
+	for index, step in recipe do
 		local stepType = type(step) == "table" and step.type or "?"
 		local chip = chips.ChipTemplate:Clone()
 		chip.Name = "Chip" .. index
 		chip.LayoutOrder = index
-		local done = index < session.stepIndex
-		local isCurrent = index == session.stepIndex
-		chip.Text = if done then `✔ {stepType}` else `{STEP_ICONS[stepType] or "•"} {stepType}`
+		local done = index < stepIndex
+		local isCurrent = index == stepIndex
+		chip.Text = if isCurrent then `{index}/{#recipe} · {stepType}` elseif done then "✓" else tostring(index)
+		chip.Size = UDim2.new(0, if isCurrent then currentWidth else otherWidth, 1, 0)
 		chip.BackgroundColor3 = if done then UiTheme.Teal elseif isCurrent then UiTheme.Coral else UiTheme.Disabled
 		chip.Visible = true
 		chip.Parent = chips
@@ -98,10 +102,14 @@ function RestorationUIController.SetProgress(fraction: number)
 		return
 	end
 	screen.Progress.Fill.Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1)
+	if current and fraction >= 1 then
+		finishing = true
+		screen.Hint.Text = "Finishing this step…"
+	end
 end
 
 function RestorationUIController.SetHint(text: string)
-	if gui and type(text) == "string" then
+	if gui and not finishing and type(text) == "string" then
 		gui.Hint.Text = text
 	end
 end
@@ -121,7 +129,16 @@ function RestorationUIController.IsOpen(): boolean
 	return current ~= nil
 end
 
+local function stopCardAnimation()
+	if cardTween then
+		cardTween:Cancel()
+		cardTween = nil
+	end
+end
+
 function RestorationUIController.Hide()
+	stopCardAnimation()
+	finishing = false
 	current = nil
 	setPlayingVisible(false)
 	if gui then
@@ -129,15 +146,28 @@ function RestorationUIController.Hide()
 	end
 end
 
-local function drawStep()
-	local screen, session = gui, current
-	if screen == nil or session == nil then
-		return
-	end
-	local step = session.recipe[session.stepIndex]
+function RestorationUIController.DrawStep(screen, recipe, stepIndex)
+	local step = recipe[stepIndex]
 	local stepType = type(step) == "table" and step.type or nil
+	local trayStep = stepType == "Reassemble" or stepType == "Replace"
+	local docked = trayStep or stepType == "Test"
+	-- Replacement trays include decoys. Keep the stack above the loose parts and below the HUD.
+	local stackShift = if stepType == "Replace" then -30 else 0
+	local exitOffset = if stepType == "Replace" then -38 else 4
+	local template = StarterGui.Restoration
+	screen.ExitButton.Position = if docked then UDim2.new(1, -12, 0.5, exitOffset) else template.ExitButton.Position
+	for name, offset in { Hint = -74, Progress = -44, StepChips = -36 } do
+		local control = screen[name]
+		if docked then
+			control.AnchorPoint = Vector2.new(1, 0)
+			control.Position = UDim2.new(1, -12, 0.5, offset + stackShift)
+		else
+			control.AnchorPoint = template[name].AnchorPoint
+			control.Position = template[name].Position
+		end
+	end
 	screen.Hint.Text = `{STEP_ICONS[stepType] or "🛠️"} {STEP_HINTS[stepType] or "Restore the item"}`
-	drawChips()
+	drawChips(screen, recipe, stepIndex, docked)
 end
 
 -- RestoreSession arrives on start, on resume, and after every rejection (resync): always redraw from it.
@@ -145,15 +175,15 @@ local function onSession(uid: any, recipe: any, stepIndex: any, _seed: any, sess
 	if gui == nil or type(uid) ~= "string" or type(recipe) ~= "table" or type(stepIndex) ~= "number" then
 		return
 	end
-	local stepChanged = current == nil or current.uid ~= uid or current.stepIndex ~= stepIndex
+	stopCardAnimation()
+	finishing = false
 	current = { uid = uid, recipe = recipe, stepIndex = stepIndex, sessionId = sessionId }
 	closeOtherWindows()
 	gui.FinishCard.Visible = false
 	setPlayingVisible(true)
-	if stepChanged then
-		RestorationUIController.SetProgress(0)
-	end
-	drawStep()
+	-- The runner rebuilds its minigame on every server resync, even at the same index.
+	RestorationUIController.SetProgress(0)
+	RestorationUIController.DrawStep(gui, recipe, stepIndex)
 	log(`session {tostring(sessionId)}: {itemNameOf(uid)} step {stepIndex}/{#recipe}`)
 end
 
@@ -168,8 +198,9 @@ local function onInventoryChanged()
 	local saved = type(item) == "table" and item.stepIndex
 	if type(saved) == "number" and saved ~= session.stepIndex and saved >= 1 and saved <= #session.recipe and item.state == "InProgress" then
 		session.stepIndex = saved
+		finishing = false
 		RestorationUIController.SetProgress(0)
-		drawStep()
+		RestorationUIController.DrawStep(gui, session.recipe, saved)
 		log("step", saved, "of", #session.recipe)
 	end
 end
@@ -180,6 +211,8 @@ local function onRestored(uid: any, stars: any, value: any)
 		return
 	end
 	current = nil
+	finishing = false
+	stopCardAnimation()
 	setPlayingVisible(false)
 	local starCount = math.clamp(tonumber(stars) or 1, 1, 3)
 	local card = screen.FinishCard
@@ -189,8 +222,12 @@ local function onRestored(uid: any, stars: any, value: any)
 	card.Visible = true
 	local scale = card:FindFirstChildOfClass("UIScale")
 	if scale then
-		scale.Scale = 0.6
-		TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		scale.Scale = 1
+		if ClientState.Get("settings.reduceEffects") ~= true then
+			scale.Scale = 0.92
+			cardTween = TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+			cardTween:Play()
+		end
 	end
 	log("restored", uid, starCount, "stars", value)
 end

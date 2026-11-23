@@ -11,9 +11,9 @@ local Crates = {
 		boxModel = "Box", -- ReplicatedStorage.Assets.Boxes.Box (docs/03 §2)
 		price = 0,
 		requiredLevel = 1,
-		itemCount = 1,
+		itemCount = 2, -- was 1 (2026-11-20: more items per box)
 		tier = 1,
-		odds = { Common = 75, Uncommon = 20, Rare = 5, Epic = 0, Legendary = 0, Relic = 0 },
+		odds = { Common = 75, Uncommon = 20, Rare = 5, Epic = 0, Legendary = 0, Relic = 0, Mythic = 0, Secret = 0 },
 	},
 	Starter = {
 		id = "Starter",
@@ -21,9 +21,9 @@ local Crates = {
 		boxModel = "CrateStarter",
 		price = 50,
 		requiredLevel = 1,
-		itemCount = 3,
+		itemCount = 5, -- was 3
 		tier = 1,
-		odds = { Common = 60, Uncommon = 25, Rare = 10, Epic = 4, Legendary = 1, Relic = 0 },
+		odds = { Common = 60, Uncommon = 25, Rare = 10, Epic = 4, Legendary = 1, Relic = 0, Mythic = 0, Secret = 0 },
 	},
 	FleaMarket = {
 		id = "FleaMarket",
@@ -31,9 +31,9 @@ local Crates = {
 		boxModel = "CrateFlea",
 		price = 300,
 		requiredLevel = 5,
-		itemCount = 3,
+		itemCount = 6, -- was 3
 		tier = 2,
-		odds = { Common = 55, Uncommon = 27, Rare = 12, Epic = 5, Legendary = 1, Relic = 0 },
+		odds = { Common = 55, Uncommon = 27, Rare = 12, Epic = 5, Legendary = 1, Relic = 0, Mythic = 0, Secret = 0 },
 	},
 }
 

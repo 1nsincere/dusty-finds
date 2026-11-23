@@ -57,6 +57,17 @@ function ShipmentService.RollItem(crateId: string, random: Random?): (string?, b
 	end
 	local r = random or rng
 
+	-- Special pulls 0, SECRET then MYTHIC (2026-11-20): rarer than a Relic, checked before it; never Golden.
+	for _, special in { { "Secret", Economy.SecretChance }, { "Mythic", Economy.MythicChance } } do
+		local chance = special[2] and special[2][crateId]
+		if chance and r:NextNumber() < chance then
+			local pool = itemsOf(crate.tier, special[1])
+			if #pool > 0 then
+				return pool[r:NextInteger(1, #pool)], false
+			end
+		end
+	end
+
 	-- Special pull 1, LOST MASTERPIECE: a tiny chance per item to be a Relic. Checked first; never Golden; Free Delivery has no entry.
 	local relicChance = Economy.RelicChance[crateId]
 	if relicChance and r:NextNumber() < relicChance then
@@ -299,7 +310,11 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 	if Validate.isPlayer(player) then
 		Remotes.BoxOpened:FireClient(player, uid, item.itemId, item.golden, isNew)
 	end
-	if def.rarity == "Relic" then
+	if def.rarity == "Secret" or def.rarity == "Mythic" then
+		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
+		local headline = if def.rarity == "Secret" then "🔒 SECRET FIND!!" else "🌌 MYTHIC FIND!"
+		Remotes.Announcement:FireAllClients(`{headline} {name} unearthed {def.name}!`, def.rarity)
+	elseif def.rarity == "Relic" then
 		-- unique wording for the rarest pull in the game, shown to everyone on the server
 		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
 		Remotes.Announcement:FireAllClients(`✨ LOST MASTERPIECE! {name} unearthed the {def.name}!`, def.rarity)

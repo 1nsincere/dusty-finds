@@ -22,6 +22,109 @@ local FP_DISTANCE = 3.4
 local FP_HEIGHT = 3.2
 local FP_FOV = 62
 
+-- ===== Step state (Ace, 2026-11-20) =====
+-- The item must show everything already done in earlier steps (wiped dirt, scraped rust, parts back in their sockets,
+-- polish shine) and only the helpers the CURRENT step needs (ghost sockets / decoy parts only during a repair step).
+-- Idempotent: safe to run on a fresh model (resume) and on the same model between steps.
+local function stepParts(step): { string }?
+	return if type(step.parts) == "table" then step.parts else nil
+end
+
+local function matchesParts(name: string, parts: { string }?): boolean
+	if parts == nil then
+		return true
+	end
+	for _, prefix in parts do
+		if string.sub(name, 1, #prefix) == prefix then
+			return true
+		end
+	end
+	return false
+end
+
+local function setPivot(inst: Instance, cf: CFrame)
+	if inst:IsA("Model") then
+		inst:PivotTo(cf)
+	elseif inst:IsA("BasePart") then
+		inst.CFrame = cf
+	end
+end
+
+local function pivotOf(inst: Instance): CFrame
+	return if inst:IsA("Model") then inst:GetPivot() else (inst :: BasePart).CFrame
+end
+
+local function setQueryVisible(inst: Instance, visible: boolean, transparency: number?)
+	local parts = if inst:IsA("BasePart") then { inst } else inst:GetDescendants()
+	for _, p in parts do
+		if p:IsA("BasePart") then
+			if p:GetAttribute("BaseTransparency") == nil then
+				p:SetAttribute("BaseTransparency", p.Transparency)
+			end
+			p.Transparency = if visible then (transparency or p:GetAttribute("BaseTransparency")) else 1
+			p.CanQuery = visible
+		end
+	end
+end
+
+function RestorationView.ApplyStepState(model: Model, recipe: { any }, stepIndex: number)
+	local sockets = model:FindFirstChild("Sockets")
+	local loose = model:FindFirstChild("LooseParts")
+	local filled: { [string]: boolean } = {}
+	for i = 1, stepIndex - 1 do -- finished steps: show their result
+		local step = recipe[i]
+		local kind = step and step.type
+		if kind == "Wipe" or kind == "Scrape" then
+			local folder = model:FindFirstChild(if kind == "Wipe" then "DirtSpots" else "RustSpots")
+			if folder then
+				for _, d in folder:GetDescendants() do
+					if d:IsA("Decal") then d.Transparency = 1 end
+					if d:IsA("BasePart") then d.CanQuery = false end
+				end
+			end
+		elseif kind == "Polish" then
+			local folder = model:FindFirstChild("PolishSurfaces")
+			if folder then
+				for _, p in folder:GetChildren() do
+					if p:IsA("BasePart") then p.Reflectance = math.max(p.Reflectance, 0.3) end
+				end
+			end
+		elseif (kind == "Reassemble" or kind == "Replace") and sockets and loose then
+			for _, socket in sockets:GetChildren() do
+				local piece = loose:FindFirstChild(socket.Name)
+				if piece and matchesParts(socket.Name, stepParts(step)) then
+					setPivot(piece, pivotOf(socket))
+					filled[socket.Name] = true
+				end
+			end
+		end
+	end
+	-- helpers: ghosts and decoys only for the current repair step; fitted parts stay solid and unclickable
+	local current = recipe[stepIndex]
+	local repairing = current and (current.type == "Reassemble" or current.type == "Replace")
+	if sockets then
+		for _, socket in sockets:GetChildren() do
+			local active = repairing and not filled[socket.Name] and matchesParts(socket.Name, stepParts(current))
+			setQueryVisible(socket, active, 0.65)
+		end
+	end
+	if loose then
+		for _, piece in loose:GetChildren() do
+			local hasSocket = sockets ~= nil and sockets:FindFirstChild(piece.Name) ~= nil
+			if filled[piece.Name] then
+				setQueryVisible(piece, true)
+				for _, p in (if piece:IsA("BasePart") then { piece } else piece:GetDescendants()) do
+					if p:IsA("BasePart") then p.CanQuery = false end -- placed: part of the item now
+				end
+			elseif not hasSocket then
+				setQueryVisible(piece, current ~= nil and current.type == "Replace") -- decoys only while replacing
+			else
+				setQueryVisible(piece, true) -- the broken-off part waits on the tray
+			end
+		end
+	end
+end
+
 -- SetViewProvider contract: plain functions, because the runner and Ace's adapters call them without a receiver.
 function RestorationView.Provider(ctx, onCancel)
 	local view = RestorationView.new(ctx, onCancel)
@@ -43,6 +146,16 @@ function RestorationView.Provider(ctx, onCancel)
 	return {
 		model = view.model,
 		attachPointer = attachPointer,
+		-- the runner keeps ONE view for the whole session and calls this before each next step
+		prepare = function(nextCtx)
+			if disposed then return end
+			if detachCurrent then detachCurrent() end
+			local item = ClientState.Get("inventory." .. nextCtx.uid)
+			local def = item and Items[item.itemId]
+			if def then
+				RestorationView.ApplyStepState(view.model, def.recipe, nextCtx.stepIndex)
+			end
+		end,
 		cleanup = function()
 			if disposed then return end
 			disposed = true
@@ -86,20 +199,8 @@ function RestorationView.new(ctx, onCancel)
 				part.CanTouch = false
 			end
 		end
-		-- Every view is fresh, including resume directly at Polish. Cleared invisible targets must not occlude it.
-		local completedWipe = false
-		for i = 1, ctx.stepIndex - 1 do
-			if def.recipe[i].type == "Wipe" then completedWipe = true end
-		end
-		if completedWipe then
-			local dirt = self.model:FindFirstChild("DirtSpots")
-			if dirt then
-				for _, part in dirt:GetDescendants() do
-					if part:IsA("Decal") then part.Transparency = 1 end
-					if part:IsA("BasePart") then part.CanQuery = false end
-				end
-			end
-		end
+		-- Resume at any step: rebuild everything earlier steps already did (and hide helpers this step doesn't use).
+		RestorationView.ApplyStepState(self.model, def.recipe, ctx.stepIndex)
 		-- A scaled shop (e.g. 1.4x, a 56 stud floor) has a bigger bench and a farther CameraPoint: scale the item by the same factor
 		-- so it looks the same on screen as in an unscaled shop. Plot scale = floor width / 40 (the original shop).
 		local plotFloor

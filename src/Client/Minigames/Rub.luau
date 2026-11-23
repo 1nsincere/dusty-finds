@@ -166,7 +166,8 @@ function Rub:Destroy()
 		if part.Parent then
 			part.Color = original.color
 			part.Material = original.material
-			part.Reflectance = original.reflectance
+			-- a finished polish keeps its shine for the next steps; an abandoned one goes back to how it was
+			part.Reflectance = if self.completed then math.max(original.reflectance, SHINE) else original.reflectance
 		end
 	end
 	self.onProgress = function() end
