@@ -387,7 +387,7 @@ function SystemsCheck.run()
 			fleaTier2 = fleaTier2 and Items[itemId].tier == 2
 		end
 		check("Shipment: Flea Market only drops tier 2", fleaTier2)
-		check("Shipment: Flea Market average ~ $219 ($204 plus the Relic chance, docs/02 §3b)", near(fleaSum / total, 219, 9), fleaSum / total)
+		check("Shipment: Flea Market average ~ $241 ($204 + Relic + Mythic/Secret chances, docs/02 §3b)", near(fleaSum / total, 241, 14), fleaSum / total)
 		local freeCommonOnlyUpTo = true
 		seeded = Random.new(7)
 		for _ = 1, 20000 do
@@ -427,9 +427,10 @@ function SystemsCheck.run()
 		end
 		check("Relic: Free Delivery and Starter never drop a Relic", not relicLeak)
 		local alwaysLow = { NextNumber = function() return 0 end, NextInteger = function(_, a) return a end }
-		check("Relic: a forced low roll in Flea Market gives the first Relic, not Golden", (function()
+		-- Secret is checked first (rarest), so a forced low roll gives a Secret; then Mythic, then Relic.
+		check("Special pull: a forced low roll in Flea Market gives a Secret, not Golden", (function()
 			local itemId, golden = Shipment.RollItem("FleaMarket", alwaysLow)
-			return Items[itemId].rarity == "Relic" and golden == false
+			return Items[itemId].rarity == "Secret" and golden == false
 		end)())
 		Shipment.SetRandom(Random.new(2024)) -- the buying tests below must not hit a random Time Capsule
 		local capPlayer = newPlayer()

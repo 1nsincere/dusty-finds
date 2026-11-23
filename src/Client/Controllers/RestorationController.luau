@@ -51,8 +51,21 @@ local function stopStep()
 	end
 end
 
+-- ONE bench view per restoration session: built at the first step and reused for every next step (prepare()), so the
+-- item keeps what earlier steps did and the camera never jumps out between steps. Rebuilt only for a new session.
+local sessionView: { uid: string, view: { [string]: any } }? = nil
+
+local function dropView()
+	local v = sessionView
+	sessionView = nil
+	if v and type(v.view.cleanup) == "function" then
+		pcall(v.view.cleanup)
+	end
+end
+
 local function endSession()
 	stopStep()
+	dropView()
 	session = nil
 	activeBench = nil
 end
@@ -202,26 +215,31 @@ local function startStep()
 		end,
 	}
 	-- Optional view (Dwayne's RestorationView): gives the minigame a local item clone and a pointer adapter.
-	local viewCleanup: (() -> ())? = nil
 	if viewProvider then
-		local viewOk, view = pcall(viewProvider, ctx)
-		if viewOk and type(view) == "table" then
-			ctx.model, ctx.attachPointer, viewCleanup = view.model, view.attachPointer, view.cleanup
-		elseif not viewOk then
-			warn("[RestorationController] view provider failed: " .. tostring(view))
+		local reuse = sessionView ~= nil and sessionView.uid == current.uid and type(sessionView.view.prepare) == "function"
+			and sessionView.view.model ~= nil and sessionView.view.model.Parent ~= nil
+		if reuse then
+			local prepOk, prepErr = pcall(sessionView.view.prepare, ctx)
+			if not prepOk then
+				warn("[RestorationController] view prepare failed: " .. tostring(prepErr))
+			end
+		else
+			dropView()
+			local viewOk, view = pcall(viewProvider, ctx)
+			if viewOk and type(view) == "table" then
+				sessionView = { uid = current.uid, view = view }
+			elseif not viewOk then
+				warn("[RestorationController] view provider failed: " .. tostring(view))
+			end
+		end
+		if sessionView then
+			ctx.model, ctx.attachPointer = sessionView.view.model, sessionView.view.attachPointer
 		end
 	end
 	local runner = minigames[step.type] or placeholder
 	local ok, result = pcall(runner, ctx)
 	local stepCleanup = if ok and type(result) == "function" then result else nil
-	cleanup = if stepCleanup or viewCleanup then function()
-		if stepCleanup then
-			pcall(stepCleanup)
-		end
-		if viewCleanup then
-			pcall(viewCleanup)
-		end
-	end else nil
+	cleanup = stepCleanup -- the minigame only; the view lives on until the session ends
 	if not ok then
 		warn("[RestorationController] minigame for " .. step.type .. " failed: " .. tostring(result))
 	end
@@ -233,7 +251,8 @@ local function onSession(uid: any, recipe: any, stepIndex: any, seed: any, sessi
 		return
 	end
 	session = { uid = uid, recipe = recipe, stepIndex = stepIndex, sessionId = sessionId, seed = seed }
-	startStep() -- also after a rejection: the server resends the session and the step starts clean
+	dropView() -- a (re)sent session starts from a clean view rebuilt from saved progress (also after a rejection)
+	startStep()
 end
 
 -- An accepted step has no message of its own: the server saves item.stepIndex, which arrives through ClientState.

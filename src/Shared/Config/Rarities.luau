@@ -49,6 +49,22 @@ local Rarities = {
 		firstFindBonus = { 800, 4000 },
 		exhibitPoints = 16,
 	},
+	-- Mythic and Secret (2026-11-20): above Relic, also special-pull only (Economy.MythicChance / SecretChance),
+	-- never in a crate's odds table. Secret is the rarest thing in the game.
+	Mythic = {
+		id = "Mythic",
+		index = 7,
+		xpPerRestore = 900,
+		firstFindBonus = { 2000, 10000 },
+		exhibitPoints = 32,
+	},
+	Secret = {
+		id = "Secret",
+		index = 8,
+		xpPerRestore = 2000,
+		firstFindBonus = { 5000, 25000 },
+		exhibitPoints = 64,
+	},
 }
 
 return Rarities

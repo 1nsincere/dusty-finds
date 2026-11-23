@@ -114,6 +114,49 @@ local Items = {
 		},
 	},
 
+	-- ===== Mythic (2) and Secret (2), 2026-11-20: special pull only (Economy.MythicChance / SecretChance) =====
+	CrystalMusicBox = {
+		id = "CrystalMusicBox", name = "The Aurora Crystal Music Box", tier = 2, rarity = "Mythic", category = "Music", baseValue = 15000,
+		model = "CrystalMusicBox",
+		recipe = {
+			{ type = "Wipe" },
+			{ type = "Reassemble", parts = { "Crystal" } },
+			{ type = "Polish" },
+			{ type = "Test", style = "Wind" },
+		},
+	},
+	JadeDragonClock = {
+		id = "JadeDragonClock", name = "The Jade Dragon Clock", tier = 2, rarity = "Mythic", category = "Decor", baseValue = 18000,
+		model = "JadeDragonClock",
+		recipe = {
+			{ type = "Scrape" },
+			{ type = "Replace", parts = { "Hand" } },
+			{ type = "Polish" },
+			{ type = "Test", style = "Wind" },
+		},
+	},
+	SunIdol = {
+		id = "SunIdol", name = "The Sunken Sun Idol", tier = 2, rarity = "Secret", category = "Decor", baseValue = 40000,
+		model = "SunIdol",
+		recipe = {
+			{ type = "Wipe" },
+			{ type = "Scrape" },
+			{ type = "Reassemble", parts = { "Gem" } },
+			{ type = "Polish" },
+		},
+	},
+	Astrolabe = {
+		id = "Astrolabe", name = "The Celestial Astrolabe", tier = 2, rarity = "Secret", category = "Decor", baseValue = 50000,
+		model = "Astrolabe",
+		recipe = {
+			{ type = "Wipe" },
+			{ type = "Scrape" },
+			{ type = "Replace", parts = { "Ring" } },
+			{ type = "Polish" },
+			{ type = "Test", style = "Wind" },
+		},
+	},
+
 	-- ===== Relics (2): the Lost Masterpieces. Special pull only (Economy.RelicChance), never in a crate's odds table =====
 	StarlightOrrery = {
 		id = "StarlightOrrery", name = "Starlight Orrery", tier = 2, rarity = "Relic", category = "Decor", baseValue = 6000,

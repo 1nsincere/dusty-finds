@@ -20,6 +20,8 @@ UiTheme.Rarity = {
 	Epic = Color3.fromHex("9B51E0"),
 	Legendary = Color3.fromHex("F2A93B"),
 	Relic = Color3.fromHex("8CF0FF"), -- icy cyan-white: above Legendary gold, clear on dark panels
+	Mythic = Color3.fromHex("FF4FD8"), -- hot magenta (2026-11-20)
+	Secret = Color3.fromHex("FF3B3B"), -- deep red: the rarest
 }
 
 function UiTheme.rarityColor(rarity: string?): Color3

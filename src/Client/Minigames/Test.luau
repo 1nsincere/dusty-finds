@@ -8,7 +8,7 @@
 local Test = {}
 Test.__index = Test
 
-local GREEN_WIDTH = { Common = 0.30, Uncommon = 0.24, Rare = 0.19, Epic = 0.15, Legendary = 0.12, Relic = 0.10 }
+local GREEN_WIDTH = { Common = 0.30, Uncommon = 0.24, Rare = 0.19, Epic = 0.15, Legendary = 0.12, Relic = 0.10, Mythic = 0.09, Secret = 0.08 }
 local YELLOW_EXTRA = 0.10 -- extra width on EACH side of green
 local SWEEP_SECONDS = 1.1 -- one way
 local MISS_PENALTY = 10
