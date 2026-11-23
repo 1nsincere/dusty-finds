@@ -234,7 +234,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
 | `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id (a `Shared.Tutorial` step id, "done" or "skip"); order = the step must already be true in saved data ("done" = all steps); rate limit 2/s |
-| `RequestGiveChange` | `amount` | Dev 1 | integer 0..Economy.CashierMaxChange; an open till (CashierService) for this player; near own Counter (InteractMaxStuds + 4); rate limit 4/s. Right change (paid - due) completes the sale via CustomerService.Checkout (first try = checkout bonus); wrong = attempts + 1, CashierUpdate "wrong" |
+| `RequestGiveChange` | `amount` | Dev 1 | integer 0..Economy.CashierMaxChange; an open till (CashierService) for this player; near own Counter (InteractMaxStuds + 4); rate limit 4/s. Right change (paid - due) completes the sale via CustomerService.Checkout with `CashierService.Judge`: fast first try +25%, first try +10%, after a mistake 0%; wrong = attempts + 1, CashierUpdate "wrong"; the `CashierMaxMistakes`-th wrong = sale at -10% (angry). Any amount may be sent (Dev 3, 2026-11-23) |
 | `RequestCloseCashier` | — | Dev 1 | closes the player's own till only; rate limit 4/s |
 | `RequestTravel` | `placeId` | Dev 1 | known id in Config.Travel (string ≤ 32); 4 s cooldown; alive, not seated, no restoration session; rate limit 2/s; server picks the landing spot |
 
@@ -249,7 +249,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `ItemRestored` | `uid, stars, value` | RESTORED! card |
 | `SaleMade` | `amount, wishMatched, tip` | Coins and `+$` popup |
 | `Announcement` | `text, rarity` | Server-wide rare find (also posted via TextChatService) |
-| `CashierUpdate` | `{state, due, paid, item, attempts, bills}` | The till: state "open" (show bill + payment), "wrong", "done", "closed" |
+| `CashierUpdate` | `{state, due, paid, item, attempts, bills, fastSeconds, fastPercent, maxMistakes, mood?, bonusPercent?}` | The till: state "open" (3D drawer opens), "wrong", "done" (with `mood` Delighted/Happy/Upset/Angry and `bonusPercent`, negative when angry), "closed". Moods also show over the NPC (attributes `CashierPaid`, `Mood` via `CustomerNpcService.SetCashierState`) |
 
 ### RemoteFunction
 | Remote | Returns |

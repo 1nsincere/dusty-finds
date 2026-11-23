@@ -405,6 +405,20 @@ local function onRemoved(_player: Player, customerId: string, reason: string)
 	walkOut(npc)
 end
 
+-- ===== Cash register bubbles (called by CashierService) =====
+-- Attributes on the NPC model, shown by CustomerUIController for everyone: CashierPaid = what the customer handed over
+-- while the till is open (nil = closed), Mood = "Delighted" | "Happy" | "Upset" | "Angry" (kept while they walk out).
+function CustomerNpcService.SetCashierState(customerId: string, paid: number?, mood: string?)
+	local npc = npcs[customerId]
+	if npc == nil or npc.model.Parent == nil then
+		return
+	end
+	npc.model:SetAttribute("CashierPaid", paid)
+	if mood ~= nil then
+		npc.model:SetAttribute("Mood", mood)
+	end
+end
+
 -- ===== Lifecycle =====
 
 function CustomerNpcService.Init(services)

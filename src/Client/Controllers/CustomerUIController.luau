@@ -1,7 +1,8 @@
 -- CustomerUIController.luau (StarterPlayerScripts.Client.Controllers.CustomerUIController)
 -- Purpose: a 💭 bubble over every customer NPC (its wish, then the item it chose) and hides the owner-only
 -- Checkout prompt from visitors. Purely visual: the server (CustomerService/CustomerNpcService) decides everything.
--- Owner: Dev 3 (Sean). Depends on: Workspace.Customers (models with attributes CustomerId, Wish, ItemId),
+-- Owner: Dev 3 (Sean). Depends on: Workspace.Customers (models with attributes CustomerId, Wish, ItemId, and from the
+-- till via CustomerNpcService.SetCashierState: CashierPaid, Mood),
 -- Workspace.Plots (OwnerUserId attribute, Counter.CheckoutPrompt), Shared.Config.Items, UiTheme, ClientState (settings).
 
 local Players = game:GetService("Players")
@@ -45,7 +46,26 @@ end
 
 -- ===== Bubbles =====
 
+-- Till moods (Mood attribute). While the till is open (CashierPaid set) the bubble shows what the customer handed over.
+local MOOD_TEXT = {
+	Delighted = "🤩 Wow, so fast!",
+	Happy = "😊 Thank you!",
+	Upset = "😠 That's not right!",
+	Angry = "😡 I'm leaving!",
+}
+
 local function bubbleText(model: Model): string
+	local paid = model:GetAttribute("CashierPaid")
+	local mood = model:GetAttribute("Mood")
+	if paid ~= nil and mood == nil then
+		return `💵 Here's ${paid}`
+	end
+	if type(mood) == "string" and MOOD_TEXT[mood] then
+		if mood == "Upset" and paid == nil then
+			return "😒 Hmpf." -- paid after a mistake: no longer waiting, just not happy
+		end
+		return MOOD_TEXT[mood]
+	end
 	local itemId = model:GetAttribute("ItemId")
 	local item = itemId and Items[itemId]
 	if item then
@@ -147,6 +167,8 @@ local function addBubble(model: Instance)
 	end
 	table.insert(connections, model:GetAttributeChangedSignal("Wish"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("ItemId"):Connect(refresh))
+	table.insert(connections, model:GetAttributeChangedSignal("Mood"):Connect(refresh))
+	table.insert(connections, model:GetAttributeChangedSignal("CashierPaid"):Connect(refresh))
 	bubbles[model] = { gui = gui, connections = connections }
 	log("bubble for", model.Name, label.Text)
 end

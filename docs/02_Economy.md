@@ -114,7 +114,7 @@ price = baseValue × qualityMult × variantMult × wishMult + tip
 | variantMult | Normal 1 · Golden 3 |
 | wishMult | 1.25 if the item's category matches the customer's wish, else 1 |
 | tip | chance = 5% + 5% × rating stars; amount = 10–25% of price |
-| Checkout bonus | +10% if the owner taps Checkout before the 8 s auto-checkout |
+| Checkout bonus (the till) | Owner serves at the till and counts out the change (Dev 3, 2026-11-23): right + fast (first try, within `CashierFastSeconds` = 8 s) **+25%**; right first try **+10%**; right after a mistake **+0%** (customer upset); `CashierMaxMistakes` (2) wrong hand-overs = customer angry, pays **-10%** and leaves. Unserved customers auto-pay after `AutoCheckoutSeconds` with no bonus and no tip |
 | **Quick Sell** | 70% of `baseValue × qualityMult × variantMult` (no wish, no tip) |
 
 Customer spawn interval: **30 s × 0.9^(Shop Sign level)**, then by rating: 1★ ×1.0 · 2★ ×0.9 · 3★ ×0.8 · 4★ ×0.7 · 5★ ×0.6 (minimum 10 s).

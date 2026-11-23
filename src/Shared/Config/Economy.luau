@@ -37,6 +37,11 @@ local Economy = {
 	CashierPayRoundTo = { 5, 10, 20, 50, 100 }, -- the customer's payment = price rounded UP to one of these (always > price)
 	CashierBills = { 1, 5, 10, 20, 50 }, -- the buttons in the till
 	CashierMaxChange = 10000, -- validation cap for RequestGiveChange
+	-- Cashier speed and mistakes (Dev 3, team decision 2026-11-23). Fractions are of the price, like CheckoutBonusFraction.
+	CashierFastSeconds = 8, -- right change this quickly after the till opens, first try = the fast bonus
+	CashierFastBonusFraction = 0.25, -- +25% fast and right first time (right first time but slower = CheckoutBonusFraction)
+	CashierMaxMistakes = 2, -- 1st wrong change: no bonus, the customer is upset. 2nd: they get angry, pay less and leave
+	CashierAngryPenaltyFraction = -0.10, -- an angry customer pays 10% under the price
 
 	-- Special pulls (docs/02 §3b): two surprises on top of the normal odds.
 	-- 1) LOST MASTERPIECE: chance per rolled item (by crate id) that the item is a Relic instead. Free Delivery never rolls one.

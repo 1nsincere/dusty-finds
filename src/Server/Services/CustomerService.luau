@@ -240,7 +240,8 @@ end
 -- Reasons: noCustomer, noItem (no item chosen yet), or CompleteSale's own (notDisplayed, noPrice, removeFailed).
 -- tapped = served at the till with the right change first try (+checkout bonus); served = served at the till at all
 -- (tip possible). Auto-checkout passes neither: no bonus, no tip.
-function CustomerService.Checkout(player: any, customerId: any, tapped: boolean, random: Random?, served: boolean?): (boolean, string?, { [string]: number }?)
+-- bonusFraction (optional, Dev 3 2026-11-23): the till's speed/mistake result; replaces the +10% with price x fraction.
+function CustomerService.Checkout(player: any, customerId: any, tapped: boolean, random: Random?, served: boolean?, bonusFraction: number?): (boolean, string?, { [string]: number }?)
 	local customer = customers[player] and type(customerId) == "string" and customers[player][customerId]
 	if not customer then
 		return false, "noCustomer", nil
@@ -254,6 +255,7 @@ function CustomerService.Checkout(player: any, customerId: any, tapped: boolean,
 		noTip = tapped ~= true and served ~= true, -- served at the till may earn a tip; auto-checkout never does
 		tipBonus = CustomerTypes[customer.typeId].tipBonus,
 		random = random,
+		bonusFraction = bonusFraction,
 	})
 	removeCustomer(player, customer.id, if ok then "paid" else "failed") -- also releases the reservation
 	if not ok then

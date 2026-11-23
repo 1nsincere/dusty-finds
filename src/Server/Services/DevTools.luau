@@ -208,6 +208,7 @@ local ALL_CHECKS = {
 	{ "SettingsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SettingsCheck") end },
 	{ "TutorialCheck", function() return script.Parent.Parent.Tests:FindFirstChild("TutorialCheck") end },
 	{ "MinigamesCheck", function() return script.Parent.Parent.Tests:FindFirstChild("MinigamesCheck") end },
+	{ "CashierCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CashierCheck") end }, -- Dev 3: till speed/mistake rules
 	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
 }
 
