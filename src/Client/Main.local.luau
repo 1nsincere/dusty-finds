@@ -41,6 +41,7 @@ local ORDER = {
 	"HudSkinController", -- Dev 1: dark angular HUD/window/toast skin + white glyph icons (Config.UiSkin); restyle only
 	"TravelController", -- Dev 1: Travel menu (map-pin HUD button -> RequestTravel)
 	"SprintController", -- Dev 1: hold Shift / lightning button to sprint
+	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")

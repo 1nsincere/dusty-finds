@@ -59,7 +59,7 @@ Workspace
 │       │                        -- PottedPlant1, PottedPlant2, Rug, WallPosters, PendantLamps, NeonSign
 │       ├── DeliveryPoint (Part)  -- where boxes appear
 │       ├── SupplyBoard (Part) → Prompt
-│       └── CustomerPath/ (Door, Browse1..3, CounterSpot, Exit: invisible marker Parts)
+│       └── CustomerPath/ (StreetEntry, Approach, Door, Browse1..3, CounterSpot, Exit: invisible marker Parts; customers fade in at StreetEntry and walk Approach -> Door, and leave the same way)
 ├── Street (Part)                -- in front of the plots; default SpawnLocation sits on it
 └── scenery…
 
@@ -146,6 +146,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
 │   ├── CollectionController.luau   [Dev 3]
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
+│   ├── TownsfolkController.luau    [Dev 3] ambient townspeople (client-only decoration, shared clock: same people in the same place for every player); routes in Config/Townsfolk, looks in ReplicatedStorage.Assets.Townsfolk
 │   ├── SettingsController.luau     [Dev 3]
 │   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work
 │   └── TutorialController.luau     [Dev 3] tutorial hint + ▼ arrow from Shared.Tutorial; Skip; finish glow on HUD Upgrades
