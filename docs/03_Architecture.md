@@ -59,6 +59,8 @@ Workspace
 │       │                        -- PottedPlant1, PottedPlant2, Rug, WallPosters, PendantLamps, NeonSign
 │       ├── DeliveryPoint (Part)  -- where boxes appear
 │       ├── SupplyBoard (Part) → Prompt
+│       ├── StorageRoom (Model: walls with a doorway, STORAGE sign, 2 shelf units, MoreSign with SurfaceGui label More; Dev 3, built in the back corner around Benches/Bench1)
+│       ├── StorageShelves/ (Slot1..16: invisible Parts, attribute SlotIndex; StorageShelfService sets ItemId + Golden, the folder gets More = items that did not fit)
 │       └── CustomerPath/ (StreetEntry, Approach, Door, Browse1..3, CounterSpot, Exit: invisible marker Parts; customers fade in at StreetEntry and walk Approach -> Door, and leave the same way)
 ├── Street (Part)                -- in front of the plots; default SpawnLocation sits on it
 └── scenery…
@@ -128,6 +130,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
 │   ├── TutorialService.luau     [Dev 3] RequestTutorialStep: saves tutorial.step / tutorial.done after checking the step against saved data (Shared.Tutorial)
+│   ├── StorageShelfService.luau [Dev 3] storage room shelves: each owner's Dirty / InProgress items, rarest first, as StorageShelves slot attributes (read-only on data, no remotes; the item on the bench is skipped)
 │   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
@@ -146,6 +149,7 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
 │   ├── CollectionController.luau   [Dev 3]
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
+│   ├── StorageShelfController.luau [Dev 3] draws the unrestored items on every shop's storage shelves (still dirty) + the "+N more" sign; owners and visitors
 │   ├── TownsfolkController.luau    [Dev 3] ambient townspeople (client-only decoration, shared clock: same people in the same place for every player); routes in Config/Townsfolk, looks in ReplicatedStorage.Assets.Townsfolk
 │   ├── SettingsController.luau     [Dev 3]
 │   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work

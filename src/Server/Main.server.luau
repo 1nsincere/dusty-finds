@@ -29,6 +29,7 @@ local ORDER = {
 	"ShopSocialService",
 	"SettingsService",
 	"TutorialService", -- Sean: saves tutorial.step/done (RequestTutorialStep), checked against Shared.Tutorial
+	"StorageShelfService", -- Sean: storage room shelves show each owner's unrestored items (slot attributes, no remotes)
 	"CashierService", -- Dev 1: the till at the counter (count out the change; RequestGiveChange / CashierUpdate)
 	"TravelService", -- Dev 1: Travel menu teleports (RequestTravel; places in Config.Travel)
 	"AdminService", -- Dev 1: live admin chat commands (/admin), only for Config.Admins user ids
