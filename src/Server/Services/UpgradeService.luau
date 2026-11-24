@@ -10,6 +10,7 @@ local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Upgrades = require(ReplicatedStorage.Shared.Config.Upgrades)
+local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 
 local UpgradeService = {}
 local DEBUG = true
@@ -23,13 +24,18 @@ local function notify(player: any, kind: string, text: string)
 	end
 end
 
--- Returns ok, reason ("unknown", "maxed", "level", "requires", "cash", "saveFailed"), newLevel.
+-- Returns ok, reason ("unknown", "closed", "maxed", "level", "requires", "cash", "saveFailed"), newLevel.
 function UpgradeService.BuyUpgrade(player: Player, upgradeId: string): (boolean, string?, number?)
 	-- 1. exists in Config
 	if not Validate.isConfigId(upgradeId, Upgrades) then
 		return false, "unknown", nil
 	end
 	local def = Upgrades[upgradeId]
+	-- 1b. its tab is switched off (Economy.ClosedUpgradeTabs: decor waits for the decor shop); the client hides it,
+	-- but a hand-made request must be refused here too
+	if (Economy.ClosedUpgradeTabs or {})[def.tab] then
+		return false, "closed", nil
+	end
 	local data = DataService.Get(player)
 	if data == nil then
 		return false, "noData", nil

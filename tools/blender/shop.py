@@ -237,13 +237,15 @@ for z in (-12.0, -3.0, 6.0, 15.0):
     box("Gold", (-17.0, F0 + 9.0, z), (0.2, 0.3, 0.2))
 box("Gold", (-15.9, F0 + 3.9, 1.25), (0.12, 0.12, 35.0))
 # 2. checkout nook (right front): back shelving with jars, a clock, chalkboard frame around the SupplyBoard
-box("Wood", (18.6, F0 + 4.0, -7.5), (1.6, 8.0, 10.0))
+# The jar shelf and clock are their own Nook* groups (Sean, 2026-11-24): the Showroom stairs run along this wall, so
+# PlotService hides Shop_Nook* / Shop_Jars in shops that own the Showroom. Kept out of Shop_Wood / Shop_Trim / Shop_Gold.
+box("NookWood", (18.6, F0 + 4.0, -7.5), (1.6, 8.0, 10.0))
 for k, hgt in enumerate((2.2, 4.4, 6.6)):
-    box("Trim", (17.7, F0 + hgt, -7.5), (0.5, 0.15, 9.6))
+    box("NookTrim", (17.7, F0 + hgt, -7.5), (0.5, 0.15, 9.6))
     for j in range(7):
         add("Jars", cyl("jar", 0.32, 0.8 + 0.15 * (j % 3), B(17.6, F0 + hgt + 0.5, -11.5 + j * 1.3), 10))
-add("Gold", cyl("clock", 0.9, 0.15, B(17.8, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
-add("Trim", cyl("clockface", 0.75, 0.17, B(17.75, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
+add("NookGold", cyl("clock", 0.9, 0.15, B(17.8, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
+add("NookTrim", cyl("clockface", 0.75, 0.17, B(17.75, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
 box("Wood", (14.0, F0 + 5.0, -18.7), (5.4, 4.4, 0.25))     # frame behind the SupplyBoard (plot (14, 5.5, -18.8))
 box("Gold", (14.0, F0 + 7.5, -18.7), (5.6, 0.25, 0.3))
 # 3. restoration workshop (right back): raised platform, glass half wall, tool pegboard, work lamp
@@ -415,10 +417,11 @@ else:
 SPEC = {"Walls": "sand", "Stone": "stone", "Trim": "white", "Gold": "gold", "Glass": "glass", "Wood": "wood", "Leaves": "leaf", "Flowers": "pink",
         "Accent": "accent", "Stripe": "stripe", "Iron": "black", "Lamp": "warm", "Floor": "wood", "Jars": "jar", "Velvet": "velvet",
         "UpWalls": "sand", "UpTrim": "white", "UpGlass": "glass", "UpAccent": "accent", "UpIron": "black", "UpWood": "wood", "UpLeaves": "leaf",
-        "UpFlowers": "pink", "UpGold": "gold", "UpStone": "stone", "Roof": "terracotta"}
+        "UpFlowers": "pink", "UpGold": "gold", "UpStone": "stone", "Roof": "terracotta",
+        "NookWood": "wood", "NookTrim": "white", "NookGold": "gold"}
 TEX = {"Walls": "plaster", "UpWalls": "plaster", "Stone": "stone", "UpStone": "stone", "Trim": "limestone", "UpTrim": "limestone",
-       "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay"}
-SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars"}
+       "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay", "NookWood": "wood", "NookTrim": "limestone"}
+SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars", "NookGold"}
 if STYLE == "B":
     SPEC.update({"Walls": "stone", "UpWalls": "wood"})
     TEX.update({"Walls": "stone", "UpWalls": "wood"})
@@ -438,6 +441,9 @@ os.makedirs(c.OUT_MODELS, exist_ok=True)
 os.makedirs(c.OUT_PREVIEWS, exist_ok=True)
 print("SHOP triangles", c.triangle_count(final), [(o.name, c.triangle_count([o])) for o in final])
 c.export_glb(os.path.join(c.OUT_MODELS, "Shop" + SUFFIX + ".glb"), final)
+if os.environ.get("DF_SKIP_RENDER"):  # export only (no Cycles previews): DF_SKIP_RENDER=1
+    print("done (no renders)")
+    raise SystemExit
 
 
 def render(path, cam_loc, target, lens=35, samples=40, hide_upper=False, res=(1200, 860)):

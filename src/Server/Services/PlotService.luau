@@ -46,6 +46,8 @@ local function setSign(plot: Model, text: string)
 end
 
 -- Slots are Parts with attributes SlotIndex and Enabled; slot N is on when N <= count.
+-- A slot with the attribute HideWhenLocked (Sean, 2026-11-24: the Showroom pedestals upstairs) is invisible and not
+-- solid while locked, so it doesn't float in the air in shops without the second floor.
 local function setSlots(folder: Instance?, count: number)
 	if folder == nil then
 		return
@@ -53,7 +55,12 @@ local function setSlots(folder: Instance?, count: number)
 	for _, slot in folder:GetChildren() do
 		local index = slot:GetAttribute("SlotIndex")
 		if type(index) == "number" then
-			slot:SetAttribute("Enabled", index <= count)
+			local enabled = index <= count
+			slot:SetAttribute("Enabled", enabled)
+			if slot:IsA("BasePart") and slot:GetAttribute("HideWhenLocked") == true then
+				slot.Transparency = if enabled then 0 else 1
+				slot.CanCollide = enabled
+			end
 		end
 	end
 end
@@ -99,9 +106,10 @@ local function applyDecor(plot: Model, upgrades: { [string]: number }?)
 		return
 	end
 	local owned = upgrades or {}
+	local closed = Economy.ClosedUpgradeTabs or {} -- a switched-off tab (decor until the decor shop) shows nothing
 	for _, def in Upgrades do
 		if def.decorSlots then
-			local level = owned[def.id] or 0
+			local level = if closed[def.tab] then 0 else (owned[def.id] or 0)
 			for index, slotName in def.decorSlots do
 				local slot = folder:FindFirstChild(slotName)
 				if slot then
@@ -158,22 +166,47 @@ local function buildExpansion(plot: Model, template: Instance, name: string)
 	clone.Parent = plot
 end
 
--- Adds or removes each room from the upgrades, and opens the back wall while any room exists.
+-- Art that has to make room for an expansion (Sean, 2026-11-24: the jar shelf and clock on the right wall, where the
+-- Showroom stairs go): any model or part with the attribute HideWithExpansion = <expansion name> is invisible while that
+-- room is owned. Only Transparency changes (the original is kept in the attribute ShownTransparency).
+local function applyHiddenArt(plot: Model, ownedRooms: { [string]: boolean })
+	for _, tagged in plot:GetDescendants() do
+		local room = tagged:GetAttribute("HideWithExpansion")
+		if type(room) == "string" then
+			local hide = ownedRooms[room] == true
+			local parts = if tagged:IsA("BasePart") then { tagged } else tagged:GetDescendants()
+			for _, part in parts do
+				if part:IsA("BasePart") then
+					if part:GetAttribute("ShownTransparency") == nil then
+						part:SetAttribute("ShownTransparency", part.Transparency)
+					end
+					part.Transparency = if hide then 1 else part:GetAttribute("ShownTransparency")
+				end
+			end
+		end
+	end
+end
+
+-- Adds or removes each room from the upgrades, and opens the back wall while a room behind the shop exists.
+-- Only templates with the attribute OpensBackWall = true count (the Back Room; the Showroom is the second floor inside
+-- the building since 2026-11-24 and must not open the wall onto nothing).
 -- The plot's BackWall is only restyled (Transparency / CanCollide), never resized or moved.
 local function applyExpansions(plot: Model, upgrades: { [string]: number }?)
 	local storage = ServerStorage:FindFirstChild("Expansions")
 	local owned = upgrades or {}
-	local ownedCount = 0
+	local ownedCount = 0 -- owned rooms that open the back wall
+	local ownedRooms: { [string]: boolean } = {}
 	for _, def in Upgrades do
 		local name = def.effect and def.effect.expansion
 		if name then
 			local has = (owned[def.id] or 0) > 0
+			ownedRooms[name] = has
 			local built = plot:FindFirstChild("Expansion_" .. name) ~= nil
-			if has then
+			local template = storage and storage:FindFirstChild(name)
+			if has and template and template:GetAttribute("OpensBackWall") == true then
 				ownedCount += 1
 			end
 			if has and not built then
-				local template = storage and storage:FindFirstChild(name)
 				if template then
 					buildExpansion(plot, template, name)
 				else
@@ -184,6 +217,7 @@ local function applyExpansions(plot: Model, upgrades: { [string]: number }?)
 			end
 		end
 	end
+	applyHiddenArt(plot, ownedRooms)
 	local walls = plot:FindFirstChild("Walls")
 	local backWall = walls and walls:FindFirstChild("BackWall")
 	if backWall and backWall:IsA("BasePart") then

@@ -40,6 +40,12 @@ function PlotCheck.run()
 	serviceCopy.Source = string.gsub(serviceCopy.Source, 'workspace:FindFirstChild%("Plots"%)', 'workspace:FindFirstChild("PlotsCheckCopy")')
 	kit.Parent = ServerScriptService
 
+	-- Decor is switched off in Config until the decor shop (Economy.ClosedUpgradeTabs). The decor checks below test the
+	-- showing code the decor shop will reuse, so they run with every tab open; the switch itself is checked at the end.
+	local Economy = require(game:GetService("ReplicatedStorage").Shared.Config.Economy)
+	local savedClosedTabs = Economy.ClosedUpgradeTabs
+	Economy.ClosedUpgradeTabs = {}
+
 	local ok, err = pcall(function()
 		local upgradesById: { [any]: { [string]: number } } = {}
 		local loadedCallback, releasingCallback
@@ -218,7 +224,7 @@ function PlotCheck.run()
 		check("Back Room: Bench2 (with its Prompt) is in the plot's Benches, where restoration looks", p4.Benches:FindFirstChild("Bench2") ~= nil and p4.Benches.Bench2:FindFirstChildWhichIsA("ProximityPrompt") ~= nil)
 		check("Back Room: the FishTank decor model is in DecorSlots and hidden until bought", p4.DecorSlots:FindFirstChild("FishTank") ~= nil and decorHiddenProperly(4, "FishTank"))
 		check("Back Room: the back wall opens by restyling only (same size and position)", wall4.Transparency == 1 and wall4.CanCollide == false and wall4.Size == wallSize and wall4.Position == wallPos)
-		check("Back Room: the Showroom half of the opening is closed by a fill", countNamed(p4, "WallFill") == 1)
+		check("Back Room: full width behind the shop, no plaster fill (Showroom is upstairs since 2026-11-24)", countNamed(p4, "WallFill") == 0)
 		-- a scaled shop (1.4x, 56 studs): the room has to scale with the plot
 		do
 			local p5 = plot(5)
@@ -238,7 +244,7 @@ function PlotCheck.run()
 		-- limits written for the 40-stud shop, scaled by the plot's real size (56-stud shops are 1.4x)
 		local k4 = p4.Floor.Size.X / 40
 		local lp = p4.Floor.CFrame:PointToObjectSpace(p4.Expansion_BackRoom.Shell.Floor.Position)
-		check("Back Room: the floor lies behind the back wall in the plot's own axes (also on a rotated plot)", lp.Z > 20 * k4 and lp.Z < 44 * k4 and lp.X < 0, tostring(lp))
+		check("Back Room: the floor lies behind the back wall in the plot's own axes, full width (also on a rotated plot)", lp.Z > 20 * k4 and lp.Z < 44 * k4 and math.abs(lp.X) < 1 * k4 and p4.Expansion_BackRoom.Shell.Floor.Size.X > 39 * k4, tostring(lp))
 		local bp = p4.Floor.CFrame:PointToObjectSpace(p4.Benches.Bench2.Position)
 		check("Back Room: Bench2 stands inside the room", bp.Z > 20 * k4 and bp.Z < 44 * k4 and bp.X < 0, tostring(bp))
 		upgradesById[P[4]] = { BackRoom = 1, FishTank = 1 }
@@ -247,14 +253,38 @@ function PlotCheck.run()
 		upgradesById[P[4]] = { BackRoom = 1, Showroom = 1, FishTank = 1 }
 		PlotService.RefreshSlots(P[4])
 		PlotService.RefreshSlots(P[4])
-		check("both rooms: Showroom added, fills removed, wall still open", p4:FindFirstChild("Expansion_Showroom") ~= nil and countNamed(p4, "WallFill") == 0 and wall4.Transparency == 1)
+		check("both rooms: Showroom added, wall still open", p4:FindFirstChild("Expansion_Showroom") ~= nil and countNamed(p4, "WallFill") == 0 and wall4.Transparency == 1)
+		do
+			local stairs = p4.Expansion_Showroom:FindFirstChild("Stairs", true)
+			local upper = p4.Expansion_Showroom:FindFirstChild("UpperFloor", true)
+			check("Showroom: stairs and the upper floor are built", stairs ~= nil and upper ~= nil and #stairs:GetChildren() > 10)
+			local top = upper and upper:FindFirstChild("FloorMain")
+			local tp = top and p4.Floor.CFrame:PointToObjectSpace(top.Position)
+			check("Showroom: the upper floor is inside the building at wall-top height", tp ~= nil and math.abs(tp.X) < 28 * k4 / 1.4 and math.abs(tp.Z) < 28 * k4 / 1.4 and tp.Y > 12 * k4, tostring(tp))
+			local e2 = p4.ExhibitSlots:FindFirstChild("Exhibit2")
+			check("Showroom: pedestal 2 is shown and solid upstairs", e2 ~= nil and e2:GetAttribute("Enabled") == true and e2.Transparency == 0 and e2.CanCollide == true)
+			local shell = p4:FindFirstChild("Facade") and p4.Facade:FindFirstChild("Shell")
+			local jars = shell and shell:FindFirstChild("Shop_Jars")
+			local nook = shell and shell:FindFirstChild("Shop_NookWood")
+			local jarPart = jars and jars:FindFirstChildWhichIsA("BasePart", true)
+			local nookPart = nook and nook:FindFirstChildWhichIsA("BasePart", true)
+			check("Showroom: the jar shelf where the stairs go is hidden (HideWithExpansion)", jarPart ~= nil and nookPart ~= nil and jarPart.Transparency == 1 and nookPart.Transparency == 1)
+		end
 		check("refreshing again does not duplicate rooms, benches or decor", countNamed(p4, "Expansion_BackRoom") == 1 and countNamed(p4, "Bench2") == 1 and countNamed(p4, "FishTank") == 1)
 		check("Showroom: the Fountain decor exists and is hidden until bought", p4.DecorSlots:FindFirstChild("Fountain") ~= nil and decorHiddenProperly(4, "Fountain"))
 		upgradesById[P[4]] = { Showroom = 1 }
 		PlotService.RefreshSlots(P[4])
 		check("losing the Back Room removes its room, bench and decor but keeps the Showroom", p4:FindFirstChild("Expansion_BackRoom") == nil and p4.Benches:FindFirstChild("Bench2") == nil and p4.DecorSlots:FindFirstChild("FishTank") == nil and p4:FindFirstChild("Expansion_Showroom") ~= nil)
+		check("Showroom alone keeps the back wall closed (it is upstairs, nothing behind the wall)", wall4.Transparency == 0 and wall4.CanCollide == true)
 		releasingCallback(P[4])
 		check("release removes every room, bench and decor model and closes the wall again", p4:FindFirstChild("Expansion_Showroom") == nil and countNamed(p4, "Bench2") == 0 and p4.DecorSlots:FindFirstChild("Fountain") == nil and wall4.Transparency == 0 and wall4.CanCollide == true)
+		do
+			local e2 = p4.ExhibitSlots:FindFirstChild("Exhibit2")
+			check("locked upstairs pedestal is hidden and not solid (no floating pedestal)", e2 ~= nil and e2:GetAttribute("Enabled") == false and e2.Transparency == 1 and e2.CanCollide == false)
+			local nook = p4.Facade.Shell:FindFirstChild("Shop_NookWood")
+			local nookPart = nook and nook:FindFirstChildWhichIsA("BasePart", true)
+			check("without the Showroom the jar shelf is back (original transparency)", nookPart ~= nil and nookPart.Transparency == (nookPart:GetAttribute("ShownTransparency") or 0) and nookPart.Transparency < 1)
+		end
 
 		-- release and reuse
 		releasingCallback(P[2])
@@ -266,7 +296,16 @@ function PlotCheck.run()
 		loadedCallback(P7)
 		check("the freed plot goes to the next player with their decor", PlotService.GetPlot(P7) == plot(2) and decorShown(2, "NeonSign") and plot(2).Sign.SurfaceGui.OwnerName.Text == "Shop7")
 		check("the real Plots folder was not touched", workspace.Plots.Plot1:GetAttribute("OwnerUserId") == nil or workspace.Plots.Plot1:GetAttribute("OwnerUserId") ~= 5001)
+
+		-- the decor switch (2026-11-24): with the Decor tab closed, decor someone already owns is not shown
+		Economy.ClosedUpgradeTabs = { Decor = true }
+		PlotService.RefreshSlots(P7)
+		check("Decor tab closed: owned decor (Neon Sign) is hidden and not solid", decorHiddenProperly(2, "NeonSign"))
+		Economy.ClosedUpgradeTabs = {}
+		PlotService.RefreshSlots(P7)
+		check("Decor tab open again: the same decor shows again", decorShown(2, "NeonSign"))
 	end)
+	Economy.ClosedUpgradeTabs = savedClosedTabs
 
 	kit:Destroy()
 	plotsCopy:Destroy()

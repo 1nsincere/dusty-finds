@@ -139,6 +139,8 @@ Max simultaneous customers: 3 (Showroom: 5).
 | Shop Sign | $300 (Lv 2) | $2,500 (Lv 6) | $12,000 (Lv 12) | −10% customer interval each |
 
 ### Decor (one-time, fixed slots, rating points)
+> **Switched off 2026-11-24 (Sean + Ace):** decor will be sold in a decor shop once the shop edit mode exists. Until then `Economy.ClosedUpgradeTabs = { Decor = true }`: the Decor tab is hidden, the server refuses decor purchases (reason `"closed"`), and decor models are not shown. Decor already bought stays saved and **keeps its rating points**. The table below is the old price list, kept for the decor shop.
+
 | Decor | Cost | Points |
 |---|---|---|
 | Potted Plants (×2) | $80 each | 1 each |
@@ -153,7 +155,7 @@ Max simultaneous customers: 3 (Showroom: 5).
 | Expansion | Cost | Unlock | Adds | Rating pts |
 |---|---|---|---|---|
 | **Back Room** | $2,500 | Lv 4 | 2nd workbench (used for co-op in Update 1; solo players can use either bench), storage decor slot, Fish Tank slot | 3 |
-| **Showroom** | $20,000 | Lv 10 | +6 premium display slots, +3 exhibit pedestals, Fountain slot, customer cap 5 | 8 |
+| **Showroom** | $20,000 | Lv 10 | Second floor (stairs + upstairs gallery), +3 exhibit pedestals (upstairs), Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
 
 ### Shop rating
 Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 4★ 40 · 5★ 65.**

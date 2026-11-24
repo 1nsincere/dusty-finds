@@ -134,7 +134,7 @@ local Upgrades = {
 			exhibitPedestals = 3,
 			maxCustomers = 5,
 		},
-		description = "Premium display slots and more customers",
+		description = "A second floor gallery: 3 more exhibit pedestals and more customers",
 	},
 }
 

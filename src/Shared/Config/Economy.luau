@@ -66,6 +66,10 @@ local Economy = {
 
 	-- §6 Shop rating: points -> stars. Index = stars, value = minimum points for that star.
 	RatingStarMinPoints = { 0, 8, 20, 40, 65 },
+	-- Upgrade tabs switched off (Sean + Ace, 2026-11-24): decor will be sold in a decor shop once the edit mode exists.
+	-- A closed tab is hidden in the Upgrades window, refused by UpgradeService, and its decor models stay hidden.
+	-- Levels already bought stay saved and keep their rating points. Remove the entry to switch the tab back on.
+	ClosedUpgradeTabs = { Decor = true },
 
 	-- §7 XP and levels
 	MaxLevel = 50, -- was 15 (2026-11-20)

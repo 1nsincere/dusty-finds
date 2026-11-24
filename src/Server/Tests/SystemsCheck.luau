@@ -115,6 +115,12 @@ function SystemsCheck.run()
 	end
 	kit.Parent = ServerScriptService
 
+	-- Decor is switched off in Config until the decor shop (Economy.ClosedUpgradeTabs). The upgrade checks below still
+	-- test decor purchases (the rules the decor shop will reuse), so they run with every tab open; the switch is checked too.
+	local EconomyConfig = require(ReplicatedStorage.Shared.Config.Economy)
+	local savedClosedTabs = EconomyConfig.ClosedUpgradeTabs
+	EconomyConfig.ClosedUpgradeTabs = {}
+
 	local ok, err = pcall(function()
 		local Config = ReplicatedStorage.Shared.Config
 		local Crates = require(Config.Crates)
@@ -351,6 +357,14 @@ function SystemsCheck.run()
 		check("Upgrade: not enough cash refused, cash unchanged", select(2, Upgrade.BuyUpgrade(poor, "Rug")) == "cash" and cash(poor) == 100 and fakeDS.GetValue(poor, "upgrades.Rug") == nil)
 		check("Upgrade: affordable decor works ($80 plant)", Upgrade.BuyUpgrade(poor, "PottedPlants") and cash(poor) == 20 and fakeDS.GetValue(poor, "upgrades.PottedPlants") == 1)
 		check("Upgrade: no data refused", select(2, Upgrade.BuyUpgrade({ UserId = 1, Name = "ghost" }, "Rug")) == "noData")
+		-- the decor switch (2026-11-24): a closed tab is refused by the server even if a client asks for it
+		EconomyConfig.ClosedUpgradeTabs = { Decor = true }
+		check("Upgrade: Decor tab closed -> Rug refused, cash unchanged", (function()
+			local before2 = cash(u)
+			return select(2, Upgrade.BuyUpgrade(u, "Rug")) == "closed" and cash(u) == before2 and fakeDS.GetValue(u, "upgrades.Rug") == nil
+		end)())
+		check("Upgrade: Decor tab closed -> other tabs still sell (Shop Sign)", Upgrade.BuyUpgrade(u, "ShopSign") == true)
+		EconomyConfig.ClosedUpgradeTabs = {}
 
 		-- ===== ShipmentService: rolls =====
 		local seeded = Random.new(12345)
@@ -517,6 +531,7 @@ function SystemsCheck.run()
 		-- Crate data sanity: every crate item count matches Config
 		check("Config: Starter crate gives 3 items", Crates.Starter.itemCount == 3)
 	end)
+	EconomyConfig.ClosedUpgradeTabs = savedClosedTabs
 
 	kit:Destroy()
 	if not ok then
