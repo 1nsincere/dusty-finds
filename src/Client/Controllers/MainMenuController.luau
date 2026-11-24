@@ -41,6 +41,8 @@ local WOOD, WOOD_LIGHT, WOOD_DARK = Color3.fromRGB(156, 106, 58), Color3.fromRGB
 local GOLD, GOLD_LIGHT = Color3.fromRGB(255, 176, 46), Color3.fromRGB(255, 214, 92)
 local BROWN_ICON = Color3.fromRGB(150, 92, 52)
 local SKIP_SCREENS = { MainMenu = true, LoadingScreen = true, Freecam = true }
+local ORBIT_RADIUS, ORBIT_HEIGHT = 135, 80 -- the menu camera's circle round your shop (studs)
+local GROUP_ID = 165295576 -- the team's Roblox group: Credits shows each dev's role in it
 
 local function new(class: string, props: { [string]: any }, parent: Instance?): any
 	local o = Instance.new(class)
@@ -246,9 +248,10 @@ local function startFlyover()
 		if not center then
 			return
 		end
-		local angle = (os.clock() - started) * 0.05 + 0.6
-		local eye = center + Vector3.new(math.cos(angle) * 70, 38, math.sin(angle) * 70)
-		cam.CFrame = CFrame.lookAt(eye, center + Vector3.new(0, 6, 0))
+		-- wide and high (Sean, 2026-11-25: was too close): your shop with the town round it
+		local angle = (os.clock() - started) * 0.04 + 0.6
+		local eye = center + Vector3.new(math.cos(angle) * ORBIT_RADIUS, ORBIT_HEIGHT, math.sin(angle) * ORBIT_RADIUS)
+		cam.CFrame = CFrame.lookAt(eye, center + Vector3.new(0, 4, 0))
 	end)
 end
 
@@ -584,13 +587,27 @@ local function build()
 	listText(credits, "Made by a team of three:", 0)
 	for i, c in MenuConfig.CREDITS do
 		local nameLabel = listText(credits, c.name, i * 10, true, WOOD_DARK)
-		listText(credits, c.role, i * 10 + 1)
+		local roleLabel = listText(credits, c.role, i * 10 + 1)
 		task.spawn(function() -- the dev's current Roblox username (names can change)
 			local ok, name = pcall(function()
 				return Players:GetNameFromUserIdAsync(c.userId)
 			end)
 			if ok and type(name) == "string" then
 				nameLabel.Text = name
+			end
+		end)
+		task.spawn(function() -- their role in the team's Roblox group, live (falls back to the config role)
+			local ok, groups = pcall(function()
+				return game:GetService("GroupService"):GetGroupsAsync(c.userId)
+			end)
+			if ok and type(groups) == "table" then
+				for _, g in groups do
+					if g.Id == GROUP_ID and type(g.Role) == "string" and g.Role ~= "" then
+						-- everyone on the team develops: "Founder" -> "Founder / Dev" ("Developer" stays as it is)
+						roleLabel.Text = if g.Role:lower():find("dev") then g.Role else g.Role .. " / Dev"
+						break
+					end
+				end
 			end
 		end)
 	end

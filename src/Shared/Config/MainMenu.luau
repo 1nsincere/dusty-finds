@@ -36,10 +36,12 @@ MainMenu.UPDATES = {
 	},
 }
 
+-- Credits: each dev's current Roblox username and their role in the team's Roblox group (GROUP_ID in
+-- MainMenuController), both looked up live; `name` / `role` are shown if the lookup fails (Sean, 2026-11-25).
 MainMenu.CREDITS = {
-	{ userId = 2515374038, name = "X3duactive", role = "Systems & Data" },
-	{ userId = 3782711171, name = "dwayne_xbvuvu", role = "Restoration & Items" },
-	{ userId = 852433571, name = "iizxeroo", role = "World, Customers & UI" },
+	{ userId = 852433571, name = "iizxeroo", role = "Founder / Dev" },
+	{ userId = 2515374038, name = "X3duactive", role = "Director / Dev" },
+	{ userId = 3782711171, name = "dwayne_xbvuvu", role = "Dev" },
 }
 
 return MainMenu

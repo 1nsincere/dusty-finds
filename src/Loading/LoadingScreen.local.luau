@@ -489,6 +489,133 @@ local skip = new("TextButton", {
 }, bg)
 round(skip, 8)
 
+-- ===== DF_LOADING_V2: golden-hour look from the Figma loading design (2026-11-25) =====
+-- Same scene, sounds and real loading steps as before; new: dark warm background, glowing bar with a marker and a percent,
+-- the logo emblem, and a small twist: the player can scrub the dusty bear clean with a finger / the mouse (cosmetic only).
+local UIS = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local CREAM_UI, DIM_UI = Color3.fromRGB(255, 241, 214), Color3.fromRGB(214, 190, 160)
+bg:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new(Color3.fromRGB(86, 55, 36), Color3.fromRGB(24, 14, 9))
+title.TextColor3 = Color3.new(1, 1, 1)
+local oldStroke = title:FindFirstChildOfClass("UIStroke")
+if oldStroke then oldStroke:Destroy() end
+new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 244, 168), Color3.fromRGB(240, 138, 18)), Rotation = 90 }, title)
+new("UIStroke", { Color = INK, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual }, title)
+local sub = column:FindFirstChild("Subtitle")
+if sub then sub.TextColor3 = DIM_UI end
+new("ImageLabel", {
+	Name = "Emblem", Position = UDim2.new(0, 18, 0, 14), Size = UDim2.fromOffset(60, 60), BackgroundTransparency = 1,
+	Image = "rbxassetid://100622808127569", ZIndex = 3,
+}, bg)
+
+stepLabel.TextColor3 = CREAM_UI
+stepLabel.FontFace = FONT_TITLE
+stepLabel.TextXAlignment = Enum.TextXAlignment.Left
+stepLabel.Size = UDim2.fromScale(0.55, 0.05)
+tipLabel.TextColor3 = DIM_UI
+local percent = new("TextLabel", {
+	Name = "Percent", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.85, 0.73),
+	Size = UDim2.fromScale(0.2, 0.05), FontFace = FONT_TITLE, Text = "0%", TextColor3 = GOLD, TextScaled = true,
+	TextXAlignment = Enum.TextXAlignment.Right,
+}, column)
+bar.BackgroundColor3 = Color3.fromRGB(27, 15, 10)
+bar.BackgroundTransparency = 0
+new("UIStroke", { Color = Color3.fromRGB(90, 59, 40), Thickness = 3 }, bar)
+local fillGrad = fill:FindFirstChildOfClass("UIGradient")
+fillGrad.Color = ColorSequence.new(Color3.fromRGB(255, 240, 138), Color3.fromRGB(255, 154, 31))
+fillGrad.Rotation = 90
+local shine = new("Frame", { Position = UDim2.fromScale(0.03, 0.14), Size = UDim2.fromScale(0.94, 0.26), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 2 }, fill)
+round(shine, 999)
+local marker = new("Frame", {
+	Name = "Marker", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.04, 0.5), Size = UDim2.fromScale(0, 1.5),
+	BackgroundColor3 = CREAM_UI, BorderSizePixel = 0, ZIndex = 3,
+}, bar)
+new("UIAspectRatioConstraint", { AspectRatio = 1 }, marker)
+round(marker, 999)
+new("UIStroke", { Color = INK, Thickness = 2 }, marker)
+fill:GetPropertyChangedSignal("Size"):Connect(function()
+	local x = fill.Size.X.Scale
+	percent.Text = math.floor(x * 100 + 0.5) .. "%"
+	marker.Position = UDim2.fromScale(x, 0.5)
+end)
+
+-- the hint chip (bottom-left): shown while the dusty bear is out
+local hint = new("Frame", {
+	Name = "Hint", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 18, 1, -18), Size = UDim2.fromOffset(250, 40),
+	BackgroundColor3 = Color3.fromRGB(43, 27, 20), BackgroundTransparency = 0.1, BorderSizePixel = 0, ZIndex = 5, Visible = false,
+}, bg)
+round(hint, 20)
+new("UIStroke", { Color = Color3.fromRGB(90, 59, 40), Thickness = 2.5 }, hint)
+new("TextLabel", {
+	BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -24, 1, 0), FontFace = FONT_TEXT,
+	Text = "✦  Scrub the bear clean!", TextColor3 = CREAM_UI, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6,
+}, hint)
+
+-- the twist: scrub the dusty bear. A second clean picture sits on top and fades in as you scrub; a rag follows your finger.
+-- Only the picture changes: the real progress bar and the loading steps never depend on it.
+local scrubAmount = 0
+local scrubClean = new("ImageLabel", { Name = "BearScrub", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = ART.bearClean, ImageTransparency = 1, ZIndex = 4 }, item)
+local scrubRag = new("ImageLabel", {
+	Name = "ScrubRag", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromScale(0.2, 0.2), Rotation = -10, BackgroundTransparency = 1,
+	Image = ART.rag, ZIndex = 9, Visible = false,
+}, stage)
+new("UIAspectRatioConstraint", { AspectRatio = 711 / 550 }, scrubRag)
+local zone = new("TextButton", { Name = "ScrubZone", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 10 }, item)
+local scrubbing, lastPos, lastPuff = false, Vector2.zero, 0
+local function pointer(input: InputObject): Vector2
+	return Vector2.new(input.Position.X, input.Position.Y) + GuiService:GetGuiInset()
+end
+local function toStage(p: Vector2): Vector2
+	return (p - stage.AbsolutePosition) / stage.AbsoluteSize
+end
+local function isPress(input: InputObject): boolean
+	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+end
+zone.InputBegan:Connect(function(input)
+	if isPress(input) then
+		scrubbing, lastPos = true, pointer(input)
+		local r = toStage(lastPos)
+		scrubRag.Position = UDim2.fromScale(r.X, r.Y)
+		scrubRag.Visible = true
+	end
+end)
+UIS.InputChanged:Connect(function(input)
+	if not scrubbing then
+		return
+	end
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+	local p = pointer(input)
+	local r = toStage(p)
+	scrubRag.Position = UDim2.fromScale(r.X, r.Y)
+	scrubRag.Rotation = -10 + math.clamp((p.X - lastPos.X) * 2, -14, 14)
+	local inside = p.X >= item.AbsolutePosition.X and p.X <= item.AbsolutePosition.X + item.AbsoluteSize.X
+		and p.Y >= item.AbsolutePosition.Y and p.Y <= item.AbsolutePosition.Y + item.AbsoluteSize.Y
+	if inside and item.Visible then
+		scrubAmount = math.min(1, scrubAmount + (p - lastPos).Magnitude / (item.AbsoluteSize.X * 5))
+		scrubClean.ImageTransparency = 1 - scrubAmount
+		if os.clock() - lastPuff > 0.3 then
+			lastPuff = os.clock()
+			play("wipe")
+			dustPuff(r.X, r.Y)
+		end
+	end
+	lastPos = p
+end)
+UIS.InputEnded:Connect(function(input)
+	if scrubbing and isPress(input) then
+		scrubbing = false
+		scrubRag.Visible = false
+	end
+end)
+task.spawn(function()
+	while gui.Parent do
+		hint.Visible = item.Visible and restored.ImageTransparency > 0.9
+		task.wait(0.15)
+	end
+end)
+
 -- ===== the box animation loop: wiggle, the lid pops off (light rays), the find rises, the rag wipes the dust off
 -- (puffs), it glows and sparkles, then back in and the lid drops on =====
 
@@ -526,6 +653,9 @@ local function resetScene()
 	holder.Rotation = 0
 	item.Visible, item.Position, item.Size = false, ITEM_IN, ITEM_SMALL
 	bearClean.ImageTransparency = 1 -- dusty again
+	scrubAmount = 0
+	scrubClean.ImageTransparency = 1
+	scrubRag.Visible = false
 	sparkle.Size, sparkle2.Size = UDim2.fromScale(0, 0), UDim2.fromScale(0, 0)
 	restored.ImageTransparency = 1
 	restored.Size = UDim2.fromScale(0.8, 0.27)
@@ -750,6 +880,21 @@ for i, step in steps do
 	if skipped or timeLeft() <= 0 then
 		break
 	end
+end
+
+-- Skip only skips the extra waiting (the minimum time, the art preload): it must never drop the player into a
+-- half-started game before the title menu exists (bug found by Sean, 2026-11-25). So after a Skip we still wait for
+-- the menu (or for the game to be ready), up to the overall time limit.
+if skipped then
+	skip.Visible = false
+	stepLabel.Text = "Almost there..."
+	local function menuReady(): boolean
+		return playerGui:FindFirstChild("MainMenu") ~= nil or player:GetAttribute("DF_ClientReady") == true
+	end
+	while not menuReady() and timeLeft() > 0 do
+		task.wait(0.1)
+	end
+	log("after Skip: menu ready =", menuReady(), string.format("%.1fs", os.clock() - startedAt))
 end
 
 stepLabel.Text = "Welcome to your shop!"

@@ -1,7 +1,7 @@
 -- InventoryController.luau
 -- Purpose: Inventory screen: grid of my items (from ClientState) with filters and capacity, a details panel per
 -- item, and Quick Sell for Restored items at my counter (RequestQuickSell). The server checks state, distance and
--- price; this screen only shows and requests. Opens from HUD 🎒 or my Counter's QuickSellPrompt.
+-- price; this screen only shows and requests. Opens from HUD 🎒 (the counter's QuickSellPrompt is switched off, 2026-11-25).
 -- Picker mode (OpenPicker, called by DisplayController from an empty slot): choose a Restored item and send
 -- RequestPlaceDisplay / RequestPlaceExhibit for that slot.
 -- Restore (Dirty/InProgress) calls Dev 2's RestorationController.RequestStartRestore(uid); greyed until that exists.
@@ -454,28 +454,29 @@ local function waitForMyPlot(): Model?
 	return nil
 end
 
--- Every counter has a QuickSellPrompt; only mine opens my inventory. Others' are hidden for me.
+-- Every counter has a QuickSellPrompt ("Quick Sell" [Q]). Removed from the counter (Sean, 2026-11-25): it is switched
+-- off on every counter, mine included, and kept off. Restored items still sell from the Inventory window (Quick Sell
+-- button) or to customers. The prompt stays in the place, so this is easy to undo.
 local function hookCounters()
 	local plots = workspace:FindFirstChild("Plots")
 	if plots == nil then
 		return
 	end
-	for _, plot in plots:GetChildren() do
-		local counter = plot:FindFirstChild("Counter")
-		local prompt = counter and counter:FindFirstChild("QuickSellPrompt")
-		if prompt and prompt:IsA("ProximityPrompt") then
-			local function updateEnabled()
-				prompt.Enabled = plot:GetAttribute("OwnerUserId") == player.UserId
-			end
-			updateEnabled()
-			plot:GetAttributeChangedSignal("OwnerUserId"):Connect(updateEnabled)
-			prompt.Triggered:Connect(function()
-				if plot:GetAttribute("OwnerUserId") == player.UserId then
-					InventoryController.Open("Restored")
+	local function switchOff(prompt: Instance)
+		if prompt.Name == "QuickSellPrompt" and prompt:IsA("ProximityPrompt") then
+			prompt.Enabled = false
+			prompt:GetPropertyChangedSignal("Enabled"):Connect(function()
+				if prompt.Enabled then
+					prompt.Enabled = false
 				end
 			end)
 		end
 	end
+	for _, d in plots:GetDescendants() do
+		switchOff(d)
+	end
+	-- other shops' counters stream in (and back in) later: catch their prompts as they arrive
+	plots.DescendantAdded:Connect(switchOff)
 end
 
 -- ===== Lifecycle =====
