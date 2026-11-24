@@ -239,6 +239,47 @@ COMMANDS.bring = { usage = "/bring <who>  (they come to you)", run = function(ad
 	tell(admin, string.format("Brought %d player(s)", n))
 end }
 
+-- Sean (Dev 3): give shelf / pedestal skins (Config.Skins) for free. A set name gives both pieces of the set
+-- (e.g. "cosmic" = ShelfCosmic + PedestalCosmic); add "use" to put them on straight away.
+COMMANDS.skin = { usage = "/skin <who> <skin|set|all> [use]  (e.g. /skin me cosmic use; /skins lists them)", run = function(admin, a)
+	local Skins = require(Config:WaitForChild("Skins"))
+	local word = string.lower(a[2] or "")
+	if word == "" then return tell(admin, COMMANDS.skin.usage) end
+	local ids = {}
+	for _, skin in Skins.LIST do
+		local id = string.lower(skin.id)
+		-- exact id ("shelfcosmic"), set name ("cosmic" matches Shelf/PedestalCosmic) or "all"
+		if word == "all" or id == word or id == "shelf" .. word or id == "pedestal" .. word then
+			table.insert(ids, skin.id)
+		end
+	end
+	if #ids == 0 then return tell(admin, "Unknown skin \"" .. tostring(a[2]) .. "\". Try /skins") end
+	local use = a[3] ~= nil and string.lower(a[3]) == "use" and word ~= "all"
+	local n = each(admin, a[1], function(p)
+		for _, id in ids do
+			if not (S.SkinService.Grant(p, id, use)) then
+				return false
+			end
+		end
+		return true
+	end)
+	tell(admin, string.format("Gave %s%s to %d player(s)", table.concat(ids, ", "), if use then " (in use)" else "", n))
+end }
+
+COMMANDS.skins = { usage = "/skins  (list skin ids)", run = function(admin)
+	local Skins = require(Config:WaitForChild("Skins"))
+	local byRarity = {}
+	for _, skin in Skins.LIST do
+		byRarity[skin.rarity] = byRarity[skin.rarity] or {}
+		table.insert(byRarity[skin.rarity], skin.id)
+	end
+	for _, r in { "Mythic", "Relic", "Legendary", "Epic", "Rare", "Uncommon", "Common" } do
+		if byRarity[r] then
+			tell(admin, r .. ": " .. table.concat(byRarity[r], ", "))
+		end
+	end
+end }
+
 COMMANDS.items = { usage = "/items", run = function(admin)
 	local byRarity = {}
 	for _, r in { "Secret", "Mythic", "Relic", "Legendary", "Epic", "Rare", "Uncommon", "Common" } do

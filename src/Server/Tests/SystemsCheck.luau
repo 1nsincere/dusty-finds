@@ -345,17 +345,17 @@ function SystemsCheck.run()
 		check("Upgrade: Brush L4 does not exist (maxed)", select(2, Upgrade.BuyUpgrade(u, "CleaningBrush")) == "maxed")
 		check("Upgrade: Fish Tank refused without the Back Room (even at level 10)", select(2, Upgrade.BuyUpgrade(u, "FishTank")) == "requires" and fakeDS.GetValue(u, "upgrades.FishTank") == nil)
 		check("Upgrade: Fountain refused without the Showroom", select(2, Upgrade.BuyUpgrade(u, "Fountain")) == "requires")
-		check("Upgrade: Back Room at level 10 costs $20000 (the Showroom is the first expansion now)", (function()
+		check("Upgrade: Back Room (first expansion) needs level 4 (ok at 10), $6500", (function()
 			local before2 = cash(u)
-			return Upgrade.BuyUpgrade(u, "BackRoom") and cash(u) == before2 - 20000
+			return Upgrade.BuyUpgrade(u, "BackRoom") and cash(u) == before2 - 6500
 		end)())
-		check("Upgrade: Showroom needs level 4 and costs $9000", (function()
+		check("Upgrade: Showroom (second floor) needs level 10 and costs $20000", (function()
 			local low = newPlayer()
 			fakeDS.Set(low, "cash", 50000)
-			fakeDS.Set(low, "level", 3)
+			fakeDS.Set(low, "level", 9)
 			local refused = select(2, Upgrade.BuyUpgrade(low, "Showroom")) == "level"
-			fakeDS.Set(low, "level", 4)
-			return refused and Upgrade.BuyUpgrade(low, "Showroom") and cash(low) == 50000 - 9000
+			fakeDS.Set(low, "level", 10)
+			return refused and Upgrade.BuyUpgrade(low, "Showroom") and cash(low) == 50000 - 20000
 		end)())
 		check("Upgrade: Fish Tank allowed once the Back Room is owned ($3000)", (function()
 			local before2 = cash(u)

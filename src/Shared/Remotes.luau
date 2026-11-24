@@ -30,6 +30,8 @@ local CLIENT_TO_SERVER = {
 	"RequestGiveChange", -- cashier: (amount) the change the owner counted out for the customer at the till
 	"RequestCloseCashier", -- cashier: owner closed the till window (the customer keeps waiting / auto-checks out)
 	"RequestTravel", -- travel menu: (placeId) teleport to a Config.Travel place (server checks id, cooldown, state)
+	"RequestBuySkin", -- skins stall: (skinId) buy a skin that is in stock right now (server checks stock, owned, cash, distance)
+	"RequestApplySkin", -- skins: (kind "Shelf"|"Pedestal", skinId or "" for classic) use an owned skin in your shop
 }
 
 -- Server -> Client notifications

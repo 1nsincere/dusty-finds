@@ -56,8 +56,11 @@ local function isNight(): boolean
 end
 
 -- Inside a shop = standing over any plot's Floor, under its roof height. (Shop music plays in every shop, mine or a
--- friend's; ambience is lowered indoors.)
+-- friend's; ambience is lowered indoors.) The expansion rooms count too (Sean, 2026-11-24): the Back Room behind the
+-- shop (floor-local z up to 62 on a 56-stud shop) and the second floor upstairs (up to the roof).
 local INDOOR_HEIGHT = 16
+local UPSTAIRS_HEIGHT = 34 -- with the Showroom (second floor): its floor is at ~18.5, the roof starts above 30
+local BACK_ROOM_DEPTH = 62 / 56 -- the Back Room ends this far back, as a fraction of the shop's floor size
 local function isIndoors(): boolean
 	local root = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local plots = workspace:FindFirstChild("Plots")
@@ -69,7 +72,9 @@ local function isIndoors(): boolean
 		if floor and floor:IsA("BasePart") then
 			local rel = floor.CFrame:PointToObjectSpace(root.Position)
 			local half = floor.Size / 2
-			if math.abs(rel.X) <= half.X and math.abs(rel.Z) <= half.Z and rel.Y > -2 and rel.Y < INDOOR_HEIGHT then
+			local maxZ = if plot:FindFirstChild("Expansion_BackRoom") then floor.Size.Z * BACK_ROOM_DEPTH else half.Z
+			local maxY = if plot:FindFirstChild("Expansion_Showroom") then UPSTAIRS_HEIGHT else INDOOR_HEIGHT
+			if math.abs(rel.X) <= half.X and rel.Z >= -half.Z and rel.Z <= maxZ and rel.Y > -2 and rel.Y < maxY then
 				return true
 			end
 		end

@@ -131,6 +131,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
 │   ├── TutorialService.luau     [Dev 3] RequestTutorialStep: saves tutorial.step / tutorial.done after checking the step against saved data (Shared.Tutorial)
 │   ├── StorageShelfService.luau [Dev 3] storage room shelves: each owner's Dirty / InProgress items, rarest first, as StorageShelves slot attributes (read-only on data, no remotes; the item on the bench is skipped)
+│   ├── SkinService.luau [Dev 3] shelf / pedestal skins: buy at Workspace.SkinStall (RequestBuySkin, stock from Shared.Stock), use an owned skin (RequestApplySkin), draws every shop's Shelves / ExhibitSlots (colour, material, SkinTrims rims with attribute Piece, SkinLight, SkinSparkle); data field `skins`; announces Legendary+ restocks
 │   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
@@ -242,6 +243,8 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestGiveChange` | `amount` | Dev 1 | integer 0..Economy.CashierMaxChange; an open till (CashierService) for this player; near own Counter (InteractMaxStuds + 4); rate limit 4/s. Right change (paid - due) completes the sale via CustomerService.Checkout with `CashierService.Judge`: fast first try +25%, first try +10%, after a mistake 0%; wrong = attempts + 1, CashierUpdate "wrong"; the `CashierMaxMistakes`-th wrong = sale at -10% (angry). Any amount may be sent (Dev 3, 2026-11-23) |
 | `RequestCloseCashier` | — | Dev 1 | closes the player's own till only; rate limit 4/s |
 | `RequestTravel` | `placeId` | Dev 1 | known id in Config.Travel (string ≤ 32); 4 s cooldown; alive, not seated, no restoration session; rate limit 2/s; server picks the landing spot |
+| `RequestBuySkin` | `skinId` | Dev 3 | known id in Config.Skins; data loaded; not owned yet; in stock in the current restock (Shared.Stock, server clock); within Config.Stock.BuyMaxStuds of Workspace.SkinStall.Counter; Spend price (refund if the save fails); rate limit 2/s |
+| `RequestApplySkin` | `kind, skinId` | Dev 3 | kind "Shelf" / "Pedestal"; skinId "" (classic) or a known skin of that kind that the player owns; rate limit 4/s |
 
 ### Server → Client (RemoteEvents)
 | Remote | Payload | Purpose |

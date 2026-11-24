@@ -154,8 +154,8 @@ Max simultaneous customers: 3 (Showroom: 5).
 ### Expansions
 | Expansion | Cost | Unlock | Adds | Rating pts |
 |---|---|---|---|---|
-| **Showroom** (first expansion since 2026-11-24) | $9,000 | Lv 4 | Second floor (stairs + upstairs gallery); the 4 downstairs pedestals move upstairs and +6 more (10 in the gallery), Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
-| **Back Room** | $20,000 | Lv 10 | A big extra room behind the shop (full width), Fish Tank slot. The 2nd workbench was removed (2026-11-24) | 3 |
+| **Back Room** (first expansion) | $6,500 | Lv 4 | A big room behind the shop (full width); the 4 downstairs exhibit pedestals move into it (the downstairs arches hide); Fish Tank slot. The 2nd workbench was removed (2026-11-24) | 3 |
+| **Showroom** (second floor) | $20,000 | Lv 10 | Stairs + upstairs gallery with **6 pedestals of its own**, Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
 
 ### Shop rating
 Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 4★ 40 · 5★ 65.**
@@ -172,9 +172,9 @@ Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 
 |---|---|
 | 1 | Starter Crate, Brush, Shelves, Storage, basic decor |
 | 2 | Toolkit, Polisher, Shop Sign |
-| 4 | **Showroom** (second floor) |
+| 4 | Back Room |
 | 5 | **Flea Market Crate**, Brush 2, Polisher 2 |
-| 10 | Back Room, Brush 3, Polisher 3 |
+| 10 | **Showroom** (second floor), Brush 3, Polisher 3 |
 | 12 | Sign 3 (Antique Dealer crate in Update 1) |
 | 15 | Cap: "Master Restorer" title |
 

@@ -210,6 +210,7 @@ local ALL_CHECKS = {
 	{ "MinigamesCheck", function() return script.Parent.Parent.Tests:FindFirstChild("MinigamesCheck") end },
 	{ "CashierCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CashierCheck") end }, -- Dev 3: till speed/mistake rules
 	{ "StorageShelfCheck", function() return script.Parent.Parent.Tests:FindFirstChild("StorageShelfCheck") end }, -- Dev 3: storage room shelf rule
+	{ "SkinCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SkinCheck") end }, -- Dev 3: skins stall stock + buy / apply / draw
 	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
 }
 

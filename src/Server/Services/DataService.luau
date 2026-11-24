@@ -39,6 +39,9 @@ local TEMPLATE = {
 	timers = { lastFreeDelivery = 0 },
 	tutorial = { step = 0, done = false },
 	settings = { music = true, sfx = true, reduceEffects = false, announcements = true },
+	-- shelf / pedestal skins (Sean, Ace OK 2026-11-24; SkinService): owned = { [skinId] = true }; shelf / pedestal =
+	-- the skin id in use, "" = the classic look. Old saves get this from Reconcile().
+	skins = { owned = {}, shelf = "", pedestal = "" },
 }
 
 local store = nil

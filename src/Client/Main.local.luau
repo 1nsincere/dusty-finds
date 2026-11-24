@@ -44,6 +44,8 @@ local ORDER = {
 	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
 	"StorageShelfController", -- Sean: draws unrestored items on every shop's storage room shelves (StorageShelfService)
 	"EditModeController", -- Sean: shop edit mode, move / turn shelves and pedestals (Shared.Layout; docs/09); after HudSkinController
+	"SkinShopController", -- Sean: skins stall window (stock, restock timer, buy) + your skins (apply); sparkles off with Reduce effects
+	"SkinModelController", -- Sean: draws model skins (Assets.Skins) over the shelf / pedestal blocks on this screen, with light + aura
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
