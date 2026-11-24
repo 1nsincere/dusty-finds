@@ -26,7 +26,7 @@ MVP gives roughly **4–6 hours** of progression plus Golden-variant hunting. Up
 | Starting cash | **$100** |
 | Starting inventory capacity | 8 |
 | Display slots | 3 |
-| Exhibit pedestals | 1 |
+| Exhibit pedestals | 4 (was 1; since 2026-11-24 all 4 downstairs pedestals are usable) |
 | Workbenches | 1 |
 | Free Delivery | 1 Tier-1 item every **3 minutes** (max 1 waiting) |
 | First box | A guaranteed **Rubber Duck** waits at the door (tutorial) |
@@ -154,8 +154,8 @@ Max simultaneous customers: 3 (Showroom: 5).
 ### Expansions
 | Expansion | Cost | Unlock | Adds | Rating pts |
 |---|---|---|---|---|
-| **Back Room** | $2,500 | Lv 4 | 2nd workbench (used for co-op in Update 1; solo players can use either bench), storage decor slot, Fish Tank slot | 3 |
-| **Showroom** | $20,000 | Lv 10 | Second floor (stairs + upstairs gallery), +9 exhibit pedestals upstairs (was +3; pedestal 1 also moves upstairs, 10 in the gallery), Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
+| **Showroom** (first expansion since 2026-11-24) | $9,000 | Lv 4 | Second floor (stairs + upstairs gallery); the 4 downstairs pedestals move upstairs and +6 more (10 in the gallery), Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
+| **Back Room** | $20,000 | Lv 10 | A big extra room behind the shop (full width), Fish Tank slot. The 2nd workbench was removed (2026-11-24) | 3 |
 
 ### Shop rating
 Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 4★ 40 · 5★ 65.**
@@ -172,9 +172,9 @@ Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 
 |---|---|
 | 1 | Starter Crate, Brush, Shelves, Storage, basic decor |
 | 2 | Toolkit, Polisher, Shop Sign |
-| 4 | Back Room |
+| 4 | **Showroom** (second floor) |
 | 5 | **Flea Market Crate**, Brush 2, Polisher 2 |
-| 10 | **Showroom**, Brush 3, Polisher 3 |
+| 10 | Back Room, Brush 3, Polisher 3 |
 | 12 | Sign 3 (Antique Dealer crate in Update 1) |
 | 15 | Cap: "Master Restorer" title |
 

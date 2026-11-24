@@ -152,14 +152,14 @@ function PlotCheck.run()
 		end)())
 
 		-- slots
-		check("default slots: 3 display, 1 exhibit", slotsOn(1, "DisplaySlots") == 3 and slotsOn(1, "ExhibitSlots") == 1)
+		check("default slots: 3 display, 4 exhibit (all 4 downstairs pedestals)", slotsOn(1, "DisplaySlots") == 3 and slotsOn(1, "ExhibitSlots") == 4, slotsOn(1, "ExhibitSlots"))
 		upgradesById[P[1]] = { DisplayShelves = 2 }
 		PlotService.RefreshSlots(P[1])
 		check("Display Shelves L2 -> 9 display slots", slotsOn(1, "DisplaySlots") == 9)
 		upgradesById[P[1]] = { DisplayShelves = 3, Showroom = 1 }
 		PlotService.RefreshSlots(P[1])
-		check("Shelves L3 + Showroom -> 12 display, 10 exhibit (1 + 9 upstairs)", slotsOn(1, "DisplaySlots") == 12 and slotsOn(1, "ExhibitSlots") == 10, slotsOn(1, "ExhibitSlots"))
-		check("another plot's slots are unaffected", slotsOn(2, "DisplaySlots") == 3 and slotsOn(2, "ExhibitSlots") == 1)
+		check("Shelves L3 + Showroom -> 12 display, 10 exhibit (4 + 6, all upstairs)", slotsOn(1, "DisplaySlots") == 12 and slotsOn(1, "ExhibitSlots") == 10, slotsOn(1, "ExhibitSlots"))
+		check("another plot's slots are unaffected", slotsOn(2, "DisplaySlots") == 3 and slotsOn(2, "ExhibitSlots") == 4)
 
 		-- decor
 		check("no decor owned: everything hidden on an owned plot", (function()
@@ -221,7 +221,7 @@ function PlotCheck.run()
 		upgradesById[P[4]] = { BackRoom = 1 }
 		PlotService.RefreshSlots(P[4])
 		check("Back Room: the room is cloned into the plot", p4:FindFirstChild("Expansion_BackRoom") ~= nil)
-		check("Back Room: Bench2 (with its Prompt) is in the plot's Benches, where restoration looks", p4.Benches:FindFirstChild("Bench2") ~= nil and p4.Benches.Bench2:FindFirstChildWhichIsA("ProximityPrompt") ~= nil)
+		check("Back Room: no second workbench any more (removed 2026-11-24)", p4.Benches:FindFirstChild("Bench2") == nil)
 		check("Back Room: the FishTank decor model is in DecorSlots and hidden until bought", p4.DecorSlots:FindFirstChild("FishTank") ~= nil and decorHiddenProperly(4, "FishTank"))
 		check("Back Room: the back wall opens by restyling only (same size and position)", wall4.Transparency == 1 and wall4.CanCollide == false and wall4.Size == wallSize and wall4.Position == wallPos)
 		check("Back Room: full width behind the shop, no plaster fill (Showroom is upstairs since 2026-11-24)", countNamed(p4, "WallFill") == 0)
@@ -245,8 +245,6 @@ function PlotCheck.run()
 		local k4 = p4.Floor.Size.X / 40
 		local lp = p4.Floor.CFrame:PointToObjectSpace(p4.Expansion_BackRoom.Shell.Floor.Position)
 		check("Back Room: the floor lies behind the back wall in the plot's own axes, full width (also on a rotated plot)", lp.Z > 20 * k4 and lp.Z < 44 * k4 and math.abs(lp.X) < 1 * k4 and p4.Expansion_BackRoom.Shell.Floor.Size.X > 39 * k4, tostring(lp))
-		local bp = p4.Floor.CFrame:PointToObjectSpace(p4.Benches.Bench2.Position)
-		check("Back Room: Bench2 stands inside the room", bp.Z > 20 * k4 and bp.Z < 44 * k4 and bp.X < 0, tostring(bp))
 		upgradesById[P[4]] = { BackRoom = 1, FishTank = 1 }
 		PlotService.RefreshSlots(P[4])
 		check("Fish Tank shows once bought", decorShown(4, "FishTank"))
@@ -261,8 +259,8 @@ function PlotCheck.run()
 			local top = upper and upper:FindFirstChild("FloorMain")
 			local tp = top and p4.Floor.CFrame:PointToObjectSpace(top.Position)
 			check("Showroom: the upper floor is inside the building at wall-top height", tp ~= nil and math.abs(tp.X) < 28 * k4 / 1.4 and math.abs(tp.Z) < 28 * k4 / 1.4 and tp.Y > 12 * k4, tostring(tp))
-			local e2 = p4.ExhibitSlots:FindFirstChild("Exhibit2")
-			check("Showroom: pedestal 2 is shown and solid upstairs", e2 ~= nil and e2:GetAttribute("Enabled") == true and e2.Transparency == 0 and e2.CanCollide == true)
+			local e5 = p4.ExhibitSlots:FindFirstChild("Exhibit5")
+			check("Showroom: pedestal 5 (a Showroom one) is shown and solid upstairs", e5 ~= nil and e5:GetAttribute("Enabled") == true and e5.Transparency == 0 and e5.CanCollide == true)
 			local shell = p4:FindFirstChild("Facade") and p4.Facade:FindFirstChild("Shell")
 			local jars = shell and shell:FindFirstChild("Shop_Jars")
 			local nook = shell and shell:FindFirstChild("Shop_NookWood")
@@ -272,11 +270,17 @@ function PlotCheck.run()
 			local vault = shell and shell:FindFirstChild("Shop_VaultTrim")
 			local vaultPart = vault and vault:FindFirstChildWhichIsA("BasePart", true)
 			check("Showroom: the downstairs exhibit alcoves (vault) are hidden", vaultPart ~= nil and vaultPart.Transparency == 1)
-			local e1 = p4.ExhibitSlots:FindFirstChild("Exhibit1")
-			local want = e1 and e1:GetAttribute("ExpansionCFrame")
-			check("Showroom: pedestal 1 moved upstairs (ExpansionCFrame)", typeof(want) == "CFrame" and (e1.Position - (p4.Floor.CFrame * want).Position).Magnitude < 0.01)
+			local allUp = true
+			for i = 1, 4 do
+				local e = p4.ExhibitSlots:FindFirstChild("Exhibit" .. i)
+				local want = e and e:GetAttribute("ExpansionCFrame")
+				if not (typeof(want) == "CFrame" and (e.Position - (p4.Floor.CFrame * want).Position).Magnitude < 0.01) then
+					allUp = false
+				end
+			end
+			check("Showroom: downstairs pedestals 1-4 moved upstairs (ExpansionCFrame)", allUp)
 		end
-		check("refreshing again does not duplicate rooms, benches or decor", countNamed(p4, "Expansion_BackRoom") == 1 and countNamed(p4, "Bench2") == 1 and countNamed(p4, "FishTank") == 1)
+		check("refreshing again does not duplicate rooms or decor (and no Bench2)", countNamed(p4, "Expansion_BackRoom") == 1 and countNamed(p4, "Bench2") == 0 and countNamed(p4, "FishTank") == 1)
 		check("Showroom: the Fountain decor exists and is hidden until bought", p4.DecorSlots:FindFirstChild("Fountain") ~= nil and decorHiddenProperly(4, "Fountain"))
 		upgradesById[P[4]] = { Showroom = 1 }
 		PlotService.RefreshSlots(P[4])
@@ -285,14 +289,21 @@ function PlotCheck.run()
 		releasingCallback(P[4])
 		check("release removes every room, bench and decor model and closes the wall again", p4:FindFirstChild("Expansion_Showroom") == nil and countNamed(p4, "Bench2") == 0 and p4.DecorSlots:FindFirstChild("Fountain") == nil and wall4.Transparency == 0 and wall4.CanCollide == true)
 		do
-			local e2 = p4.ExhibitSlots:FindFirstChild("Exhibit2")
-			check("locked upstairs pedestal is hidden and not solid (no floating pedestal)", e2 ~= nil and e2:GetAttribute("Enabled") == false and e2.Transparency == 1 and e2.CanCollide == false)
+			local e5 = p4.ExhibitSlots:FindFirstChild("Exhibit5")
+			check("locked upstairs pedestal is hidden and not solid (no floating pedestal)", e5 ~= nil and e5:GetAttribute("Enabled") == false and e5.Transparency == 1 and e5.CanCollide == false)
 			local nook = p4.Facade.Shell:FindFirstChild("Shop_NookWood")
 			local nookPart = nook and nook:FindFirstChildWhichIsA("BasePart", true)
 			check("without the Showroom the jar shelf is back (original transparency)", nookPart ~= nil and nookPart.Transparency == (nookPart:GetAttribute("ShownTransparency") or 0) and nookPart.Transparency < 1)
-			local e1 = p4.ExhibitSlots:FindFirstChild("Exhibit1")
-			local home = e1 and e1:GetAttribute("HomeCFrame")
-			check("without the Showroom pedestal 1 is back downstairs (HomeCFrame)", typeof(home) == "CFrame" and (e1.Position - (p4.Floor.CFrame * home).Position).Magnitude < 0.01)
+			local allHome = true
+			for i = 1, 4 do
+				local e = p4.ExhibitSlots:FindFirstChild("Exhibit" .. i)
+				local home = e and e:GetAttribute("HomeCFrame")
+				if not (typeof(home) == "CFrame" and (e.Position - (p4.Floor.CFrame * home).Position).Magnitude < 0.01
+					and e:GetAttribute("Enabled") == true and e.Transparency == 0) then
+					allHome = false
+				end
+			end
+			check("without the Showroom pedestals 1-4 are back downstairs, usable and visible (HomeCFrame)", allHome)
 		end
 
 		-- release and reuse

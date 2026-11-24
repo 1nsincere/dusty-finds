@@ -210,7 +210,7 @@ Selling grants money (and XP is earned on restoration, not on sale, so keeping i
 
 ### B13. Shop expansion [Dev 3 models · Dev 1 logic]
 - Each plot is built in Studio at its **largest** size; expansion rooms are stored hidden in `ServerStorage` and cloned into the plot when bought (classic tycoon technique).
-- **MVP expansions:** **Back Room** (a full-width room behind the shop: 2nd workbench, Fish Tank slot, free floor space), **Showroom** (the shop's **second floor**: stairs along the right wall up to a gallery inside the building, with 3 exhibit pedestals and the Fountain slot; customer cap +2). The second floor moved from Update 2 into the MVP on 2026-11-24 (Sean, with Ace's OK).
+- **MVP expansions:** **Showroom** first (the shop's **second floor**, Lv 4: stairs along the right wall up to a gallery inside the building; the 4 downstairs exhibit pedestals move up there and 6 more are added, plus the Fountain slot; customer cap +2), then the **Back Room** (Lv 10: a full-width room behind the shop with the Fish Tank slot; its 2nd workbench was removed 2026-11-24). The second floor moved from Update 2 into the MVP on 2026-11-24 (Sean, with Ace's OK).
 - Walls between rooms are "Coming soon" boards until bought.
 
 ### B14. Collectibles and display system [Dev 3 · Dev 1]
