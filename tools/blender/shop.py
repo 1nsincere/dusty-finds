@@ -262,15 +262,17 @@ for i in range(6):   # tool silhouettes on the pegboard
 add("Iron", c.tube("lamparm", [B(17.5, F0 + 4.2, 16.5), B(16.5, F0 + 7.5, 16.0), B(14.0, F0 + 7.8, 15.0)], [1, 1, 1], bevel=0.1))
 add("Lamp", c.sphere("worklamp", 0.45, B(13.8, F0 + 7.4, 14.9), segments=10, rings=6))
 # 4. collector's vault (back): free-standing arches over the exhibit row, gold rope posts with velvet rope, plaques
+# The vault is its own Vault* groups (+ the existing Velvet) (Sean, 2026-11-24): the Showroom moves every exhibit
+# pedestal upstairs, so PlotService hides Shop_Vault* / Shop_Velvet in shops that own the Showroom.
 for x in (-12.5, -7.5, -2.5, 2.5, 7.0):
-    box("Trim", (x, F0 + 3.5, 17.6), (0.8, 7.0, 0.8))
+    box("VaultTrim", (x, F0 + 3.5, 17.6), (0.8, 7.0, 0.8))
 for x in (-10.0, -5.0, 0.0, 5.0):
-    add("Trim", front(x, F0 + 6.0, [(u * 5.0 / 4.2, v) for (u, v) in arch(4.2, 2.6)], 17.3, 17.9))
-    add("Lamp", cyl("vspot", 0.25, 0.3, B(x, F0 + 7.6, 16.2), 10))
-    box("Gold", (x, F0 + 0.9, 14.4), (0.9, 0.5, 0.12))
+    add("VaultTrim", front(x, F0 + 6.0, [(u * 5.0 / 4.2, v) for (u, v) in arch(4.2, 2.6)], 17.3, 17.9))
+    add("VaultLamp", cyl("vspot", 0.25, 0.3, B(x, F0 + 7.6, 16.2), 10))
+    box("VaultGold", (x, F0 + 0.9, 14.4), (0.9, 0.5, 0.12))
 for x in (-12.5, -6.5, -0.5, 5.5):
-    add("Gold", c.lathe("post", [(0.01, 0), (0.45, 0), (0.12, 0.2), (0.1, 2.4), (0.25, 2.6), (0.01, 2.8)], 10))
-    G["Gold"][-1].location = B(x, F0, 12.8)
+    add("VaultGold", c.lathe("post", [(0.01, 0), (0.45, 0), (0.12, 0.2), (0.1, 2.4), (0.25, 2.6), (0.01, 2.8)], 10))
+    G["VaultGold"][-1].location = B(x, F0, 12.8)
 for x0, x1 in ((-12.5, -6.5), (-6.5, -0.5), (-0.5, 5.5)):
     add("Velvet", c.tube("rope", [B(x0, F0 + 2.4, 12.8), B((x0 + x1) / 2, F0 + 1.7, 12.8), B(x1, F0 + 2.4, 12.8)], [1, 1, 1], bevel=0.11))
 # window display plinths behind the front windows
@@ -418,10 +420,11 @@ SPEC = {"Walls": "sand", "Stone": "stone", "Trim": "white", "Gold": "gold", "Gla
         "Accent": "accent", "Stripe": "stripe", "Iron": "black", "Lamp": "warm", "Floor": "wood", "Jars": "jar", "Velvet": "velvet",
         "UpWalls": "sand", "UpTrim": "white", "UpGlass": "glass", "UpAccent": "accent", "UpIron": "black", "UpWood": "wood", "UpLeaves": "leaf",
         "UpFlowers": "pink", "UpGold": "gold", "UpStone": "stone", "Roof": "terracotta",
-        "NookWood": "wood", "NookTrim": "white", "NookGold": "gold"}
+        "NookWood": "wood", "NookTrim": "white", "NookGold": "gold", "VaultTrim": "white", "VaultLamp": "warm", "VaultGold": "gold"}
 TEX = {"Walls": "plaster", "UpWalls": "plaster", "Stone": "stone", "UpStone": "stone", "Trim": "limestone", "UpTrim": "limestone",
-       "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay", "NookWood": "wood", "NookTrim": "limestone"}
-SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars", "NookGold"}
+       "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay", "NookWood": "wood", "NookTrim": "limestone",
+       "VaultTrim": "limestone"}
+SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars", "NookGold", "VaultLamp", "VaultGold"}
 if STYLE == "B":
     SPEC.update({"Walls": "stone", "UpWalls": "wood"})
     TEX.update({"Walls": "stone", "UpWalls": "wood"})

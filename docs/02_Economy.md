@@ -155,7 +155,7 @@ Max simultaneous customers: 3 (Showroom: 5).
 | Expansion | Cost | Unlock | Adds | Rating pts |
 |---|---|---|---|---|
 | **Back Room** | $2,500 | Lv 4 | 2nd workbench (used for co-op in Update 1; solo players can use either bench), storage decor slot, Fish Tank slot | 3 |
-| **Showroom** | $20,000 | Lv 10 | Second floor (stairs + upstairs gallery), +3 exhibit pedestals (upstairs), Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
+| **Showroom** | $20,000 | Lv 10 | Second floor (stairs + upstairs gallery), +9 exhibit pedestals upstairs (was +3; pedestal 1 also moves upstairs, 10 in the gallery), Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
 
 ### Shop rating
 Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 4★ 40 · 5★ 65.**

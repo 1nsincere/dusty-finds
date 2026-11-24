@@ -158,7 +158,7 @@ function PlotCheck.run()
 		check("Display Shelves L2 -> 9 display slots", slotsOn(1, "DisplaySlots") == 9)
 		upgradesById[P[1]] = { DisplayShelves = 3, Showroom = 1 }
 		PlotService.RefreshSlots(P[1])
-		check("Shelves L3 + Showroom -> 12 display, 4 exhibit", slotsOn(1, "DisplaySlots") == 12 and slotsOn(1, "ExhibitSlots") == 4)
+		check("Shelves L3 + Showroom -> 12 display, 10 exhibit (1 + 9 upstairs)", slotsOn(1, "DisplaySlots") == 12 and slotsOn(1, "ExhibitSlots") == 10, slotsOn(1, "ExhibitSlots"))
 		check("another plot's slots are unaffected", slotsOn(2, "DisplaySlots") == 3 and slotsOn(2, "ExhibitSlots") == 1)
 
 		-- decor
@@ -269,6 +269,12 @@ function PlotCheck.run()
 			local jarPart = jars and jars:FindFirstChildWhichIsA("BasePart", true)
 			local nookPart = nook and nook:FindFirstChildWhichIsA("BasePart", true)
 			check("Showroom: the jar shelf where the stairs go is hidden (HideWithExpansion)", jarPart ~= nil and nookPart ~= nil and jarPart.Transparency == 1 and nookPart.Transparency == 1)
+			local vault = shell and shell:FindFirstChild("Shop_VaultTrim")
+			local vaultPart = vault and vault:FindFirstChildWhichIsA("BasePart", true)
+			check("Showroom: the downstairs exhibit alcoves (vault) are hidden", vaultPart ~= nil and vaultPart.Transparency == 1)
+			local e1 = p4.ExhibitSlots:FindFirstChild("Exhibit1")
+			local want = e1 and e1:GetAttribute("ExpansionCFrame")
+			check("Showroom: pedestal 1 moved upstairs (ExpansionCFrame)", typeof(want) == "CFrame" and (e1.Position - (p4.Floor.CFrame * want).Position).Magnitude < 0.01)
 		end
 		check("refreshing again does not duplicate rooms, benches or decor", countNamed(p4, "Expansion_BackRoom") == 1 and countNamed(p4, "Bench2") == 1 and countNamed(p4, "FishTank") == 1)
 		check("Showroom: the Fountain decor exists and is hidden until bought", p4.DecorSlots:FindFirstChild("Fountain") ~= nil and decorHiddenProperly(4, "Fountain"))
@@ -284,6 +290,9 @@ function PlotCheck.run()
 			local nook = p4.Facade.Shell:FindFirstChild("Shop_NookWood")
 			local nookPart = nook and nook:FindFirstChildWhichIsA("BasePart", true)
 			check("without the Showroom the jar shelf is back (original transparency)", nookPart ~= nil and nookPart.Transparency == (nookPart:GetAttribute("ShownTransparency") or 0) and nookPart.Transparency < 1)
+			local e1 = p4.ExhibitSlots:FindFirstChild("Exhibit1")
+			local home = e1 and e1:GetAttribute("HomeCFrame")
+			check("without the Showroom pedestal 1 is back downstairs (HomeCFrame)", typeof(home) == "CFrame" and (e1.Position - (p4.Floor.CFrame * home).Position).Magnitude < 0.01)
 		end
 
 		-- release and reuse

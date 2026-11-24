@@ -187,6 +187,28 @@ local function applyHiddenArt(plot: Model, ownedRooms: { [string]: boolean })
 	end
 end
 
+-- Parts that move with an expansion (Sean, 2026-11-24: pedestal 1 stands downstairs, and upstairs in the gallery once the
+-- Showroom is owned): attribute MoveWithExpansion = <expansion name>, with plot-local CFrame attributes HomeCFrame and
+-- ExpansionCFrame (relative to the plot Floor). The item on it is the same; only where it stands changes.
+local function applyMovedParts(plot: Model, ownedRooms: { [string]: boolean })
+	local floor = plot:FindFirstChild("Floor")
+	if floor == nil or not floor:IsA("BasePart") then
+		return
+	end
+	for _, part in plot:GetDescendants() do
+		local room = part:GetAttribute("MoveWithExpansion")
+		if type(room) == "string" and part:IsA("BasePart") then
+			local target = part:GetAttribute(if ownedRooms[room] then "ExpansionCFrame" else "HomeCFrame")
+			if typeof(target) == "CFrame" then
+				local cf = floor.CFrame * target
+				if part.CFrame ~= cf then
+					part.CFrame = cf
+				end
+			end
+		end
+	end
+end
+
 -- Adds or removes each room from the upgrades, and opens the back wall while a room behind the shop exists.
 -- Only templates with the attribute OpensBackWall = true count (the Back Room; the Showroom is the second floor inside
 -- the building since 2026-11-24 and must not open the wall onto nothing).
@@ -218,6 +240,7 @@ local function applyExpansions(plot: Model, upgrades: { [string]: number }?)
 		end
 	end
 	applyHiddenArt(plot, ownedRooms)
+	applyMovedParts(plot, ownedRooms)
 	local walls = plot:FindFirstChild("Walls")
 	local backWall = walls and walls:FindFirstChild("BackWall")
 	if backWall and backWall:IsA("BasePart") then

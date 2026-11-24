@@ -242,6 +242,10 @@ local function hookSlot(slot: BasePart, plot: Instance, info)
 		end)
 	end
 	slot:GetAttributeChangedSignal("Enabled"):Connect(refresh)
+	-- a pedestal can move (Exhibit1 goes upstairs with the Showroom, PlotService MoveWithExpansion): redraw its item there
+	slot:GetPropertyChangedSignal("CFrame"):Connect(function()
+		renderSlot(slot)
+	end)
 	plot:GetAttributeChangedSignal("OwnerUserId"):Connect(refresh)
 end
 

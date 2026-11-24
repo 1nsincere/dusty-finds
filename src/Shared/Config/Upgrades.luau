@@ -131,7 +131,8 @@ local Upgrades = {
 			expansion = "Showroom",
 			ratingPoints = 8,
 			premiumDisplaySlots = 6,
-			exhibitPedestals = 3,
+			exhibitPedestals = 9, -- 3 -> 9 (Sean, 2026-11-24): all upstairs in the gallery, plus pedestal 1 moves up too
+
 			maxCustomers = 5,
 		},
 		description = "A second floor gallery: 3 more exhibit pedestals and more customers",
