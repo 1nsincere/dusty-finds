@@ -154,7 +154,8 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── TownsfolkController.luau    [Dev 3] ambient townspeople (client-only decoration, shared clock: same people in the same place for every player); routes in Config/Townsfolk, looks in ReplicatedStorage.Assets.Townsfolk
 │   ├── SettingsController.luau     [Dev 3]
 │   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work
-│   └── TutorialController.luau     [Dev 3] tutorial hint + ▼ arrow from Shared.Tutorial; Skip; finish glow on HUD Upgrades
+│   ├── TutorialController.luau     [Dev 3] tutorial hint + ▼ arrow from Shared.Tutorial; Skip; finish glow on HUD Upgrades
+│   └── MainMenuController.luau     [Dev 3] title menu after the loading screen (PLAY / Settings / Updates / Credits, Config/MainMenu); last in ORDER: hides every other ScreenGui + controls until PLAY
 └── Minigames/                      [Dev 2]
     ├── PointerInput.luau   -- unified mouse/touch → raycast hits
     ├── SpotClear.luau      -- Wipe + Scrape
