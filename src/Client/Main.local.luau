@@ -14,6 +14,10 @@ require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 -- If loading fails the game still starts (UI shows placeholders) instead of hanging here.
 local ClientState = require(script.Parent:WaitForChild("ClientState"))
 ClientState.Load()
+-- the loading screen (ReplicatedFirst.Loading.LoadingScreen) watches these two local attributes to fill its bar
+local LocalPlayer = game:GetService("Players").LocalPlayer
+LocalPlayer:SetAttribute("DF_SfxOn", ClientState.Get("settings.sfx") ~= false) -- its sound effects follow Settings
+LocalPlayer:SetAttribute("DF_SaveLoaded", true)
 
 local ORDER = {
 	"SoundController", -- Dev 1: music, ambience, UI + game sounds (Config.Sounds); first so other controllers can call it
@@ -62,6 +66,7 @@ end
 for _, name in ORDER do
 	controllers[name].Start()
 end
+LocalPlayer:SetAttribute("DF_ClientReady", true)
 
 if DEBUG then
 	print(`[Main] client ready, {#ORDER} controllers started`)

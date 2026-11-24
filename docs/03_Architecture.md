@@ -161,6 +161,12 @@ src/Client/                                  (StarterPlayerScripts.Client)
     ├── Socket.luau         -- Reassemble + Replace
     ├── Rub.luau            -- Polish
     └── Timing.luau         -- Test
+
+src/Loading/                                 (ReplicatedFirst.Loading)
+└── LoadingScreen.local.luau  [Dev 3] join screen: box opens, dusty find wiped clean, real progress bar
+                              (game loaded -> DF_SaveLoaded -> ground under you -> DF_ClientReady -> art preloaded, local Player
+                              attributes set by Client/Main.local.luau), tips, Skip after 16 s, at least 15 s shown, closes by itself at 40 s;
+                              soft SFX (game sound ids) that follow the Settings switch (DF_SfxOn) once the save loads
 ```
 
 `CollectionBookService` and `ShopSocialService` are named that way so they never get confused with Roblox's built-in `CollectionService` and `SocialService`.
