@@ -70,7 +70,14 @@ the plot or Cancel throws the changes away. A shelf with a reserved item shows a
    **Done 2026-11-24** (see "Studio contract").
 3. **Ace** — `LayoutService` + remotes + `LayoutCheck` tests (bounds, overlap, keep-clear, locked piece, bad input).
 4. **Ace** — customers: stand spots + pathfinding (+ `CustomerCheck`).
-5. **Sean** — `EditModeController` UI, mouse + touch.
+5. **Sean** — `EditModeController` UI, mouse + touch. **Built 2026-11-24** (with a first `Shared/Layout.luau` for Ace to
+   review): Edit button in the HUD drawer; top-down view of the floor you're on (roof, upper storey and ceiling art
+   hidden locally, a work light); tap / drag a piece (snaps to 2.8), Rotate, Ground/Upstairs (a selected piece comes
+   along), Reset, Cancel, Done; red keep-clear plates, green/red highlights, hint names the problem; a shelf's slots
+   and a pedestal's base/rim/plaque (attribute `Piece`) move with it; your character is frozen and the HUD hidden.
+   Done sends `RequestSaveLayout(layout)` if that remote exists (only moved pieces: `[pieceId] = {x, z, rot, floor}`),
+   otherwise it only checks the layout and puts everything back. Not yet: the reserved-shelf lock (needs the server to
+   say which shelf is reserved), a phone check.
 6. **Both** — Play, 2 players (visitor sees the layout), phone, rejoin keeps the layout, reset works.
 
 ## Decisions (Sean + Ace, 2026-11-24)

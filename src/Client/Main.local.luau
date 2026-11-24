@@ -43,6 +43,7 @@ local ORDER = {
 	"SprintController", -- Dev 1: hold Shift / lightning button to sprint
 	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
 	"StorageShelfController", -- Sean: draws unrestored items on every shop's storage room shelves (StorageShelfService)
+	"EditModeController", -- Sean: shop edit mode, move / turn shelves and pedestals (Shared.Layout; docs/09); after HudSkinController
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
