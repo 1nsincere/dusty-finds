@@ -5,10 +5,13 @@
 -- step has ground, 6 studs of head room and a clear walk at knee and chest height, skipping shops (Workspace.Plots),
 -- jeepney roads (TownT2.Transit.Roads) and canals. The first 6 start at the shops' CustomerPath.StreetEntry (Plot5, 1,
 -- 4, 2, 6, 3), so people pass every shop. Each route is "x,y,z;x,y,z;..." corners only; walkers go there and back.
--- The upper plaza (y ~18) and the canal walks are not covered yet. Re-run the scan if the town layout changes.
+-- 2026-11-24 (second scan): routes 15-34 cover the upper plaza (y ~18, 8-stud grid), the sunken Warehouse square and the
+-- canal walks (y ~4, 4-stud grid): shortest paths between far-apart cells, straightened into the fewest long segments that
+-- have ground all the way and nothing at knee, chest or shoulder height. Re-run the scan if the town layout changes.
+-- Walkers are spread over the routes in order, so phones / "Reduce effects" (CountReduced) keep the first, street routes.
 
 local Townsfolk = {
-	Count = 22, -- walkers in total (all routes), on PC
+	Count = 36, -- walkers in total (all routes), on PC (was 22 before the plaza and canal routes)
 	CountReduced = 10, -- with Settings "Reduce effects" on, or on a phone / tablet
 	WalkSpeed = { 4.5, 6.5 }, -- studs per second, random per walker
 	PauseChance = 0.25, -- chance to stop for a moment at a corner (look around, chat)
@@ -32,6 +35,29 @@ local Townsfolk = {
 		"38,8.5,88;38,8.5,112;-26,8.5,112;-26,8.5,64;38,8.5,64;38,8.5,80;14,8.5,80;14,8.5,72;-18,8.5,72;-18,8.5,104;30,8.5,104;30,8.5,88;-10,8.5,88;-10,8.5,80;6,8.5,80",
 		"94,8.5,-280;-34,8.5,-280;-34,8.5,-256",
 		"-178,8.5,200;-210,8.5,200;-210,8.5,224;-234,8.5,224;-234,8.5,192;-250,8.5,192;-250,8.5,80;-106,8.5,80",
+		-- upper plaza (y ~18)
+		"-26,18.0,-58;-106,18.3,6;-26,18.2,-10",
+		"-26,18.0,-58;-122,18.1,22;-34,18.2,-26",
+		"-130,18.1,-58;-10,18.2,30;-10,18.2,22",
+		"-130,18.0,62;-2,18.0,6;-2,18.0,22",
+		-- Warehouse square (sunken, y ~4)
+		"-108,4.0,296;-28,4.0,280",
+		"8,4.1,192;0,4.0,228",
+		"-108,4.1,192;8,4.0,228",
+		-- canal walks (y ~4)
+		"-264,4.0,288;-260,4.8,112",
+		"-144,4.8,-148;-204,4.0,-136;-256,4.0,-136;-264,4.0,-132;-264,4.0,-44",
+		"-264,4.0,-32;-260,4.0,92",
+		"-264,4.0,-212;-260,4.0,-320",
+		"-280,4.0,288;-280,4.0,108",
+		"16,4.0,-224;8,4.0,-236;12,4.0,-252;4,4.0,-264;-16,4.0,-268;-28,4.0,-260;-32,4.0,-240;-48,4.0,-232;-52,4.0,-232",
+		"-280,4.0,-44;-280,4.0,-196",
+		"28,4.0,-76;24,4.0,-128;28,4.0,-164",
+		"-156,4.0,-172;-188,4.0,-164;-256,4.0,-160",
+		"32,4.0,-8;60,4.0,12;112,4.0,24",
+		"4,4.4,-184;-4,4.0,-216;-8,4.0,-220;-16,4.0,-220;-52,4.0,-200;-56,4.4,-200",
+		"8,4.8,-68;4,4.0,-112;4,4.0,-164;8,4.4,-164",
+		"-108,4.4,300;8,4.4,300",
 	},
 }
 
