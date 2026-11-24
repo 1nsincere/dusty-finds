@@ -409,7 +409,9 @@ local function setUpUpgrades(playerGui: Instance, hud: Instance?)
 	window.CloseButton.Activated:Connect(ShopController.CloseUpgrades)
 	for _, tabName in UPGRADE_TABS do
 		local tab = window.Tabs:FindFirstChild(tabName)
-		if tab then
+		if tab and tab:IsA("GuiObject") and (Economy.ClosedUpgradeTabs or {})[tabName] then
+			tab.Visible = false -- switched off in Config (decor waits for the decor shop): the server refuses it anyway
+		elseif tab then
 			tab.Activated:Connect(function()
 				currentUpgradeTab = tabName
 				renderUpgrades()

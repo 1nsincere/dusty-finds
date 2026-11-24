@@ -32,6 +32,7 @@ local ORDER = {
 	"TutorialController",
 	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
 	"AdminController", -- Dev 1: Studio-only dev commands (/fly, /tp, /noclip ...); does nothing on the live game
+	"AdminPanelController", -- Dev 1: the /admin card (AdminPanel remote shows every command + what it does)
 	"RestorationMoreMinigamesController", -- Dev 1: Test, Scrape, Reassemble, Replace minigames (Dwayne registers Wipe/Polish in his own controller)
 	"MuseumController", -- Dev 1: the museum Collection pedestal opens the Collection Book
 	"WarehouseController", -- Dev 1: the Warehouse supply counter opens the Supply screen (crates are sold only there)
@@ -41,6 +42,11 @@ local ORDER = {
 	"HudSkinController", -- Dev 1: dark angular HUD/window/toast skin + white glyph icons (Config.UiSkin); restyle only
 	"TravelController", -- Dev 1: Travel menu (map-pin HUD button -> RequestTravel)
 	"SprintController", -- Dev 1: hold Shift / lightning button to sprint
+	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
+	"StorageShelfController", -- Sean: draws unrestored items on every shop's storage room shelves (StorageShelfService)
+	"EditModeController", -- Sean: shop edit mode, move / turn shelves and pedestals (Shared.Layout; docs/09); after HudSkinController
+	"SkinShopController", -- Sean: skins stall window (stock, restock timer, buy) + your skins (apply); sparkles off with Reduce effects
+	"SkinModelController", -- Sean: draws model skins (Assets.Skins) over the shelf / pedestal blocks on this screen, with light + aura
 }
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
