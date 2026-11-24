@@ -50,9 +50,24 @@ a Floor switch (Ground / Upstairs) when the Showroom is owned; tap a piece to pi
 the same rules the server uses (`Shared/Layout.luau`, so they can't disagree). Nothing is sent until **Done**; leaving
 the plot or Cancel throws the changes away. A shelf with a reserved item shows a lock and can't be picked up.
 
+## Studio contract (step 2, done 2026-11-24 in all 6 plots)
+- **Pieces:** `Shelves/Shelf1..4` have `PieceId = "ShelfN"`, `PieceKind = "Shelf"`; each `DisplaySlots/SlotN` has
+  `Piece = "ShelfN"` (Shelf1 = slots 1-3, Shelf2 = 4-6, Shelf3 = 7-9, Shelf4 = 10-12): move a shelf = move its slots by
+  the same transform. `ExhibitSlots/Exhibit1..10` have `PieceId = "ExhibitN"`, `PieceKind = "Pedestal"`. Shelves stay
+  as they are (one Part each, 4.2 x 4.2 x 11.2); nothing else was restructured, so no code broke.
+- **Customer spot:** each shelf has an Attachment `StandSpot` 6.3 studs in front of it (where customers stand today),
+  facing the shelf; it moves with the shelf.
+- **Zones:** `PlotN.EditZones` (invisible, no collision, not queryable): `Zone_Ground` (x/z -26.6..26.6, 19 x 19
+  cells of 2.8), `Zone_BackRoom` (`Requires = "BackRoom"`, z 28..60.2), `Zone_Upstairs` (`Requires = "Showroom"`, top
+  y 18.5), and `KeepClear_*` boxes (Entrance, DeliverySpot, CounterAndQueue, StorageRoom, StorageDoor, Stairs,
+  BackRoomWalkway, Bench2, StairHole, StairLanding, JarCabinet, FountainSpot, Lamp1..4). Every part has
+  `Kind` (Zone / KeepClear), `Floor` (Ground / Upstairs) and, if it depends on a room, `Requires`. Boxes are
+  axis-aligned in plot-local space, so rules can read them as plain x/z ranges (`Floor.CFrame:ToObjectSpace`).
+
 ## Build steps (each one testable alone)
 1. **Ace** — data `layout` + version 2 migration; `Shared/Layout.luau` (grid, zone + overlap rules, pure, testable).
-2. **Sean** — Studio: shelves as single movable models with `StandSpot`; `EditZones` + keep-clear parts in all 6 plots.
+2. **Sean** — Studio: shelves as movable pieces with `StandSpot`; `EditZones` + keep-clear parts in all 6 plots.
+   **Done 2026-11-24** (see "Studio contract").
 3. **Ace** — `LayoutService` + remotes + `LayoutCheck` tests (bounds, overlap, keep-clear, locked piece, bad input).
 4. **Ace** — customers: stand spots + pathfinding (+ `CustomerCheck`).
 5. **Sean** — `EditModeController` UI, mouse + touch.
