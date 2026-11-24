@@ -118,24 +118,25 @@ local Upgrades = {
 	},
 
 	-- ===== Expansions =====
+	-- Order changed 2026-11-24 (Sean): the second floor (Showroom) is the FIRST expansion, the Back Room comes later.
 	BackRoom = {
 		id = "BackRoom", name = "Back Room", tab = "Expansions",
-		maxLevel = 1, costs = { 2500 }, requiredLevel = { 4 },
-		effect = { expansion = "BackRoom", ratingPoints = 3, benches = 1 },
-		description = "A second workbench and room for decor",
+		maxLevel = 1, costs = { 20000 }, requiredLevel = { 10 }, -- was $2,500 at Lv 4
+		effect = { expansion = "BackRoom", ratingPoints = 3 }, -- the second workbench was removed (2026-11-24)
+		description = "A big extra room behind your shop",
 	},
 	Showroom = {
 		id = "Showroom", name = "Showroom", tab = "Expansions",
-		maxLevel = 1, costs = { 20000 }, requiredLevel = { 10 },
+		maxLevel = 1, costs = { 9000 }, requiredLevel = { 4 }, -- was $20,000 at Lv 10
 		effect = {
 			expansion = "Showroom",
 			ratingPoints = 8,
 			premiumDisplaySlots = 6,
-			exhibitPedestals = 9, -- 3 -> 9 (Sean, 2026-11-24): all upstairs in the gallery, plus pedestal 1 moves up too
-
+			-- 6 more pedestals upstairs; pedestals 1-4 (Economy.StartingExhibitPedestals) move up with them: 10 in the gallery
+			exhibitPedestals = 6,
 			maxCustomers = 5,
 		},
-		description = "A second floor gallery: 3 more exhibit pedestals and more customers",
+		description = "A second floor gallery: 6 more exhibit pedestals and more customers",
 	},
 }
 
