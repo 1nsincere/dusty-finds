@@ -23,7 +23,7 @@ local DEBUG = true
 local log = Log.new("SkinService", DEBUG)
 
 local DataService, EconomyService = nil, nil
-local KIND_FIELD = { Shelf = "shelf", Pedestal = "pedestal" }
+local KIND_FIELD = Skins.FIELD -- Shelf / Pedestal / Cashier -> data.skins field
 local watched: { [BasePart]: { RBXScriptConnection } } = {}
 
 local function notify(player: any, text: string)
@@ -174,7 +174,10 @@ local function drawPiece(plot: Instance, part: BasePart, skin: any)
 end
 
 local function piecesOf(plot: Instance, kind: string): { BasePart }
-	local folder = plot:FindFirstChild(if kind == "Shelf" then "Shelves" else "ExhibitSlots")
+	-- Cashier skins are model skins drawn over ShopProps.CashCounter on each screen (built with the first cashier
+	-- design); the server has no blocks to colour for them
+	local FOLDER = { Shelf = "Shelves", Pedestal = "ExhibitSlots" }
+	local folder = FOLDER[kind] and plot:FindFirstChild(FOLDER[kind])
 	local list = {}
 	for _, part in if folder then folder:GetChildren() else {} do
 		if part:IsA("BasePart") and part:GetAttribute("PieceId") ~= nil then
@@ -191,6 +194,14 @@ function SkinService.DrawPlot(plot: Instance)
 		for _, part in piecesOf(plot, kind) do
 			drawPiece(plot, part, skin)
 		end
+	end
+	-- the cash counter: only the Skin attribute on its Body; SkinModelController draws the model over it on each screen
+	local props = plot:FindFirstChild("ShopProps")
+	local counter = props and props:FindFirstChild("CashCounter")
+	local body = counter and counter:FindFirstChild("Body")
+	if body then
+		local skin = skinFor(plot, "Cashier")
+		body:SetAttribute("Skin", if skin then skin.id else nil)
 	end
 end
 
@@ -243,7 +254,7 @@ function SkinService.Buy(player: Player, skinId: any, now: number?): (boolean, s
 	return true, nil
 end
 
--- kind = "Shelf" | "Pedestal"; skinId = an owned skin of that kind, or "" for the classic look.
+-- kind = "Shelf" | "Pedestal" | "Cashier"; skinId = an owned skin of that kind, or "" for the classic look.
 -- Returns ok, reason ("badKind", "unknown", "wrongKind", "noData", "notOwned", "saveFailed").
 function SkinService.Apply(player: Player, kind: any, skinId: any): (boolean, string?)
 	local field = type(kind) == "string" and KIND_FIELD[kind]

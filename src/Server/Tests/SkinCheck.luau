@@ -34,7 +34,7 @@ function SkinCheck.run()
 		if Skins.BY_ID[skin.id] ~= skin then
 			idsOk = false
 		end
-		if skin.kind ~= "Shelf" and skin.kind ~= "Pedestal" then
+		if Skins.FIELD[skin.kind] == nil or not table.find(Skins.KINDS, skin.kind) then
 			kindsOk = false
 		end
 		if type(skin.price) ~= "number" or skin.price <= 0 or typeof(skin.look and skin.look.color) ~= "Color3" then
@@ -42,7 +42,7 @@ function SkinCheck.run()
 		end
 	end
 	check("config: every skin id is unique and indexed", idsOk)
-	check("config: every skin is a Shelf or Pedestal skin", kindsOk)
+	check("config: every skin is a Shelf, Pedestal or Cashier skin", kindsOk)
 	check("config: every skin has a price and a colour", pricesOk)
 	check("config: restock every 5 minutes", StockConfig.RestockSeconds == 300)
 
@@ -122,7 +122,7 @@ function SkinCheck.run()
 		local Service = require(copy)
 		Service.Init({ DataService = fakeDS, EconomyService = fakeEconomy })
 		local p = { UserId = 777, Name = "SkinMock" }
-		store[p] = { skins = { owned = { ShelfMint = true }, shelf = "", pedestal = "" } }
+		store[p] = { skins = { owned = { ShelfMint = true }, shelf = "", pedestal = "", cashier = "" } }
 
 		local index = Stock.restockIndex(os.time())
 		local inStock = Stock.roll(index)
@@ -154,6 +154,8 @@ function SkinCheck.run()
 		check("apply: bad input refused", select(2, Service.Apply(p, "Shelf", 5)) == "unknown")
 		check("apply: an owned skin is saved", Service.Apply(p, "Shelf", "ShelfMint") == true and store[p].skins.shelf == "ShelfMint")
 		check("apply: back to classic", Service.Apply(p, "Shelf", "") == true and store[p].skins.shelf == "")
+		check("apply: a shelf skin on the cashier refused", select(2, Service.Apply(p, "Cashier", "ShelfMint")) == "wrongKind")
+		check("apply: classic cashier is saved", Service.Apply(p, "Cashier", "") == true and store[p].skins.cashier == "")
 
 		-- drawing, on a copy of one plot owned by the fake player's data
 		local plotCopy = workspace.Plots:FindFirstChildWhichIsA("Model"):Clone()

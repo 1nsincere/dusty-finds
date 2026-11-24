@@ -249,7 +249,7 @@ COMMANDS.skin = { usage = "/skin <who> <skin|set|all> [use]  (e.g. /skin me cosm
 	for _, skin in Skins.LIST do
 		local id = string.lower(skin.id)
 		-- exact id ("shelfcosmic"), set name ("cosmic" matches Shelf/PedestalCosmic) or "all"
-		if word == "all" or id == word or id == "shelf" .. word or id == "pedestal" .. word then
+		if word == "all" or id == word or id == "shelf" .. word or id == "pedestal" .. word or id == "cashier" .. word then
 			table.insert(ids, skin.id)
 		end
 	end

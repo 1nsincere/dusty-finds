@@ -167,6 +167,9 @@ end
 local UserInputService = game:GetService("UserInputService")
 local PINNED = { Inventory = 1, Travel = 2, Sprint = 3 } -- always visible (Sprint only on touch devices)
 local MENU_ORDER = 50
+-- taken out of the menu (Sean, 2026-11-25): Supply (crates are bought at the Warehouse supply counter) and My Shop
+-- (going home is in the Travel menu). The buttons stay hidden; their controllers still work.
+local REMOVED = { Supply = true, MyShop = true }
 local drawerOpen = false
 local menuButton: GuiButton? = nil
 
@@ -181,7 +184,9 @@ local function applyDrawer(column: Instance)
 	local drawerItems = {}
 	for _, b in column:GetChildren() do
 		if b:IsA("GuiButton") and b ~= menuButton then
-			if isPinned(b.Name) then
+			if REMOVED[b.Name] then
+				b.Visible = false
+			elseif isPinned(b.Name) then
 				b.LayoutOrder = PINNED[b.Name]
 				b.Visible = true
 			else

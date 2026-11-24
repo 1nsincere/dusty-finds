@@ -7,7 +7,9 @@
 -- "Reduce effects"). Purely visual: no remotes.
 -- Owner: Dev 3 (Sean). Depends on: Shared.Config.Skins, ReplicatedStorage.Assets.Skins.<model> (Models with their
 -- WorldPivot at the bottom centre, front = pivot LookVector, length along pivot RightVector), ClientState (settings),
--- Workspace.Plots (Shelves / ExhibitSlots parts with PieceId and the Skin attribute).
+-- Workspace.Plots (Shelves / ExhibitSlots parts with PieceId and the Skin attribute; ShopProps.CashCounter.Body with
+-- the Skin attribute for cashier skins: the counter's Body and Register are hidden, the model is fitted to the Body's
+-- width via the template's FitWidth attribute).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -22,6 +24,8 @@ local DEBUG = true
 local FRAME = {
 	Shelf = CFrame.Angles(0, math.rad(-90), 0),
 	Pedestal = CFrame.identity,
+	-- the cash counter's Body faces the customer with -Z (its LookVector), width along X: same as the model's frame
+	Cashier = CFrame.identity,
 }
 local SMOKE = "rbxasset://textures/particles/smoke_main.dds"
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
@@ -29,7 +33,7 @@ local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
 local drawn: { [BasePart]: Model } = {}
 local folder: Folder? = nil
 -- orbiting star orbs per drawn model (look.orbit), moved every frame in Start
-type Orb = { part: BasePart, phase: number, a: number, b: number, height: number, tilt: number, speed: number }
+type Orb = { part: BasePart, phase: number, a: number, b: number, height: number, tilt: number, speed: number, spin: number? }
 local orbits: { [Model]: { Orb } } = {}
 local ORBIT_DRAW_STUDS = 120 -- orbs further than this from the camera don't move (saves phones)
 
@@ -50,8 +54,29 @@ local function templateFor(skin: any): Model?
 	return if t and t:IsA("Model") then t else nil
 end
 
+-- the cash counter's skin sits on Plots.PlotN.ShopProps.CashCounter.Body (SkinService sets its Skin attribute)
+local function isCounterBody(part: Instance): boolean
+	return part.Name == "Body" and part:IsA("BasePart") and part.Parent ~= nil and part.Parent.Name == "CashCounter"
+end
+
 local function kindOf(part: BasePart): string
+	if isCounterBody(part) then
+		return "Cashier"
+	end
 	return if part:GetAttribute("PieceKind") == "Shelf" then "Shelf" else "Pedestal"
+end
+
+-- what gets hidden under a drawn skin: the block itself, and for the counter also its Register mesh
+local function hideUnder(part: BasePart, hidden: boolean)
+	local value = if hidden then 1 else 0
+	part.LocalTransparencyModifier = value
+	if isCounterBody(part) then
+		for _, sibling in (part.Parent :: Instance):GetChildren() do
+			if sibling ~= part and sibling:IsA("BasePart") then
+				sibling.LocalTransparencyModifier = value
+			end
+		end
+	end
 end
 
 local function clear(part: BasePart)
@@ -61,7 +86,7 @@ local function clear(part: BasePart)
 		m:Destroy()
 		drawn[part] = nil
 	end
-	part.LocalTransparencyModifier = 0
+	hideUnder(part, false)
 end
 
 local function place(part: BasePart, model: Model)
@@ -76,7 +101,7 @@ local function addAura(model: Model, look: any, kind: string)
 			local light = Instance.new("PointLight")
 			light.Name = "SkinLight"
 			light.Color = look.light
-			light.Range = if kind == "Shelf" then 14 else 10
+			light.Range = if kind ~= "Pedestal" then 14 else 10
 			light.Brightness = 1.4
 			light.Shadows = false
 			light.Parent = glow
@@ -126,7 +151,7 @@ local function addAura(model: Model, look: any, kind: string)
 		mist.SpreadAngle = Vector2.new(20, 20)
 		mist.Rotation = NumberRange.new(0, 360)
 		mist.RotSpeed = NumberRange.new(-15, 15)
-		mist.Rate = (if kind == "Shelf" then 16 else 8) * (if light then 0.5 else 1)
+		mist.Rate = (if kind ~= "Pedestal" then 16 else 8) * (if light then 0.5 else 1)
 		mist.Enabled = not reduceEffects()
 		mist.Parent = plate
 	end
@@ -165,10 +190,10 @@ local function addAura(model: Model, look: any, kind: string)
 		rim.Size = Vector3.new(size.X, 0.2, size.Z)
 		rim.CFrame = model:GetPivot() * CFrame.new(0, size.Y + 0.1, 0)
 		rim.Parent = model
-		sparkle(rim, if kind == "Shelf" then 6 else 3)
+		sparkle(rim, if kind ~= "Pedestal" then 6 else 3)
 		local glow = model:FindFirstChild("Glow", true)
 		if glow then
-			sparkle(glow, if kind == "Shelf" then 5 else 3)
+			sparkle(glow, if kind ~= "Pedestal" then 5 else 3)
 		end
 	end
 	if look.swirl then
@@ -205,20 +230,20 @@ local function addAura(model: Model, look: any, kind: string)
 		dust.SpreadAngle = Vector2.new(12, 12)
 		dust.Rotation = NumberRange.new(0, 360)
 		dust.RotSpeed = NumberRange.new(-60, 60)
-		dust.Rate = if kind == "Shelf" then 14 else 6
+		dust.Rate = if kind ~= "Pedestal" then 14 else 6
 		dust.Enabled = not reduceEffects()
 		dust.Parent = plate
 	end
 	if look.orbit then
 		-- small glowing star orbs slowly circling the piece, each with a short light trail
 		local list = {}
-		local count = if kind == "Shelf" then 4 else 3
+		local count = if kind ~= "Pedestal" then 4 else 3
 		for i = 1, count do
 			local colour = look.orbit[(i - 1) % #look.orbit + 1]
 			local orb = Instance.new("Part")
 			orb.Name = "OrbitStar"
 			orb.Shape = Enum.PartType.Ball
-			orb.Size = Vector3.one * (if kind == "Shelf" then 0.7 else 0.55)
+			orb.Size = Vector3.one * (if kind ~= "Pedestal" then 0.7 else 0.55)
 			orb.Material = Enum.Material.Neon
 			orb.Color = colour
 			orb.Anchored = true
@@ -248,14 +273,94 @@ local function addAura(model: Model, look: any, kind: string)
 			table.insert(list, {
 				part = orb,
 				phase = (i - 1) / count * math.pi * 2,
-				a = size.X / 2 + (if kind == "Shelf" then 0.9 else 0.8),
-				b = size.Z / 2 + (if kind == "Shelf" then 0.9 else 0.8),
+				a = size.X / 2 + (if kind ~= "Pedestal" then 0.9 else 0.8),
+				b = size.Z / 2 + (if kind ~= "Pedestal" then 0.9 else 0.8),
 				height = size.Y * (0.45 + 0.35 * ((i - 1) % 2)),
 				tilt = if i % 2 == 0 then 0.6 else -0.6,
 				speed = if i % 2 == 0 then 0.55 else -0.45, -- alternate directions so they cross
 			})
 		end
 		orbits[model] = list
+	end
+	-- floating diamonds (look.gems = their colour): the model's hidden Gem mesh is cloned into glowing cut diamonds
+	-- that drift slowly round the piece, bobbing and spinning, each with soft sparkles (all off with Reduce effects)
+	local source = model:FindFirstChild("Gem")
+	if look.gems and source and source:IsA("BasePart") then
+		local list = orbits[model] or {}
+		local count = if kind == "Shelf" then 4 elseif kind == "Cashier" then 3 else 2
+		for i = 1, count do
+			local g = source:Clone()
+			g.Name = "OrbitStar" -- hidden with Reduce effects like the star orbs
+			g.Material = Enum.Material.Neon
+			g.Color = look.gems
+			g.CastShadow = false
+			g.Transparency = if reduceEffects() then 1 else 0
+			local s = Instance.new("ParticleEmitter")
+			s.Name = "SkinAura"
+			s.Texture = SPARKLE
+			s.Color = ColorSequence.new(look.gems, Color3.new(1, 1, 1))
+			s.LightEmission = 1
+			s.LightInfluence = 0
+			s.Rate = 3
+			s.Lifetime = NumberRange.new(0.8, 1.4)
+			s.Speed = NumberRange.new(0.2, 0.6)
+			s.SpreadAngle = Vector2.new(180, 180)
+			s.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) })
+			s.Enabled = not reduceEffects()
+			s.Parent = g
+			-- a pink light trail behind each diamond (off with Reduce effects, like the star orbs' trails)
+			local half = g.Size.Y * 0.3
+			local a0 = Instance.new("Attachment")
+			a0.Position = Vector3.new(0, half, 0)
+			a0.Parent = g
+			local a1 = Instance.new("Attachment")
+			a1.Position = Vector3.new(0, -half, 0)
+			a1.Parent = g
+			local trail = Instance.new("Trail")
+			trail.Attachment0 = a0
+			trail.Attachment1 = a1
+			trail.Color = ColorSequence.new(look.gems, look.light or look.gems)
+			trail.LightEmission = 1
+			trail.Lifetime = 1.2
+			trail.Transparency = NumberSequence.new(0.2, 1)
+			trail.WidthScale = NumberSequence.new(1, 0.2)
+			trail.FaceCamera = true
+			trail.Enabled = not reduceEffects()
+			trail.Parent = g
+			g.Parent = model
+			table.insert(list, {
+				part = g,
+				phase = (i - 1) / count * math.pi * 2 + 0.4,
+				a = size.X / 2 + (if kind == "Pedestal" then 0.9 else 1.1),
+				b = size.Z / 2 + (if kind == "Pedestal" then 0.9 else 1.1),
+				height = size.Y * (0.6 + 0.2 * ((i - 1) % 2)),
+				tilt = 0.25,
+				speed = 0.3, -- slower than the star orbs: they drift, they don't race
+				spin = 1.4,
+			})
+		end
+		orbits[model] = list
+	end
+	if source then
+		source:Destroy() -- the hidden template piece itself never shows
+	end
+end
+
+-- Paintable templates (attribute Paint, e.g. CashierClassic): the colour skins paint its Body / Frame / Top / Trim
+-- parts from the look (see Config.Skins, cashier section); everything else keeps the template's own colours.
+local function paint(model: Model, look: any)
+	local frame = look.frame or look.color:Lerp(Color3.new(0, 0, 0), 0.35)
+	local plan = {
+		Body = { look.color, look.material, look.reflectance or 0 },
+		Frame = { frame, look.material, 0 },
+		Top = { look.top or frame, look.topMaterial or look.material, look.reflectance or 0 },
+		Trim = { look.trim or frame, look.trimMaterial or look.material, 0 },
+	}
+	for name, p in plan do
+		local target = model:FindFirstChild(name)
+		if target and target:IsA("BasePart") then
+			target.Color, target.Material, target.Reflectance = p[1], p[2], p[3]
+		end
 	end
 end
 
@@ -271,12 +376,15 @@ local function render(part: BasePart)
 	local current = drawn[part]
 	if current and current:GetAttribute("SkinId") == id then
 		place(part, current) -- same skin: just follow the block
-		part.LocalTransparencyModifier = 1
+		hideUnder(part, true)
 		return
 	end
 	clear(part)
 	local model = template:Clone()
 	model:SetAttribute("SkinId", id)
+	if template:GetAttribute("Paint") then
+		paint(model, skin.look)
+	end
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
@@ -285,9 +393,22 @@ local function render(part: BasePart)
 			d.CanTouch = false
 		end
 	end
-	-- fit the block's height (a scaled shop scales its pieces too)
+	-- fit the block's height (a scaled shop scales its pieces too); a template with a FitWidth attribute (the cash
+	-- counter: its register sticks up above the Body) is fitted to the block's width instead
 	local _, size = model:GetBoundingBox()
-	if size.Y > 0.01 and math.abs(size.Y - part.Size.Y) > 0.02 then
+	-- FitHeight = the template's design height when something sticks up above the top (Sakura's crystal spires): the
+	-- block's height is matched to that, not to the whole model
+	local fitWidth = template:GetAttribute("FitWidth")
+	local fitHeight = template:GetAttribute("FitHeight")
+	if type(fitWidth) == "number" and fitWidth > 0 then
+		if math.abs(fitWidth - part.Size.X) > 0.02 then
+			model:ScaleTo(model:GetScale() * part.Size.X / fitWidth)
+		end
+	elseif type(fitHeight) == "number" and fitHeight > 0 then
+		if math.abs(fitHeight - part.Size.Y) > 0.02 then
+			model:ScaleTo(model:GetScale() * part.Size.Y / fitHeight)
+		end
+	elseif size.Y > 0.01 and math.abs(size.Y - part.Size.Y) > 0.02 then
 		model:ScaleTo(model:GetScale() * part.Size.Y / size.Y)
 	end
 	place(part, model)
@@ -295,13 +416,13 @@ local function render(part: BasePart)
 	model.Name = "Skin_" .. part:GetFullName():gsub("%.", "_")
 	model.Parent = folder
 	drawn[part] = model
-	part.LocalTransparencyModifier = 1
+	hideUnder(part, true)
 end
 
 local hooked: { [BasePart]: boolean } = {}
 
 local function hook(part: Instance)
-	if not part:IsA("BasePart") or hooked[part] or part:GetAttribute("PieceId") == nil then
+	if not part:IsA("BasePart") or hooked[part] or (part:GetAttribute("PieceId") == nil and not isCounterBody(part)) then
 		return
 	end
 	hooked[part] = true
@@ -339,6 +460,23 @@ local function hookPlot(plot: Instance)
 			f.ChildAdded:Connect(hook)
 		end)
 	end
+	-- the cash counter (ShopProps.CashCounter.Body); DescendantAdded also catches it streaming back in
+	task.spawn(function()
+		local props = plot:WaitForChild("ShopProps", 30)
+		if not props then
+			return
+		end
+		for _, d in props:GetDescendants() do
+			if isCounterBody(d) then
+				hook(d)
+			end
+		end
+		props.DescendantAdded:Connect(function(d)
+			if isCounterBody(d) then
+				hook(d)
+			end
+		end)
+	end)
 end
 
 function SkinModelController.Init(_others) end
@@ -389,7 +527,8 @@ function SkinModelController.Start()
 					local ang = o.phase + t * o.speed
 					local y = o.height + o.tilt * math.sin(ang) + 0.15 * math.sin(t * 2 + o.phase)
 					table.insert(parts, o.part)
-					table.insert(cframes, pivot * CFrame.new(math.cos(ang) * o.a, y, math.sin(ang) * o.b))
+					local spin = if o.spin then CFrame.Angles(0, t * o.spin, 0) else CFrame.identity
+					table.insert(cframes, pivot * CFrame.new(math.cos(ang) * o.a, y, math.sin(ang) * o.b) * spin)
 				end
 			end
 		end

@@ -40,7 +40,7 @@ Skins.LIST = {
 	{ id = "ShelfRunic", name = "Runic Antique", kind = "Shelf", rarity = "Relic", price = 20000,
 		look = { model = "ShelfRunic", color = rgb(74, 69, 82), material = M.Slate, light = rgb(142, 108, 239), aura = rgb(46, 16, 88) } },
 	-- pulse = the glow breathes slowly (light brightness + neon), an "alive" feel without moving parts
-	{ id = "ShelfCelestial", name = "Celestial Ascension", kind = "Shelf", rarity = "Mythic", price = 30000,
+	{ id = "ShelfCelestial", name = "Celestial Ascension", kind = "Shelf", rarity = "Legendary", price = 8500,
 		look = { model = "ShelfCelestial", color = rgb(242, 236, 225), material = M.Marble, light = rgb(255, 222, 160),
 			aura = rgb(255, 196, 92), pulse = true } },
 	-- Galaxy effects (all off with Reduce effects): sparkle = twinkles round the top rim and the glowing parts;
@@ -51,6 +51,12 @@ Skins.LIST = {
 			sparkle = rgb(255, 242, 204), starDust = rgb(255, 242, 204), pulse = true,
 			orbit = { rgb(255, 140, 220), rgb(140, 232, 232), rgb(255, 242, 204) },
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
+	-- Sakura Starlight (Sean, 2026-11-24): gems = glowing pink cut diamonds floating round the piece with pink trails;
+	-- aura = a rose-pink mist round the base (all off with Reduce effects)
+	{ id = "ShelfSakura", name = "Sakura Starlight", kind = "Shelf", rarity = "Mythic", price = 35000,
+		look = { model = "ShelfSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			aura = rgb(215, 70, 150) } },
 
 	-- ===== Pedestal skins (all exhibit pedestals in the shop) =====
 	{ id = "PedestalCream", name = "Cream Paint", kind = "Pedestal", rarity = "Common", price = 250,
@@ -69,7 +75,7 @@ Skins.LIST = {
 		look = { color = rgb(246, 240, 228), material = M.Marble, trim = rgb(236, 190, 80), trimMaterial = M.Metal, light = rgb(255, 220, 160) } },
 	{ id = "PedestalRunic", name = "Runic Antique", kind = "Pedestal", rarity = "Relic", price = 21000,
 		look = { model = "PedestalRunic", color = rgb(74, 69, 82), material = M.Slate, light = rgb(142, 108, 239), aura = rgb(46, 16, 88) } },
-	{ id = "PedestalCelestial", name = "Celestial Ascension", kind = "Pedestal", rarity = "Mythic", price = 32000,
+	{ id = "PedestalCelestial", name = "Celestial Ascension", kind = "Pedestal", rarity = "Legendary", price = 9100,
 		look = { model = "PedestalCelestial", color = rgb(242, 236, 225), material = M.Marble, light = rgb(255, 222, 160),
 			aura = rgb(255, 196, 92), pulse = true } },
 	{ id = "PedestalCosmic", name = "Cosmic Harmony", kind = "Pedestal", rarity = "Mythic", price = 37000,
@@ -77,6 +83,48 @@ Skins.LIST = {
 			sparkle = rgb(255, 242, 204), starDust = rgb(255, 242, 204), pulse = true,
 			orbit = { rgb(255, 140, 220), rgb(140, 232, 232), rgb(255, 242, 204) },
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
+	{ id = "PedestalSakura", name = "Sakura Starlight", kind = "Pedestal", rarity = "Mythic", price = 25000,
+		look = { model = "PedestalSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			aura = rgb(215, 70, 150) } },
+
+	-- ===== Cashier skins (the shop's cash counter; model skins only) =====
+	-- Common .. Legendary use one plain counter model (CashierClassic) that SkinModelController paints: `color` /
+	-- `material` = the panels, `frame` (default: `color` darkened) = the body and frames, `top` (default: frame) = the
+	-- slab, `trim` / `trimMaterial` (default: frame) = the stripe and bands. The register and props keep their colours.
+	{ id = "CashierPine", name = "Painted Pine", kind = "Cashier", rarity = "Common", price = 250,
+		look = { model = "CashierClassic", color = rgb(236, 226, 205), material = M.WoodPlanks, frame = rgb(196, 170, 130) } },
+	{ id = "CashierMint", name = "Mint Paint", kind = "Cashier", rarity = "Common", price = 250,
+		look = { model = "CashierClassic", color = rgb(150, 205, 180), material = M.WoodPlanks, frame = rgb(236, 226, 205),
+			top = rgb(196, 170, 130) } },
+	{ id = "CashierWalnut", name = "Walnut", kind = "Cashier", rarity = "Uncommon", price = 600,
+		look = { model = "CashierClassic", color = rgb(112, 74, 46), material = M.Wood } },
+	{ id = "CashierCoral", name = "Coral Lacquer", kind = "Cashier", rarity = "Uncommon", price = 600,
+		look = { model = "CashierClassic", color = rgb(232, 120, 100), material = M.SmoothPlastic, reflectance = 0.05,
+			frame = rgb(246, 236, 214), top = rgb(176, 122, 72) } },
+	{ id = "CashierBrass", name = "Brass Trim", kind = "Cashier", rarity = "Rare", price = 1500,
+		look = { model = "CashierClassic", color = rgb(120, 80, 50), material = M.Wood, trim = rgb(214, 168, 70), trimMaterial = M.Metal } },
+	{ id = "CashierTeal", name = "Teal Cabinet", kind = "Cashier", rarity = "Epic", price = 4000,
+		look = { model = "CashierClassic", color = rgb(31, 122, 122), material = M.SmoothPlastic, reflectance = 0.08,
+			frame = rgb(240, 232, 214), top = rgb(240, 232, 214), trim = rgb(214, 168, 70), trimMaterial = M.Metal } },
+	{ id = "CashierGilded", name = "Gilded Counter", kind = "Cashier", rarity = "Legendary", price = 10000,
+		look = { model = "CashierClassic", color = rgb(58, 38, 28), material = M.Wood, trim = rgb(236, 190, 80), trimMaterial = M.Metal,
+			top = rgb(246, 240, 228), topMaterial = M.Marble, light = rgb(255, 214, 150) } },
+	-- Sean's designed counters (assets/skin-designs "Cashier skins (1-3)")
+	{ id = "CashierCelestial", name = "Celestial Ascension", kind = "Cashier", rarity = "Legendary", price = 9700,
+		look = { model = "CashierCelestial", color = rgb(242, 236, 225), material = M.Marble, light = rgb(255, 222, 160),
+			aura = rgb(255, 196, 92), pulse = true } },
+	{ id = "CashierRunic", name = "Runic Antique", kind = "Cashier", rarity = "Relic", price = 22000,
+		look = { model = "CashierRunic", color = rgb(74, 69, 82), material = M.Slate, light = rgb(142, 108, 239), aura = rgb(46, 16, 88) } },
+	{ id = "CashierCosmic", name = "Cosmic Harmony", kind = "Cashier", rarity = "Mythic", price = 39000,
+		look = { model = "CashierCosmic", color = rgb(20, 24, 56), material = M.SmoothPlastic, light = rgb(190, 150, 255),
+			sparkle = rgb(255, 242, 204), starDust = rgb(255, 242, 204), pulse = true,
+			orbit = { rgb(255, 140, 220), rgb(140, 232, 232), rgb(255, 242, 204) },
+			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
+	{ id = "CashierSakura", name = "Sakura Starlight", kind = "Cashier", rarity = "Mythic", price = 50000,
+		look = { model = "CashierSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			aura = rgb(215, 70, 150) } },
 }
 
 Skins.BY_ID = {}
@@ -84,6 +132,13 @@ for _, skin in Skins.LIST do
 	Skins.BY_ID[skin.id] = skin
 end
 
-Skins.KINDS = { "Shelf", "Pedestal" }
+-- Cashier = the shop's cash counter (Plots.PlotN.ShopProps.CashCounter); added 2026-11-24 (Ace OK). Its skins are
+-- model skins from Sean's designs (Runic first), drawn over the counter by SkinModelController.
+-- KINDS order matters: Shared.Stock rolls kinds in this order, so a new kind goes at the END (the shelf / pedestal
+-- stock stays the same as before).
+Skins.KINDS = { "Shelf", "Pedestal", "Cashier" }
+
+-- the save field (data.skins.<field>) that holds the skin in use for each kind
+Skins.FIELD = { Shelf = "shelf", Pedestal = "pedestal", Cashier = "cashier" }
 
 return Skins

@@ -1,7 +1,7 @@
 -- SkinShopController.luau (StarterPlayerScripts.Client.Controllers.SkinShopController)
--- Purpose: the skins stall window (docs/10_Stock_Shop_And_Skins.md): "In stock" shows this restock's shelf / pedestal
--- skins with a live "New stock in m:ss" timer and Buy buttons; "My skins" lets you use an owned skin (or Classic) in
--- your shop. Opened from the stall's prompt (Workspace.SkinStall.Counter). Also turns Mythic sparkles off on this
+-- Purpose: the skins stall window (docs/10_Stock_Shop_And_Skins.md): 4 tabs. Pedestals / Shelves / Cashiers show this
+-- restock's skins of that kind with Buy buttons (a live "New stock in m:ss" timer on top); Owned lets you use an owned
+-- skin (or Classic) in your shop. Opened from the stall's prompt (Workspace.SkinStall.Counter). Also turns Mythic sparkles off on this
 -- screen when Settings "Reduce effects" is on.
 -- Owner: Dev 3 (Sean). Depends on: Shared.Stock (same roll as the server, from the server clock), Shared.Config
 -- (Skins, Stock), Shared.Remotes (RequestBuySkin, RequestApplySkin), ClientState (skins, cash, settings), UiTheme,
@@ -29,7 +29,15 @@ local gui: ScreenGui? = nil
 local window: Frame? = nil
 local list: ScrollingFrame? = nil
 local timerLabel: TextLabel? = nil
-local tab = "Stock" -- "Stock" | "Mine"
+-- the 4 tabs: one per kind (what is in stock now) + Owned (use an owned skin, or Classic)
+local TABS = {
+	{ key = "Pedestal", label = "Pedestals" },
+	{ key = "Shelf", label = "Shelves" },
+	{ key = "Cashier", label = "Cashiers" },
+	{ key = "Owned", label = "Owned" },
+}
+local tab = "Pedestal" -- a kind ("Pedestal" | "Shelf" | "Cashier") or "Owned"
+local emptyLabel: TextLabel? = nil
 local shownIndex = -1
 local tabButtons: { [string]: GuiObject } = {}
 
@@ -101,6 +109,23 @@ local function button(parent: Instance, name: string, label: string, size: UDim2
 	return b
 end
 
+-- the classic (no skin) colour of each kind's swatch
+local CLASSIC_COLOR = {
+	Shelf = Color3.fromRGB(216, 185, 138),
+	Pedestal = Color3.fromRGB(217, 210, 197),
+	Cashier = Color3.fromRGB(176, 122, 72),
+}
+
+-- true if Config.Skins has at least one skin of this kind (a kind with none yet shows "coming soon")
+local function kindHasSkins(kind: string): boolean
+	for _, skin in Skins.LIST do
+		if skin.kind == kind then
+			return true
+		end
+	end
+	return false
+end
+
 -- A small picture of the skin: the block in its colour, with a band in the trim colour.
 local function swatch(parent: Instance, skin: any, kind: string): Frame
 	local look = skin and skin.look
@@ -108,8 +133,8 @@ local function swatch(parent: Instance, skin: any, kind: string): Frame
 	base.Name = "Swatch"
 	base.AnchorPoint = Vector2.new(0.5, 0)
 	base.Position = UDim2.new(0.5, 0, 0, 8)
-	base.Size = if kind == "Shelf" then UDim2.fromOffset(70, 30) else UDim2.fromOffset(30, 40)
-	base.BackgroundColor3 = if look then look.color else (if kind == "Shelf" then Color3.fromRGB(216, 185, 138) else Color3.fromRGB(217, 210, 197))
+	base.Size = if kind == "Pedestal" then UDim2.fromOffset(30, 40) else UDim2.fromOffset(70, 30)
+	base.BackgroundColor3 = if look then look.color else (CLASSIC_COLOR[kind] or Color3.fromRGB(217, 210, 197))
 	base.BorderSizePixel = 0
 	Instance.new("UICorner", base).CornerRadius = UDim.new(0, 3)
 	if look and look.trim then
@@ -140,7 +165,7 @@ end
 
 local function inUse(kind: string): string
 	local skins = ClientState.Get("skins")
-	local field = if kind == "Shelf" then "shelf" else "pedestal"
+	local field = Skins.FIELD[kind]
 	return if type(skins) == "table" and type(skins[field]) == "string" then skins[field] else ""
 end
 
@@ -152,7 +177,7 @@ local function card(skin: any, kind: string, order: number)
 	local rarity = if skin then skin.rarity else "Classic"
 	text(c, "Rarity", `{rarity} · {kind}`, UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 70), if skin then UiTheme.rarityColor(skin.rarity) else UiSkin.COLORS.textDim)
 	local id = if skin then skin.id else ""
-	if tab == "Stock" then
+	if tab ~= "Owned" then
 		if owned(id) then
 			text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
 		else
@@ -182,7 +207,7 @@ local function teaserCard(kind: string, rarity: string, order: number)
 	box.Name = "Mystery"
 	box.AnchorPoint = Vector2.new(0.5, 0)
 	box.Position = UDim2.new(0.5, 0, 0, 8)
-	box.Size = if kind == "Shelf" then UDim2.fromOffset(70, 30) else UDim2.fromOffset(30, 40)
+	box.Size = if kind == "Pedestal" then UDim2.fromOffset(30, 40) else UDim2.fromOffset(70, 30)
 	box.BackgroundColor3 = Color3.fromRGB(46, 50, 58)
 	box.BorderSizePixel = 0
 	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 3)
@@ -198,6 +223,17 @@ local function teaserCard(kind: string, rarity: string, order: number)
 	c.BackgroundTransparency = 0.45 -- dimmer than a real card
 end
 
+-- The open tab keeps a gold outline (the skin's hover effect resets outlines on MouseLeave, so this runs after it too).
+local function paintTabs()
+	for name, b in tabButtons do
+		local stroke = b:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = if name == tab then UiSkin.COLORS.accent else UiSkin.COLORS.edge
+			stroke.Transparency = if name == tab then 0.15 else UiSkin.COLORS.edgeTransparency
+		end
+	end
+end
+
 local function render()
 	if list == nil then
 		return
@@ -208,21 +244,25 @@ local function render()
 		end
 	end
 	local order = 0
-	if tab == "Stock" then
-		-- one card per kind and rarity: the real skin if it rolled this restock, else a greyed "?" teaser
+	local empty = ""
+	if tab ~= "Owned" then
+		-- a kind's tab: one card per rarity, the real skin if it rolled this restock, else a greyed "?" teaser
+		local kind = tab
 		local index = Stock.restockIndex(now())
 		shownIndex = index
-		local rolled: { [string]: any } = {}
-		for _, id in Stock.roll(index) do
-			local skin = Skins.BY_ID[id]
-			if skin then
-				rolled[skin.kind .. "/" .. skin.rarity] = skin
+		if not kindHasSkins(kind) then
+			empty = `{kind} skins are coming soon!`
+		else
+			local rolled: { [string]: any } = {}
+			for _, id in Stock.roll(index) do
+				local skin = Skins.BY_ID[id]
+				if skin and skin.kind == kind then
+					rolled[skin.rarity] = skin
+				end
 			end
-		end
-		for _, kind in Skins.KINDS do
 			for _, rarity in Stock.RARITY_ORDER do
 				order += 1
-				local skin = rolled[kind .. "/" .. rarity]
+				local skin = rolled[rarity]
 				if skin then
 					card(skin, kind, order)
 				else
@@ -231,24 +271,26 @@ local function render()
 			end
 		end
 	else
-		for _, kind in Skins.KINDS do
-			order += 1
-			card(nil, kind, order)
-			for _, skin in Skins.LIST do
-				if skin.kind == kind and owned(skin.id) then
-					order += 1
-					card(skin, kind, order)
+		-- Owned: per kind (same order as the tabs), Classic + every owned skin, each with Use
+		for _, t in TABS do
+			local kind = t.key
+			if kind ~= "Owned" and kindHasSkins(kind) then
+				order += 1
+				card(nil, kind, order)
+				for _, skin in Skins.LIST do
+					if skin.kind == kind and owned(skin.id) then
+						order += 1
+						card(skin, kind, order)
+					end
 				end
 			end
 		end
 	end
-	for name, b in tabButtons do
-		local stroke = b:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if name == tab then UiSkin.COLORS.accent else UiSkin.COLORS.edge
-			stroke.Transparency = if name == tab then 0.15 else UiSkin.COLORS.edgeTransparency
-		end
+	if emptyLabel then
+		emptyLabel.Text = empty
+		emptyLabel.Visible = empty ~= ""
 	end
+	paintTabs()
 end
 
 -- ===== Window =====
@@ -277,14 +319,16 @@ local function build()
 	text(w, "Title", "SKINS STALL", UDim2.new(0.5, 0, 0, 30), UDim2.fromOffset(14, 8), UiSkin.COLORS.text, UiSkin.FONT_TITLE, Enum.TextXAlignment.Left)
 	timerLabel = text(w, "Timer", "", UDim2.new(0.42, 0, 0, 20), UDim2.new(0.5, -50, 0, 14), UiSkin.COLORS.accent, UiSkin.FONT_TEXT, Enum.TextXAlignment.Right)
 	button(w, "Close", "X", UDim2.fromOffset(40, 40), UDim2.new(1, -48, 0, 6), SkinShopController.Close)
-	tabButtons.Stock = button(w, "TabStock", "In stock", UDim2.fromOffset(120, 34), UDim2.fromOffset(14, 46), function()
-		tab = "Stock"
-		render()
-	end)
-	tabButtons.Mine = button(w, "TabMine", "My skins", UDim2.fromOffset(120, 34), UDim2.fromOffset(142, 46), function()
-		tab = "Mine"
-		render()
-	end)
+	-- 4 tabs side by side (fits a phone: 4 x 128 px)
+	for i, t in TABS do
+		tabButtons[t.key] = button(w, "Tab" .. t.key, t.label, UDim2.fromOffset(120, 34), UDim2.fromOffset(14 + (i - 1) * 128, 46), function()
+			tab = t.key
+			render()
+		end)
+		tabButtons[t.key].MouseLeave:Connect(function()
+			task.defer(paintTabs) -- after the hover effect's own reset
+		end)
+	end
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Name = "List"
 	scroll.BackgroundTransparency = 1
@@ -303,6 +347,8 @@ local function build()
 	local pad = Instance.new("UIPadding")
 	pad.PaddingTop, pad.PaddingLeft = UDim.new(0, 4), UDim.new(0, 4)
 	pad.Parent = scroll
+	emptyLabel = text(w, "Empty", "", UDim2.new(1, -40, 0, 30), UDim2.new(0, 20, 0.5, -15), UiSkin.COLORS.textDim, UiSkin.FONT_TITLE)
+	;(emptyLabel :: TextLabel).Visible = false
 	screen.Parent = player:WaitForChild("PlayerGui")
 	gui, window, list = screen, w, scroll
 end
@@ -321,7 +367,7 @@ function SkinShopController.Open()
 	if others.ShopController and others.ShopController.CloseAll then
 		others.ShopController.CloseAll()
 	end
-	tab = "Stock"
+	tab = TABS[1].key
 	render();
 	(gui :: ScreenGui).Enabled = true
 	log("opened")
@@ -391,7 +437,7 @@ function SkinShopController.Start()
 		end
 	end)
 	ClientState.OnChanged("cash", function()
-		if SkinShopController.IsOpen() and tab == "Stock" then
+		if SkinShopController.IsOpen() and tab ~= "Owned" then
 			render()
 		end
 	end)
@@ -406,7 +452,7 @@ function SkinShopController.Start()
 		if timerLabel then
 			timerLabel.Text = string.format("New stock in %d:%02d", left // 60, left % 60)
 		end
-		if tab == "Stock" and Stock.restockIndex(now()) ~= shownIndex then
+		if tab ~= "Owned" and Stock.restockIndex(now()) ~= shownIndex then
 			render()
 		end
 		local counter = stallCounter()
