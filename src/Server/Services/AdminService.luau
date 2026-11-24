@@ -1,6 +1,6 @@
 -- AdminService.luau
 -- Purpose: owner/admin chat commands that work in the LIVE game (cash, levels, XP, items, relics, boxes, upgrades,
--- teleports) on yourself or on other players. Only user IDs listed in Shared.Config.Admins can run them: the server
+-- teleports, fly, speed, jump, heal, god, respawn, kick) on yourself or on other players. Only user IDs listed in Shared.Config.Admins can run them: the server
 -- checks the speaker's UserId on every command, so other players typing them get nothing.
 -- Owner: Dev 1 (Ace). Depends on: TextChatService (server-side TextChatCommands), DataService, EconomyService,
 -- InventoryService, ShipmentService, PlotService, Shared.Config (Admins, Items, Crates, Upgrades, Economy), Remotes.Notify.
@@ -167,11 +167,29 @@ end }
 COMMANDS.relic = { usage = "/relic <who> [item]  (golden 3★ Relic; random if no item)", run = function(admin, a)
 	local relics = itemsOfRarity("Relic")
 	local chosen = findItem(a[2])
+	if chosen and Items[chosen].rarity ~= "Relic" then
+		return tell(admin, "\"" .. tostring(a[2]) .. "\" is not a Relic. Relics: " .. table.concat(relics, ", "))
+	end
 	local n = each(admin, a[1], function(p)
 		local id = chosen or relics[math.random(1, #relics)]
 		return giveRestored(p, id, 3, true)
 	end)
 	tell(admin, string.format("Relic given to %d player(s)", n))
+end }
+
+-- Raw relic: the Lost Masterpiece in its DIRTY state (like /giveraw, but restricted to Relics), so you can play
+-- the full restore -> sell flow on a relic without it arriving pre-restored and golden.
+COMMANDS.relicraw = { usage = "/relicraw <who> [item]  (dirty Relic, needs restoring; random if no item)", run = function(admin, a)
+	local relics = itemsOfRarity("Relic")
+	local chosen = findItem(a[2])
+	if chosen and Items[chosen].rarity ~= "Relic" then
+		return tell(admin, "\"" .. tostring(a[2]) .. "\" is not a Relic. Relics: " .. table.concat(relics, ", "))
+	end
+	local n = each(admin, a[1], function(p)
+		local id = chosen or relics[math.random(1, #relics)]
+		return S.InventoryService.Add(p, id, { state = "Dirty" }) ~= nil
+	end)
+	tell(admin, string.format("Gave dirty %s to %d player(s)", if chosen then Items[chosen].name or chosen else "Relic", n))
 end }
 
 COMMANDS.rarity = { usage = "/rarity <who> <Common|Uncommon|Rare|Epic|Legendary|Relic|Mythic|Secret>  (one of each, 3★)", run = function(admin, a)
@@ -239,6 +257,155 @@ COMMANDS.bring = { usage = "/bring <who>  (they come to you)", run = function(ad
 	tell(admin, string.format("Brought %d player(s)", n))
 end }
 
+COMMANDS.fly = { usage = "/fly <who>  (toggle flight on/off)", run = function(admin, a)
+	local n = each(admin, a[1], function(p)
+		local char = p.Character
+		if not char then return false end
+		char:SetAttribute("Flying", not char:GetAttribute("Flying"))
+		return true
+	end)
+	tell(admin, string.format("Flight toggled for %d player(s)", n))
+end }
+
+COMMANDS.tp = { usage = "/tp <who> [toWho]  (tp to a player, or move them to someone)", run = function(admin, a)
+	local fromList = targets(admin, a[1])
+	local toList = targets(admin, a[2])
+	local mover = if a[2] then fromList[1] else admin
+	local dest = if a[2] then toList[1] else fromList[1]
+	local destRoot = dest and dest.Character and dest.Character:FindFirstChild("HumanoidRootPart")
+	if not destRoot or not mover.Character then return tell(admin, "Can't find that player") end
+	mover.Character:PivotTo(destRoot.CFrame * CFrame.new(0, 0, 4))
+end }
+
+COMMANDS.speed = { usage = "/speed <who> <1-10>  (walk speed multiplier)", run = function(admin, a)
+	local mult = whole(a[2], 1, 10)
+	if not mult then return tell(admin, COMMANDS.speed.usage) end
+	local n = each(admin, a[1], function(p)
+		local h = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+		if not h then return false end
+		h.WalkSpeed = 16 * mult
+		return true
+	end)
+	tell(admin, string.format("Speed x%d for %d player(s)", mult, n))
+end }
+
+COMMANDS.jump = { usage = "/jump <who> <1-10>  (jump power multiplier)", run = function(admin, a)
+	local mult = whole(a[2], 1, 10)
+	if not mult then return tell(admin, COMMANDS.jump.usage) end
+	local n = each(admin, a[1], function(p)
+		local h = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+		if not h then return false end
+		h.UseJumpPower = true
+		h.JumpPower = 50 * mult
+		return true
+	end)
+	tell(admin, string.format("Jump x%d for %d player(s)", mult, n))
+end }
+
+COMMANDS.heal = { usage = "/heal <who>", run = function(admin, a)
+	local n = each(admin, a[1], function(p)
+		local h = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+		if not h then return false end
+		h.Health = h.MaxHealth
+		return true
+	end)
+	tell(admin, string.format("Healed %d player(s)", n))
+end }
+
+COMMANDS.god = { usage = "/god <who>  (toggle invincibility)", run = function(admin, a)
+	local n = each(admin, a[1], function(p)
+		local char = p.Character
+		if not char then return false end
+		local ff = char:FindFirstChildOfClass("ForceField")
+		if ff then
+			ff.Parent = nil
+		else
+			local field = Instance.new("ForceField")
+			field.Duration = 1e6
+			field.Parent = char
+		end
+		return true
+	end)
+	tell(admin, string.format("God mode toggled for %d player(s)", n))
+end }
+
+COMMANDS.respawn = { usage = "/respawn <who>", run = function(admin, a)
+	local n = each(admin, a[1], function(p) p:LoadCharacter() return true end)
+	tell(admin, string.format("Respawned %d player(s)", n))
+end }
+
+COMMANDS.kick = { usage = "/kick <who> [reason]", run = function(admin, a)
+	local reason = a[2] and table.concat(a, " ", 2) or "Kicked by an admin"
+	local n = each(admin, a[1], function(p)
+		if p ~= admin then
+			p:Kick(reason)
+			return true
+		end
+		return false
+	end)
+	tell(admin, string.format("Kicked %d player(s)", n))
+end }
+
+COMMANDS.reset = { usage = "/reset <who>  (wipes progress: cash, level, XP, items, upgrades, collection, stats)", run = function(admin, a)
+	-- Fresh-start defaults from DataService's template. Keeps `version` and `settings` (music/sfx are
+	-- preferences, not progress). Each Set pushes the change to the player's client, so their HUD updates live.
+	local template = S.DataService.GetTemplate()
+	local n = each(admin, a[1], function(p)
+		for field, value in template do
+			if field ~= "version" and field ~= "settings" then
+				if not S.DataService.Set(p, field, value) then
+					return false
+			end
+			end
+		end
+		S.PlotService.RefreshSlots(p)
+		Remotes.Notify:FireClient(p, "Info", "Your progress was reset by an admin.")
+		return true
+	end)
+	tell(admin, string.format("Reset progress for %d player(s)", n))
+end }
+
+-- Sean (Dev 3): give shelf / pedestal skins (Config.Skins) for free. A set name gives both pieces of the set
+-- (e.g. "cosmic" = ShelfCosmic + PedestalCosmic); add "use" to put them on straight away.
+COMMANDS.skin = { usage = "/skin <who> <skin|set|all> [use]  (e.g. /skin me cosmic use; /skins lists them)", run = function(admin, a)
+	local Skins = require(Config:WaitForChild("Skins"))
+	local word = string.lower(a[2] or "")
+	if word == "" then return tell(admin, COMMANDS.skin.usage) end
+	local ids = {}
+	for _, skin in Skins.LIST do
+		local id = string.lower(skin.id)
+		-- exact id ("shelfcosmic"), set name ("cosmic" matches Shelf/PedestalCosmic) or "all"
+		if word == "all" or id == word or id == "shelf" .. word or id == "pedestal" .. word or id == "cashier" .. word then
+			table.insert(ids, skin.id)
+		end
+	end
+	if #ids == 0 then return tell(admin, "Unknown skin \"" .. tostring(a[2]) .. "\". Try /skins") end
+	local use = a[3] ~= nil and string.lower(a[3]) == "use" and word ~= "all"
+	local n = each(admin, a[1], function(p)
+		for _, id in ids do
+			if not (S.SkinService.Grant(p, id, use)) then
+				return false
+			end
+		end
+		return true
+	end)
+	tell(admin, string.format("Gave %s%s to %d player(s)", table.concat(ids, ", "), if use then " (in use)" else "", n))
+end }
+
+COMMANDS.skins = { usage = "/skins  (list skin ids)", run = function(admin)
+	local Skins = require(Config:WaitForChild("Skins"))
+	local byRarity = {}
+	for _, skin in Skins.LIST do
+		byRarity[skin.rarity] = byRarity[skin.rarity] or {}
+		table.insert(byRarity[skin.rarity], skin.id)
+	end
+	for _, r in { "Mythic", "Relic", "Legendary", "Epic", "Rare", "Uncommon", "Common" } do
+		if byRarity[r] then
+			tell(admin, r .. ": " .. table.concat(byRarity[r], ", "))
+		end
+	end
+end }
+
 COMMANDS.items = { usage = "/items", run = function(admin)
 	local byRarity = {}
 	for _, r in { "Secret", "Mythic", "Relic", "Legendary", "Epic", "Rare", "Uncommon", "Common" } do
@@ -249,15 +416,14 @@ COMMANDS.items = { usage = "/items", run = function(admin)
 	end
 end }
 
-COMMANDS.admin = { usage = "/admin", run = function(admin)
-	-- one short toast per command (long toasts get cut off): its usage line
-	local names = {}
-	for name in COMMANDS do table.insert(names, name) end
-	table.sort(names)
-	tell(admin, "ADMIN COMMANDS (who = me, all, others or a name):")
-	for _, name in names do
-		tell(admin, COMMANDS[name].usage)
+COMMANDS.admin = { usage = "/admin  (open this command panel)", run = function(admin)
+	-- The card itself is built on the admin's client (AdminPanelController); only admins ever receive this.
+	local list = {}
+	for name, cmd in COMMANDS do
+		table.insert(list, { name = name, usage = cmd.usage })
 	end
+	table.sort(list, function(a, b) return a.name < b.name end)
+	Remotes.AdminPanel:FireClient(admin, list)
 end }
 
 local function run(admin: Player, name: string, text: string)
@@ -285,7 +451,24 @@ function AdminService.Init(services)
 	log.info("Init")
 end
 
+-- Welcome toast for admins: sent once their client HUD is up (delay), so it isn't lost during loading.
+local function welcomeAdmin(player: Player)
+	if Admins[player.UserId] == nil then
+		return
+	end
+	task.delay(8, function()
+		if player.Parent then
+			Remotes.Notify:FireClient(player, "Info", "⚡ You have the power! Type /admin in chat to see your commands.")
+		end
+	end)
+end
+
 function AdminService.Start()
+	-- Admins get a welcome notification when they join.
+	Players.PlayerAdded:Connect(welcomeAdmin)
+	for _, player in Players:GetPlayers() do
+		welcomeAdmin(player)
+	end
 	-- Server-created TextChatCommands: Triggered fires here on the server with the speaker; the text is not posted to chat.
 	local folder = TextChatService:FindFirstChild("AdminCommands") or Instance.new("Folder")
 	folder.Name = "AdminCommands"

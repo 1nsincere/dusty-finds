@@ -2,15 +2,19 @@
 -- Purpose: the BODIES of customers: spawn the model for each customer CustomerService lets in, walk it
 -- Door -> Browse -> chosen shelf -> counter queue -> Exit, run the Checkout prompt (owner only, +10%) and the
 -- auto checkout. All decisions (who comes, what they buy, the price) stay in CustomerService.
+-- Town life (Dev 3, 2026-11-24): if the plot has CustomerPath.StreetEntry + Approach, the customer fades in out on the
+-- street, walks StreetEntry -> Approach -> Door, and on leaving walks back out the same way and fades away (no popping
+-- in at the door). Plots without them still start at the Door.
 -- Owner: Dev 3 (Sean) (agreed with Ace: he owns CustomerService's rules, this file only reacts to it).
 -- Depends on: CustomerService (SetSpawnHandler/SetRemovedHandler, ChooseItem, Checkout), PlotService.GetPlot,
--- ServerStorage.NPCs.<CustomerType>, plot CustomerPath.{Door,Browse1..N,CounterSpot,Exit}, DisplaySlots/Slot<N>,
+-- ServerStorage.NPCs.<CustomerType>, plot CustomerPath.{StreetEntry?,Approach?,Door,Browse1..N,CounterSpot,Exit}, DisplaySlots/Slot<N>,
 -- Counter.CheckoutPrompt, Shared.Config.Economy.AutoCheckoutSeconds, Shared.Config.Customers (walkSpeed),
 -- walk/idle animations from the model's Animate folder (Roblox defaults if missing).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
@@ -28,6 +32,7 @@ local BROWSE_PAUSE = 1.5 -- looks around at each browse point
 local SHELF_PAUSE = 2 -- looks at the item it picked
 local QUEUE_GAP = 2.5 -- studs between customers waiting at the counter
 local LIFT = Vector3.new(0, 3, 0) -- path markers sit on the floor; a placed model stands above them
+local FADE_TIME = 0.6 -- customers fade in/out on the street instead of popping
 local IDLE_FALLBACK = "rbxassetid://507766388" -- Roblox default R15 idle, used if a model has no Animate.idle
 local WALK_FALLBACK = "rbxassetid://913402848" -- Roblox default R15 walk
 local WALK_ANIM_SPEED = 16 -- the walk animation matches a WalkSpeed of 16; slower NPCs step slower so feet do not skate
@@ -208,6 +213,24 @@ end
 
 -- ===== One visit =====
 
+-- Fades the whole body in (visible = true) or out. Each part remembers its own look (BaseTransparency) so glasses,
+-- hair and the invisible root part come back exactly as they were. The server's tween replicates to everyone.
+local function fade(model: Model, visible: boolean)
+	for _, d in model:GetDescendants() do
+		if (d:IsA("BasePart") and d.Name ~= "HumanoidRootPart") or d:IsA("Decal") then
+			local base = d:GetAttribute("BaseTransparency")
+			if base == nil then
+				base = d.Transparency
+				d:SetAttribute("BaseTransparency", base)
+			end
+			if visible then
+				d.Transparency = 1
+			end
+			TweenService:Create(d, TweenInfo.new(FADE_TIME), { Transparency = if visible then base else 1 }):Play()
+		end
+	end
+end
+
 local function walkOut(npc: Npc)
 	if npc.leaving then
 		return
@@ -220,6 +243,15 @@ local function walkOut(npc: Npc)
 	if exit and npc.model.Parent then
 		walkTo(npc, exit, true)
 	end
+	-- back out to the street the way they came, then fade away
+	local approach = plot and pathPoint(plot, "Approach")
+	local street = plot and pathPoint(plot, "StreetEntry")
+	if approach and street and npc.model.Parent then
+		walkTo(npc, approach, true)
+		walkTo(npc, street, true)
+		fade(npc.model, false)
+		task.wait(FADE_TIME)
+	end
 	npcs[npc.id] = nil
 	if npc.model.Parent then
 		npc.model:Destroy()
@@ -227,6 +259,15 @@ local function walkOut(npc: Npc)
 end
 
 local function runVisit(npc: Npc, plot: Instance)
+	-- Walk in from the street (only if this plot has the street markers).
+	local approach = pathPoint(plot, "Approach")
+	local door = pathPoint(plot, "Door")
+	if pathPoint(plot, "StreetEntry") and approach and door then
+		if not walkTo(npc, approach) or not walkTo(npc, door) then
+			return
+		end
+	end
+
 	-- Browse: 1 or 2 random points.
 	local points = browsePoints(plot)
 	local rng = Random.new()
@@ -357,8 +398,17 @@ local function onSpawn(player: Player, customer)
 	model:SetAttribute("CustomerType", customer.typeId)
 	model:SetAttribute("Wish", customer.wish)
 	model:SetAttribute("OwnerUserId", player.UserId)
-	model:PivotTo(CFrame.new(door + LIFT))
+	-- start out on the street (facing the shop) if the plot has a StreetEntry, else at the door as before
+	local street = pathPoint(plot, "StreetEntry")
+	if street then
+		model:PivotTo(CFrame.lookAt(street + LIFT, Vector3.new(door.X, street.Y + LIFT.Y, door.Z)))
+	else
+		model:PivotTo(CFrame.new(door + LIFT))
+	end
 	model.Parent = folder
+	if street then
+		fade(model, true)
+	end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	assert(humanoid, "NPC model has no Humanoid")
 	local root = model.PrimaryPart
@@ -403,6 +453,20 @@ local function onRemoved(_player: Player, customerId: string, reason: string)
 		return
 	end
 	walkOut(npc)
+end
+
+-- ===== Cash register bubbles (called by CashierService) =====
+-- Attributes on the NPC model, shown by CustomerUIController for everyone: CashierPaid = what the customer handed over
+-- while the till is open (nil = closed), Mood = "Delighted" | "Happy" | "Upset" | "Angry" (kept while they walk out).
+function CustomerNpcService.SetCashierState(customerId: string, paid: number?, mood: string?)
+	local npc = npcs[customerId]
+	if npc == nil or npc.model.Parent == nil then
+		return
+	end
+	npc.model:SetAttribute("CashierPaid", paid)
+	if mood ~= nil then
+		npc.model:SetAttribute("Mood", mood)
+	end
 end
 
 -- ===== Lifecycle =====

@@ -118,23 +118,25 @@ local Upgrades = {
 	},
 
 	-- ===== Expansions =====
+	-- Order (Sean, 2026-11-24): the Back Room is the first expansion (pedestals 1-4 move into it), the second floor
+	-- (Showroom) comes later with 6 pedestals of its own.
 	BackRoom = {
 		id = "BackRoom", name = "Back Room", tab = "Expansions",
-		maxLevel = 1, costs = { 2500 }, requiredLevel = { 4 },
-		effect = { expansion = "BackRoom", ratingPoints = 3, benches = 1 },
-		description = "A second workbench and room for decor",
+		maxLevel = 1, costs = { 6500 }, requiredLevel = { 4 }, -- $6,500 (Sean, 2026-11-24)
+		effect = { expansion = "BackRoom", ratingPoints = 3 }, -- the second workbench was removed (2026-11-24)
+		description = "A big room behind your shop for your exhibits",
 	},
 	Showroom = {
 		id = "Showroom", name = "Showroom", tab = "Expansions",
-		maxLevel = 1, costs = { 20000 }, requiredLevel = { 10 },
+		maxLevel = 1, costs = { 20000 }, requiredLevel = { 10 }, -- $20,000 (Sean, 2026-11-24)
 		effect = {
 			expansion = "Showroom",
 			ratingPoints = 8,
 			premiumDisplaySlots = 6,
-			exhibitPedestals = 3,
+			exhibitPedestals = 6, -- 6 pedestals upstairs (5-10); pedestals 1-4 stay downstairs / in the Back Room
 			maxCustomers = 5,
 		},
-		description = "Premium display slots and more customers",
+		description = "A second floor gallery: 6 more exhibit pedestals and more customers",
 	},
 }
 

@@ -4,19 +4,21 @@
 -- Time comes from workspace:GetServerTimeNow(), so every player on a server sees the same time of day.
 -- Colours are {r, g, b} 0-255. Tune freely: nothing else depends on these numbers.
 --
--- Look (2026-11-20): a calm "tycoon" grade. The map is already colourful, so the grade adds NO extra saturation,
--- day is soft and even, golden hour is only a gentle warm tint, and night is lit by the sky (cool moonlight +
--- ambient), not by lamps. Lamps and windows only take a warm tint at night; nothing glows (no Neon/bloom pile-up)
--- and no lights switch on/off as you walk around.
+-- Look (2026-11-20): a warm, nostalgic canal-town grade for "Dusty Finds: Restore & Sell". Daylight is soft and
+-- warm with a light haze over the water; golden hour is a real amber moment on the canal (glare + sun rays, lamps
+-- warming up); dusk is a deep blue hour so the warm sodium lanterns pop against the cool sky; night is a cozy
+-- lamp-lit town (warm-neutral ambient from the street/fill lights, cool moonlight sky, soft lantern halos).
+-- Lamps and windows only take a warm tint at night; nothing glows (no Neon/bloom pile-up) and no lights switch
+-- on/off as you walk around.
 
 local DayNight = {}
 
 -- The cycle, in order. Each segment moves the clock from `from` to `to` (hours, may pass 24) in `seconds`.
 DayNight.SEGMENTS = {
-	{ name = "Dawn", from = 5.0, to = 7.5, seconds = 60 },
-	{ name = "Day", from = 7.5, to = 15.5, seconds = 300 },
-	{ name = "GoldenHour", from = 15.5, to = 18.5, seconds = 150 },
-	{ name = "Night", from = 18.5, to = 29.0, seconds = 210 }, -- 29 = 5:00 next morning
+	{ name = "Dawn", from = 5.0, to = 7.5, seconds = 100 },
+	{ name = "Day", from = 7.5, to = 15.5, seconds = 500 },
+	{ name = "GoldenHour", from = 15.5, to = 18.5, seconds = 250 },
+	{ name = "Night", from = 18.5, to = 29.0, seconds = 350 }, -- 29 = 5:00 next morning
 }
 
 -- Lamp/window night tint and the shop ceiling light switch on when the keyframe `lights` value is above this.
@@ -53,11 +55,12 @@ DayNight.SHOP_LIGHT = { range = 30, brightness = 0.55, height = 11, color = { 25
 -- Look keyframes by clock hour (0-24). The controller blends linearly between neighbours (wrapping at 24).
 -- ambient = indoor/shadow fill, outdoor = outdoor fill, shiftTop = sun/moon-lit tint, atmo* = Atmosphere,
 -- cc* = colour grade (ccSat 0 = the map's own colours), bloom = glow on bright pixels.
--- Night: a dimmer, less blue sky fill than before (the fill lights + street lights now do the lighting).
+-- Night: cozy lamp-lit town. Ambient is warm-neutral (the sodium street lights + fill lights tint the town),
+-- the sky keeps a cool moonlight so warm lanterns pop against it. Bloom is a touch higher for soft lantern halos.
 local NIGHT = {
-	brightness = 0.9, exposure = 0.05, ambient = { 76, 78, 96 }, outdoor = { 82, 88, 112 }, shiftTop = { 140, 154, 196 },
+	brightness = 1.0, exposure = 0.05, ambient = { 84, 76, 88 }, outdoor = { 86, 84, 110 }, shiftTop = { 150, 160, 200 },
 	atmoColor = { 56, 64, 92 }, atmoDecay = { 34, 40, 70 }, atmoDensity = 0.3, atmoHaze = 0.9, atmoGlare = 0,
-	bloom = 0.22, ccTint = { 230, 230, 248 }, ccSat = -0.06, ccContrast = 0.06, sunRays = 0, lights = 1,
+	bloom = 0.28, ccTint = { 234, 230, 244 }, ccSat = -0.06, ccContrast = 0.06, sunRays = 0, lights = 1,
 }
 
 local function at(clock: number, look)
@@ -69,35 +72,35 @@ end
 DayNight.KEYS = {
 	at(0, NIGHT),
 	at(5.0, NIGHT),
-	{ -- dawn: soft pink-blue, still dim
-		clock = 6.2, brightness = 1.6, exposure = 0, ambient = { 104, 100, 116 }, outdoor = { 140, 128, 146 }, shiftTop = { 246, 196, 176 },
-		atmoColor = { 214, 184, 182 }, atmoDecay = { 130, 110, 150 }, atmoDensity = 0.28, atmoHaze = 1.0, atmoGlare = 0.15,
-		bloom = 0.25, ccTint = { 255, 244, 240 }, ccSat = -0.04, ccContrast = 0.05, sunRays = 0.04, lights = 0.7,
+	{ -- dawn: misty rose over the water, still dim
+		clock = 6.2, brightness = 1.6, exposure = 0, ambient = { 104, 100, 116 }, outdoor = { 140, 128, 146 }, shiftTop = { 250, 198, 178 },
+		atmoColor = { 222, 190, 186 }, atmoDecay = { 130, 110, 150 }, atmoDensity = 0.28, atmoHaze = 1.25, atmoGlare = 0.2,
+		bloom = 0.25, ccTint = { 255, 244, 240 }, ccSat = -0.04, ccContrast = 0.05, sunRays = 0.05, lights = 0.7,
 	},
-	{ -- morning: day look arrives
-		clock = 7.6, brightness = 2.0, exposure = -0.1, ambient = { 124, 124, 130 }, outdoor = { 138, 138, 146 }, shiftTop = { 255, 246, 232 },
-		atmoColor = { 206, 220, 236 }, atmoDecay = { 150, 168, 196 }, atmoDensity = 0.22, atmoHaze = 0.5, atmoGlare = 0.05,
-		bloom = 0.15, ccTint = { 255, 253, 250 }, ccSat = -0.06, ccContrast = 0.05, sunRays = 0.03, lights = 0,
+	{ -- morning: warm daylight arrives, a light mist hangs over the canal
+		clock = 7.6, brightness = 2.0, exposure = -0.1, ambient = { 124, 122, 128 }, outdoor = { 138, 136, 144 }, shiftTop = { 255, 246, 232 },
+		atmoColor = { 206, 218, 234 }, atmoDecay = { 150, 166, 196 }, atmoDensity = 0.22, atmoHaze = 0.6, atmoGlare = 0.08,
+		bloom = 0.15, ccTint = { 255, 251, 244 }, ccSat = -0.05, ccContrast = 0.05, sunRays = 0.04, lights = 0,
 	},
-	{ -- midday: soft and even, a little under the old brightness, no extra saturation
-		clock = 12.0, brightness = 2.1, exposure = -0.12, ambient = { 128, 128, 134 }, outdoor = { 140, 140, 148 }, shiftTop = { 255, 250, 242 },
-		atmoColor = { 204, 220, 238 }, atmoDecay = { 146, 166, 198 }, atmoDensity = 0.2, atmoHaze = 0.4, atmoGlare = 0.03,
-		bloom = 0.12, ccTint = { 255, 255, 255 }, ccSat = -0.06, ccContrast = 0.05, sunRays = 0.02, lights = 0,
+	{ -- midday: soft warm sunlight, gentle haze gives the canal depth; colours stay natural
+		clock = 12.0, brightness = 2.1, exposure = -0.12, ambient = { 128, 126, 132 }, outdoor = { 140, 138, 146 }, shiftTop = { 255, 250, 242 },
+		atmoColor = { 204, 218, 236 }, atmoDecay = { 146, 164, 198 }, atmoDensity = 0.2, atmoHaze = 0.55, atmoGlare = 0.06,
+		bloom = 0.12, ccTint = { 255, 252, 246 }, ccSat = -0.03, ccContrast = 0.05, sunRays = 0.02, lights = 0,
 	},
-	{ -- afternoon
-		clock = 15.0, brightness = 2.0, exposure = -0.1, ambient = { 126, 122, 128 }, outdoor = { 140, 134, 140 }, shiftTop = { 255, 240, 220 },
-		atmoColor = { 220, 214, 210 }, atmoDecay = { 160, 150, 170 }, atmoDensity = 0.22, atmoHaze = 0.6, atmoGlare = 0.08,
-		bloom = 0.15, ccTint = { 255, 251, 246 }, ccSat = -0.06, ccContrast = 0.05, sunRays = 0.03, lights = 0,
+	{ -- afternoon: the light leans lazy and warm
+		clock = 15.0, brightness = 2.0, exposure = -0.1, ambient = { 126, 120, 126 }, outdoor = { 140, 132, 138 }, shiftTop = { 255, 232, 204 },
+		atmoColor = { 220, 212, 206 }, atmoDecay = { 160, 150, 170 }, atmoDensity = 0.22, atmoHaze = 0.75, atmoGlare = 0.1,
+		bloom = 0.15, ccTint = { 255, 247, 238 }, ccSat = -0.04, ccContrast = 0.05, sunRays = 0.03, lights = 0,
 	},
-	{ -- golden hour: only a gentle warm tint, not orange
-		clock = 16.9, brightness = 1.85, exposure = -0.06, ambient = { 122, 114, 118 }, outdoor = { 138, 126, 128 }, shiftTop = { 255, 224, 188 },
-		atmoColor = { 228, 208, 192 }, atmoDecay = { 168, 138, 150 }, atmoDensity = 0.25, atmoHaze = 0.9, atmoGlare = 0.2,
-		bloom = 0.2, ccTint = { 255, 246, 236 }, ccSat = -0.05, ccContrast = 0.06, sunRays = 0.05, lights = 0.3,
+	{ -- golden hour: the money shot -- amber sun on the canal, warm glare, lamps just starting to glow
+		clock = 16.9, brightness = 1.85, exposure = -0.06, ambient = { 122, 112, 116 }, outdoor = { 138, 124, 126 }, shiftTop = { 255, 210, 160 },
+		atmoColor = { 236, 198, 172 }, atmoDecay = { 168, 136, 148 }, atmoDensity = 0.25, atmoHaze = 1.15, atmoGlare = 0.35,
+		bloom = 0.24, ccTint = { 255, 241, 225 }, ccSat = -0.02, ccContrast = 0.06, sunRays = 0.12, lights = 0.5,
 	},
-	{ -- dusk: blue hour, lamps take their tint
-		clock = 17.9, brightness = 1.5, exposure = 0, ambient = { 100, 98, 120 }, outdoor = { 118, 114, 142 }, shiftTop = { 220, 176, 170 },
-		atmoColor = { 150, 132, 150 }, atmoDecay = { 80, 70, 110 }, atmoDensity = 0.28, atmoHaze = 1.0, atmoGlare = 0.1,
-		bloom = 0.22, ccTint = { 236, 232, 250 }, ccSat = -0.07, ccContrast = 0.06, sunRays = 0.02, lights = 1,
+	{ -- dusk: deep blue hour -- cool sky against the town's warm lanterns is the signature look
+		clock = 17.9, brightness = 1.5, exposure = 0, ambient = { 100, 96, 118 }, outdoor = { 104, 100, 138 }, shiftTop = { 216, 168, 170 },
+		atmoColor = { 132, 116, 142 }, atmoDecay = { 80, 70, 110 }, atmoDensity = 0.28, atmoHaze = 1.0, atmoGlare = 0.08,
+		bloom = 0.26, ccTint = { 236, 232, 250 }, ccSat = -0.07, ccContrast = 0.06, sunRays = 0.02, lights = 1,
 	},
 	at(18.9, NIGHT),
 }

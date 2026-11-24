@@ -42,6 +42,7 @@ export type PlayerData = {
 	timers: { lastFreeDelivery: number },
 	tutorial: { step: number, done: boolean },
 	settings: { music: boolean, sfx: boolean, reduceEffects: boolean, announcements: boolean },
+	skins: { owned: { [string]: boolean }, shelf: string, pedestal: string }, -- "" = classic look (SkinService)
 }
 
 -- §10.1: one step of an item's restoration recipe

@@ -8,7 +8,7 @@ local Economy = {
 	StartingCash = 100,
 	StartingInventoryCapacity = 8,
 	StartingDisplaySlots = 3,
-	StartingExhibitPedestals = 1,
+	StartingExhibitPedestals = 4, -- was 1 (Sean, 2026-11-24): all 4 downstairs pedestals usable; they move into the Back Room once it's bought
 	StartingWorkbenches = 1,
 	FreeDeliveryIntervalSeconds = 180, -- 1 Tier-1 item every 3 minutes
 	FreeDeliveryMaxWaiting = 1,
@@ -37,6 +37,11 @@ local Economy = {
 	CashierPayRoundTo = { 5, 10, 20, 50, 100 }, -- the customer's payment = price rounded UP to one of these (always > price)
 	CashierBills = { 1, 5, 10, 20, 50 }, -- the buttons in the till
 	CashierMaxChange = 10000, -- validation cap for RequestGiveChange
+	-- Cashier speed and mistakes (Dev 3, team decision 2026-11-23). Fractions are of the price, like CheckoutBonusFraction.
+	CashierFastSeconds = 8, -- right change this quickly after the till opens, first try = the fast bonus
+	CashierFastBonusFraction = 0.25, -- +25% fast and right first time (right first time but slower = CheckoutBonusFraction)
+	CashierMaxMistakes = 2, -- 1st wrong change: no bonus, the customer is upset. 2nd: they get angry, pay less and leave
+	CashierAngryPenaltyFraction = -0.10, -- an angry customer pays 10% under the price
 
 	-- Special pulls (docs/02 §3b): two surprises on top of the normal odds.
 	-- 1) LOST MASTERPIECE: chance per rolled item (by crate id) that the item is a Relic instead. Free Delivery never rolls one.
@@ -61,6 +66,10 @@ local Economy = {
 
 	-- §6 Shop rating: points -> stars. Index = stars, value = minimum points for that star.
 	RatingStarMinPoints = { 0, 8, 20, 40, 65 },
+	-- Upgrade tabs switched off (Sean + Ace, 2026-11-24): decor will be sold in a decor shop once the edit mode exists.
+	-- A closed tab is hidden in the Upgrades window, refused by UpgradeService, and its decor models stay hidden.
+	-- Levels already bought stay saved and keep their rating points. Remove the entry to switch the tab back on.
+	ClosedUpgradeTabs = { Decor = true },
 
 	-- §7 XP and levels
 	MaxLevel = 50, -- was 15 (2026-11-20)

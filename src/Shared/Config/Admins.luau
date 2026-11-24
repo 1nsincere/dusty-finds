@@ -5,4 +5,6 @@
 
 return {
 	[2515374038] = "X3duactive", -- Ace (owner)
+	[852433571] = "iizxeroo",
+	[3782711171] = "dwayne_xbvuvu",
 }

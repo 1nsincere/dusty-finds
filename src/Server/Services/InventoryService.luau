@@ -215,7 +215,9 @@ end
 -- A customer buys a Displayed item (called by CustomerService / DisplayService, Dev 3). The server works out the whole
 -- price, so the caller can't invent one: price = sellPrice (wish x1.25 if wishMatched), + 10% if `checkout`, + a tip
 -- (chance = 5% + 5% x shop rating stars + opts.tipBonus; amount 10-25% of the price).
--- opts: wishMatched (boolean), checkout (boolean), tipBonus (the customer type's tipBonus), random (tests only).
+-- opts: wishMatched (boolean), checkout (boolean), tipBonus (the customer type's tipBonus), random (tests only),
+-- bonusFraction (number, optional, the cashier result from CashierService, Dev 3 2026-11-23): replaces the checkout
+-- bonus with round(price x fraction), clamped to -0.5..0.5; negative = an angry customer pays less. Server-picked only.
 -- Returns ok, reason, { price, bonus, tip, total }. Reasons: noItem, notDisplayed, noPrice, removeFailed.
 function InventoryService.CompleteSale(player: Player, uid: string, opts: { [string]: any }?): (boolean, string?, { [string]: number }?)
 	opts = opts or {}
@@ -233,6 +235,10 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 	end
 
 	local bonus = if opts.checkout == true then Formulas.checkoutBonus(price) else 0
+	local fraction = opts.bonusFraction
+	if type(fraction) == "number" and fraction == fraction then -- (fraction == fraction rejects NaN)
+		bonus = math.floor(price * math.clamp(fraction, -0.5, 0.5) + 0.5)
+	end
 	local random: Random = opts.random or Random.new()
 	local tip = 0
 	local chance = Formulas.tipChance(CollectionBookService.GetRatingStars(player), opts.tipBonus)

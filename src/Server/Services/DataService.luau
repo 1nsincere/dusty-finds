@@ -39,6 +39,10 @@ local TEMPLATE = {
 	timers = { lastFreeDelivery = 0 },
 	tutorial = { step = 0, done = false },
 	settings = { music = true, sfx = true, reduceEffects = false, announcements = true },
+	-- shelf / pedestal skins (Sean, Ace OK 2026-11-24; SkinService): owned = { [skinId] = true }; shelf / pedestal =
+	-- the skin id in use, "" = the classic look. Old saves get this from Reconcile().
+	-- cashier = the cash counter's skin (Sean, Ace OK 2026-11-24); Reconcile adds it to saves that already have skins.
+	skins = { owned = {}, shelf = "", pedestal = "", cashier = "" },
 }
 
 local store = nil
