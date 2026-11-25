@@ -94,3 +94,6 @@ Needs its own plan: anti-scam confirmation screens, no Robux-for-item, value dis
 ## If Sean and Dwayne return
 - Sean: stall buy screens (Stage 3) and the Style picker, using the existing WindowKit.
 - Dwayne: family models and colourways (Stage 4/6), following the Blender pipeline in docs/Blender_Pipeline.md.
+
+## Stage 5 status (2026-11-25)
+Built and tested with a fake Marketplace: Collector's Corner window, 7 passes, tip jar, VIP choices, Saved Layouts, Big Storage, themes, Companion pet, Glow Pack. **Waiting on Sean** to create the passes and products on Roblox and paste the ids (see docs/WHILE_AWAY.md, "FOR SEAN"). Not built: VIP corner, Robux "buy-now" for single skins (vouchers).
