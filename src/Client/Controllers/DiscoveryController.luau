@@ -33,6 +33,8 @@ local CLAIM_COOLDOWN = 2 -- seconds the claim prompt stays off after a press (th
 local ESTIMATE_STARS = 2 -- "Est. value" = price when restored to 2★ (Good)
 local BOX_SPACING = 3.2 -- studs between boxes at the door
 local DOT_EMPTY = UiTheme.Disabled
+-- same rule as InventoryService: these states don't use an inventory slot (opening a box turns Unopened into Dirty)
+local NOT_COUNTED = { Unopened = true, Displayed = true, Exhibited = true }
 
 local player = Players.LocalPlayer
 local others = nil
@@ -40,7 +42,8 @@ local discovery: ScreenGui? = nil
 local myPlot: Model? = nil
 local boxFolder: Folder? = nil
 local boxModels: { [string]: Model } = {} -- [boxId] = model at the door
-local results: { [string]: { itemId: string, golden: boolean, isNew: boolean } } = {} -- [uid] = BoxOpened info
+local results: { [string]: { itemId: string, golden: boolean, isNew: boolean, autoSold: number } } = {} -- [uid] = BoxOpened info
+local cardTexts: { hint: string, store: string }? = nil -- the card's own Hint + Store wording (auto-sold cards swap them)
 local opening = false
 local storePressed = Instance.new("BindableEvent")
 local claimPrompt: ProximityPrompt? = nil
@@ -80,6 +83,57 @@ local function waitingBoxes()
 		return a.first < b.first
 	end)
 	return list
+end
+
+-- Returns used, capacity. A copy of the server's check so the player sees "full" before trying; the server still decides.
+local function inventoryRoom(): (number, number)
+	local used = 0
+	for _, item in ClientState.Get("inventory") or {} do
+		if type(item) == "table" and not NOT_COUNTED[item.state] then
+			used += 1
+		end
+	end
+	return used, Formulas.inventoryCapacity(ClientState.Get("upgrades.StorageRacks") or 0)
+end
+
+local function isInventoryFull(): boolean
+	local used, max = inventoryRoom()
+	return used >= max
+end
+
+-- True if the server will auto-sell this waiting item (same rule as ShipmentService.shouldAutoSell: an allowed rarity,
+-- not Golden, switched on in Settings). Auto-sold items need no slot, so a full inventory doesn't block them.
+local function wouldAutoSell(uid: string): boolean
+	local item = ClientState.Get("inventory." .. uid)
+	local def = type(item) == "table" and Items[item.itemId]
+	if not def or item.golden == true or table.find(Economy.AutoSellRarities, def.rarity) == nil then
+		return false
+	end
+	return ClientState.Get("settings.autoSell" .. def.rarity) == true
+end
+
+-- Full, and nothing in this box would be auto-sold: opening it can't work.
+local function boxBlocked(box): boolean
+	if not isInventoryFull() then
+		return false
+	end
+	for _, uid in box.uids do
+		if wouldAutoSell(uid) then
+			return false
+		end
+	end
+	return true
+end
+
+local function notifyFull()
+	local used, max = inventoryRoom()
+	local text = `Inventory full ({used}/{max})! Sell unrestored items, put restored ones on shelves, or buy Storage Racks.`
+	if others and others.HudController and others.HudController.Notify then
+		others.HudController.Notify("Info", text)
+	else
+		warn("[DiscoveryController] " .. text)
+	end
+	log("box not opened: inventory full", used, max)
 end
 
 local function findBox(boxId: string)
@@ -135,6 +189,10 @@ local function skinCard(card: Frame)
 	local rim = decorate(card, "Frame", { Name = "Rim", Position = UDim2.fromOffset(7, 7), Size = UDim2.new(1, -14, 1, -14), BackgroundTransparency = 1, ZIndex = 1 })
 	decorate(rim, "UICorner", { CornerRadius = UDim.new(0, 19) })
 	decorate(rim, "UIStroke", { Color = C.edge, Thickness = 1.5, Transparency = 0.65 })
+
+	-- Restore button removed from the card (Sean, 2026-11-25): it only said "Restore: soon". Restoring starts from the
+	-- Inventory / storage shelves. Hidden, not deleted, so the StarterGui.Discovery names in the UI contract stay the same.
+	card.RestoreButton.Visible = false
 
 	-- ribbon: the rarity colour (set per item), glossy, with the counter on the right
 	local banner = card.RarityBanner
@@ -230,7 +288,7 @@ local function skinCard(card: Frame)
 	hint.TextSize = 13
 	hint.TextColor3 = C.textDim
 
-	for _, b in { card.StoreButton, card.RestoreButton } do
+	for _, b in { card.StoreButton } do
 		b.Size = UDim2.fromOffset(140, 50)
 		b.FontFace = FONT_TITLE
 		b.TextSize = 20
@@ -246,10 +304,8 @@ local function skinCard(card: Frame)
 		decorate(b, "UIGradient", { Color = ColorSequence.new(WHITE_COLOR, Color3.fromRGB(190, 190, 190)), Rotation = 90 })
 		decorate(b, "UIStroke", { Color = C.ink, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
 	end
-	card.StoreButton.Position = UDim2.new(0.5, 78, 1, -16)
-	card.RestoreButton.Position = UDim2.new(0.5, -78, 1, -16)
+	card.StoreButton.Position = UDim2.new(0.5, 0, 1, -16) -- centred now that it's the only button
 	card.StoreButton.BackgroundColor3 = Color3.fromRGB(31, 194, 165)
-	card.RestoreButton.BackgroundColor3 = Color3.fromRGB(134, 163, 181)
 	decorate(card, "UIScale", { Name = "Pop" })
 end
 
@@ -330,8 +386,21 @@ local function showCard(info, index: number, total: number)
 	card.NewTag.Position = UDim2.new(0.5, if both then -46 else 0, 0, 338)
 	card.GoldenTag.Position = UDim2.new(0.5, if both then 46 else 0, 0, 338)
 
-	local estimate = if def then Formulas.sellPrice(info.itemId, ESTIMATE_STARS, info.golden) else 0
-	card.Value.Text = `Est. value ${estimate}`
+	-- Auto-sold (Settings → Auto sell): the card still shows the find, but says it was sold and for how much.
+	if cardTexts == nil then
+		cardTexts = { hint = card.Hint.Text, store = card.StoreButton.Text } -- the Studio-authored wording, kept for normal finds
+	end
+	local autoSold = tonumber(info.autoSold) or 0
+	if autoSold > 0 then
+		card.Value.Text = `Auto-sold +${autoSold}`
+		card.Hint.Text = "Sold right away (Settings → Auto sell)"
+		card.StoreButton.Text = "Nice!"
+	else
+		local estimate = if def then Formulas.sellPrice(info.itemId, ESTIMATE_STARS, info.golden) else 0
+		card.Value.Text = `Est. value ${estimate}`
+		card.Hint.Text = cardTexts.hint
+		card.StoreButton.Text = cardTexts.store
+	end
 	card.Visible = true
 end
 
@@ -365,6 +434,10 @@ local function openBox(boxId: string)
 	if box == nil then
 		return
 	end
+	if boxBlocked(box) then
+		notifyFull()
+		return
+	end
 	opening = true
 	if others and others.ShopController and others.ShopController.CloseAll then
 		others.ShopController.CloseAll() -- Supply + Upgrades; one modal at a time (docs/01 J4)
@@ -376,6 +449,10 @@ local function openBox(boxId: string)
 	local total = #box.uids
 	local skipShow = false
 	for index, uid in box.uids do
+		if isInventoryFull() and not wouldAutoSell(uid) then -- a box with several items can fill the last slots part-way through
+			notifyFull()
+			break
+		end
 		results[uid] = nil
 		Remotes.RequestOpenBox:FireServer(uid)
 		local started = os.clock()
@@ -482,6 +559,11 @@ local function renderBoxes()
 			end
 			boxModels[box.boxId] = model
 			model.Parent = boxFolder
+		end
+		-- the prompt itself says the inventory is full, so the player knows before pressing
+		local openPrompt = model:FindFirstChild("OpenPrompt", true) :: ProximityPrompt?
+		if openPrompt then
+			openPrompt.ActionText = if boxBlocked(box) then "Inventory full" else "Open"
 		end
 		-- Slot 1 in the middle, then left, then right. Sit on top of the DeliveryPoint pad.
 		local x = if slot == 1 then 0 elseif slot == 2 then -BOX_SPACING else BOX_SPACING
@@ -614,9 +696,9 @@ end
 function DiscoveryController.Start()
 	log("Start")
 	-- Listen right away so no BoxOpened is missed.
-	Remotes.BoxOpened.OnClientEvent:Connect(function(uid, itemId, isGolden, isNew)
+	Remotes.BoxOpened.OnClientEvent:Connect(function(uid, itemId, isGolden, isNew, autoSold)
 		if type(uid) == "string" and type(itemId) == "string" then
-			results[uid] = { itemId = itemId, golden = isGolden == true, isNew = isNew == true }
+			results[uid] = { itemId = itemId, golden = isGolden == true, isNew = isNew == true, autoSold = tonumber(autoSold) or 0 }
 		end
 	end)
 
@@ -646,6 +728,8 @@ function DiscoveryController.Start()
 			renderBoxes()
 			updateFreeDelivery()
 		end)
+		ClientState.OnChanged("upgrades", renderBoxes) -- Storage Racks bought: the prompt goes back to "Open"
+		ClientState.OnChanged("settings", renderBoxes) -- auto sell switched on: a full inventory may not block the box now
 		local point = myPlot:FindFirstChild("DeliveryPoint")
 		if point and point:IsA("BasePart") then
 			setUpFreeDelivery(point)

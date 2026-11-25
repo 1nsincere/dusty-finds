@@ -16,6 +16,11 @@ local log = Log.new("SettingsService", DEBUG)
 
 -- The keys a client may change (they match `settings` in the data template). Add a key here AND in the template.
 local KNOWN_KEYS = { music = true, sfx = true, reduceEffects = true, announcements = true }
+-- auto sell: one key per allowed rarity, built from config so the list lives in one place (Economy.AutoSellRarities)
+local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+for _, rarity in Economy.AutoSellRarities do
+	KNOWN_KEYS["autoSell" .. rarity] = true
+end
 local PLAYTIME_TICK_SECONDS = 30 -- how often playtime is added while playing (also added when the player leaves)
 
 local DataService = nil

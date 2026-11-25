@@ -536,6 +536,29 @@ function SystemsCheck.run()
 		local fullBox = Inventory.Add(fullPlayer, "Teacup")
 		check("Open: refused when the inventory is full, box stays closed, no bonus", select(2, Shipment.OpenBox(fullPlayer, fullBox)) == "full" and Inventory.Get(fullPlayer, fullBox).state == "Unopened" and cash(fullPlayer) == 100)
 
+		-- ===== Auto sell (2026-11-25): switched-on rarities are sold at the Dispose price when the box opens =====
+		local teacupRarity = Items.Teacup.rarity
+		fakeDS.Set(fullPlayer, "settings.autoSell" .. teacupRarity, true)
+		local cashBefore = cash(fullPlayer)
+		local sold, _, soldInfo = Shipment.OpenBox(fullPlayer, fullBox)
+		local expected = require(ReplicatedStorage.Shared.Formulas).disposePrice("Teacup", false)
+		check("AutoSell: a full inventory still opens a switched-on rarity, item gone, paid the Dispose price",
+			sold and Inventory.Get(fullPlayer, fullBox) == nil and soldInfo.autoSold == expected and cash(fullPlayer) >= cashBefore + expected, soldInfo and soldInfo.autoSold)
+		check("AutoSell: the find is still recorded in the collection", fakeDS.GetValue(fullPlayer, "collection.Teacup.found") == true)
+		fakeDS.Set(fullPlayer, "settings.autoSell" .. teacupRarity, false)
+		local keptBox = Inventory.Add(fullPlayer, "Teacup")
+		check("AutoSell: switched off again -> the full inventory refuses as before", select(2, Shipment.OpenBox(fullPlayer, keptBox)) == "full")
+		local juke = newPlayer()
+		fakeDS.Set(juke, "settings.autoSellLegendary", true) -- not a real setting: must never sell a Legendary
+		local jukeUid = Inventory.Add(juke, "Jukebox")
+		local _, _, jukeInfo = Shipment.OpenBox(juke, jukeUid)
+		check("AutoSell: Legendary is never auto-sold", jukeInfo.autoSold == 0 and Inventory.Get(juke, jukeUid).state == "Dirty")
+		local goldPlayer = newPlayer()
+		fakeDS.Set(goldPlayer, "settings.autoSell" .. teacupRarity, true)
+		local goldUid = Inventory.Add(goldPlayer, "Teacup", { golden = true })
+		local _, _, goldInfo = Shipment.OpenBox(goldPlayer, goldUid)
+		check("AutoSell: Golden items are never auto-sold", goldInfo.autoSold == 0 and Inventory.Get(goldPlayer, goldUid).state == "Dirty")
+
 		-- Crate data sanity: every crate item count matches Config
 		check("Config: Starter crate gives 3 items", Crates.Starter.itemCount == 3)
 	end)

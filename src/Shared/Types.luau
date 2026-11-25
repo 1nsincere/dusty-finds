@@ -41,7 +41,11 @@ export type PlayerData = {
 	stats: { restored: number, sold: number, earned: number, playSeconds: number },
 	timers: { lastFreeDelivery: number },
 	tutorial: { step: number, done: boolean },
-	settings: { music: boolean, sfx: boolean, reduceEffects: boolean, announcements: boolean },
+	settings: {
+		music: boolean, sfx: boolean, reduceEffects: boolean, announcements: boolean,
+		-- auto sell from boxes (Config.Economy.AutoSellRarities), all false by default
+		autoSellCommon: boolean, autoSellUncommon: boolean, autoSellRare: boolean, autoSellEpic: boolean,
+	},
 	skins: { owned: { [string]: boolean }, shelf: string, pedestal: string }, -- "" = classic look (SkinService)
 }
 

@@ -7,10 +7,13 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
-local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
 
 local SettingsController = {}
 local DEBUG = true
@@ -22,6 +25,24 @@ local TOGGLES = {
 	{ key = "sfx", label = "🔊 Sound effects" },
 	{ key = "reduceEffects", label = "✨ Reduce effects" },
 }
+-- Auto sell (Sean, Ace OK 2026-11-25): one chip per rarity in Economy.AutoSellRarities, key "autoSell<Rarity>", all OFF
+-- until the player taps one. The server does the selling (ShipmentService) and reads the saved value, not this screen.
+local AUTO_SELL_ROW_HEIGHT = 84
+local AUTO_SELL = {}
+for _, rarity in Economy.AutoSellRarities do
+	table.insert(AUTO_SELL, { key = "autoSell" .. rarity, rarity = rarity })
+end
+local ALL_KEYS = {}
+for _, toggle in TOGGLES do
+	table.insert(ALL_KEYS, toggle.key)
+end
+for _, chip in AUTO_SELL do
+	table.insert(ALL_KEYS, chip.key)
+end
+local DEFAULT_OFF = { reduceEffects = true }
+for _, chip in AUTO_SELL do
+	DEFAULT_OFF[chip.key] = true
+end
 -- The server allows 2 saves per second; a short wait per switch keeps fast tapping under that.
 local SWITCH_COOLDOWN = 0.6
 -- If the server doesn't confirm (refused or rate limited), show its real value again after this.
@@ -40,14 +61,14 @@ local function log(...)
 	end
 end
 
--- Missing keys count as ON (the template's defaults are all true except reduceEffects).
+-- Missing keys count as ON, except the ones the template starts OFF (reduceEffects and every auto sell chip).
 local function currentValue(key: string): boolean
 	if pending[key] ~= nil then
 		return pending[key]
 	end
 	local value = ClientState.Get("settings." .. key)
 	if value == nil then
-		return key ~= "reduceEffects"
+		return not DEFAULT_OFF[key]
 	end
 	return value == true
 end
@@ -58,13 +79,20 @@ local function drawSwitch(key: string)
 		return
 	end
 	local on = currentValue(key)
+	local rarity = switch:GetAttribute("Rarity")
+	if type(rarity) == "string" then
+		-- an auto sell chip: the rarity's colour when ON, grey when OFF
+		switch.Text = if on then `{rarity} ✓` else rarity
+		switch.BackgroundColor3 = if on then UiTheme.rarityColor(rarity) else UiTheme.Disabled
+		return
+	end
 	switch.Text = if on then "ON" else "OFF"
 	switch.BackgroundColor3 = if on then UiTheme.Teal else UiTheme.Disabled
 end
 
 local function drawAll()
-	for _, toggle in TOGGLES do
-		drawSwitch(toggle.key)
+	for _, key in ALL_KEYS do
+		drawSwitch(key)
 	end
 end
 
@@ -85,6 +113,67 @@ local function onSwitchTapped(key: string)
 			log("no confirmation for", key, "- showing the saved value")
 		end
 	end)
+end
+
+-- The "💰 Auto sell new finds" row: a label on top and one chip per rarity under it (chips are copies of the skinned switch).
+local function buildAutoSellRow(template: Instance, parent: Instance, order: number)
+	local row = template:Clone() :: Frame
+	row.Name = "AutoSell"
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, 0, 0, AUTO_SELL_ROW_HEIGHT)
+	row.Visible = true
+	local label = row:FindFirstChild("Label") :: TextLabel
+	label.Text = "💰 Auto sell new finds (pays ~40%)"
+	label.AnchorPoint = Vector2.new(0, 0)
+	label.Position = UDim2.fromOffset(12, 6)
+	label.Size = UDim2.new(1, -24, 0, 30)
+	local switchTemplate = row:FindFirstChild("Switch") :: TextButton
+	switchTemplate.Visible = false
+
+	local chips = Instance.new("Frame")
+	chips.Name = "Chips"
+	chips.BackgroundTransparency = 1
+	chips.Position = UDim2.new(0, 10, 0, 40)
+	chips.Size = UDim2.new(1, -20, 0, 36)
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.Padding = UDim.new(0, 6)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = chips
+	for index, chip in AUTO_SELL do
+		local button = switchTemplate:Clone()
+		button.Name = chip.key
+		button.LayoutOrder = index
+		button.AnchorPoint = Vector2.new(0, 0)
+		button.Position = UDim2.new()
+		button.Size = UDim2.new(1 / #AUTO_SELL, -6, 1, 0)
+		button.TextScaled = true
+		button.Visible = true
+		button:SetAttribute("Rarity", chip.rarity)
+		button.Parent = chips
+		switches[chip.key] = button
+		button.Activated:Connect(function()
+			onSwitchTapped(chip.key)
+		end)
+	end
+	chips.Parent = row
+	row.Parent = parent
+end
+
+-- Phones: the window got taller with the auto sell row, so shrink it to fit a short screen (never grow it).
+local function fitWindow(window: GuiObject)
+	local scale = window:FindFirstChild("FitScale") :: UIScale?
+	if scale == nil then
+		scale = Instance.new("UIScale")
+		scale.Name = "FitScale"
+		scale.Parent = window
+	end
+	local camera = workspace.CurrentCamera
+	if camera == nil then
+		return
+	end
+	local usable = camera.ViewportSize.Y - GuiService:GetGuiInset().Y - 16
+	scale.Scale = math.clamp(usable / math.max(window.Size.Y.Offset, 1), 0.5, 1)
 end
 
 function SettingsController.IsOpen(): boolean
@@ -161,15 +250,27 @@ function SettingsController.Start()
 				onSwitchTapped(toggle.key)
 			end)
 		end
+		buildAutoSellRow(template, window.Toggles, #TOGGLES + 1)
+		-- room for the taller row (+ the list's padding), then shrink to fit short screens
+		local listLayout = window.Toggles:FindFirstChildOfClass("UIListLayout")
+		local gap = if listLayout then listLayout.Padding.Offset else 6
+		window.Size = window.Size + UDim2.fromOffset(0, AUTO_SELL_ROW_HEIGHT + gap)
+		fitWindow(window)
+		local camera = workspace.CurrentCamera
+		if camera then
+			camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+				fitWindow(window)
+			end)
+		end
 		drawAll()
 		window.CloseButton.Activated:Connect(SettingsController.Close)
 
 		-- The server confirms with StateChanged("settings.<key>") (or the whole "settings" table).
 		ClientState.OnChanged("settings", function()
-			for _, toggle in TOGGLES do
-				local saved = ClientState.Get("settings." .. toggle.key)
-				if pending[toggle.key] ~= nil and saved == pending[toggle.key] then
-					pending[toggle.key] = nil
+			for _, key in ALL_KEYS do
+				local saved = ClientState.Get("settings." .. key)
+				if pending[key] ~= nil and saved == pending[key] then
+					pending[key] = nil
 				end
 			end
 			drawAll()
@@ -187,7 +288,7 @@ function SettingsController.Start()
 			end)
 		end
 		closeWhenOtherOpens(playerGui)
-		log(`ready: {#TOGGLES} switches`)
+		log(`ready: {#TOGGLES} switches + {#AUTO_SELL} auto sell chips`)
 	end)
 end
 

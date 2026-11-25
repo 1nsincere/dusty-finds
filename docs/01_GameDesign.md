@@ -193,7 +193,7 @@ stateDiagram-v2
 ### B10. Selling system [Dev 1 server · Dev 3 UI]
 Two ways to sell, both server-calculated:
 1. **Customers (main way):** price = `baseValue × qualityMult × variantMult × (1.25 if wish match) + tip`. Tip chance rises with rating.
-2. **Quick Sell (at the counter):** instant, 70% of the base price, no wish bonus. For full inventory or players who just want to keep restoring.
+2. **Quick Sell:** switched off (Sean + Ace, 2026-11-25). Restored items sell **only on a display shelf**; the Inventory shows "⚠ Sell on a shelf" instead. For a full inventory, players sell **unrestored** items ("Sell unrestored…", ~40%) or switch on **Auto sell** for low rarities in Settings.
 
 Selling grants money (and XP is earned on restoration, not on sale, so keeping items isn't punished).
 

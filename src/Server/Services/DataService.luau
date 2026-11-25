@@ -38,7 +38,11 @@ local TEMPLATE = {
 	stats = { restored = 0, sold = 0, earned = 0, playSeconds = 0 },
 	timers = { lastFreeDelivery = 0 },
 	tutorial = { step = 0, done = false },
-	settings = { music = true, sfx = true, reduceEffects = false, announcements = true },
+	-- autoSell<Rarity> (Sean, Ace OK 2026-11-25): Config.Economy.AutoSellRarities, all OFF; Reconcile adds them to old saves.
+	settings = {
+		music = true, sfx = true, reduceEffects = false, announcements = true,
+		autoSellCommon = false, autoSellUncommon = false, autoSellRare = false, autoSellEpic = false,
+	},
 	-- shelf / pedestal skins (Sean, Ace OK 2026-11-24; SkinService): owned = { [skinId] = true }; shelf / pedestal =
 	-- the skin id in use, "" = the classic look. Old saves get this from Reconcile().
 	-- cashier = the cash counter's skin (Sean, Ace OK 2026-11-24); Reconcile adds it to saves that already have skins.

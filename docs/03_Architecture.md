@@ -241,12 +241,12 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestPlaceExhibit` | `uid, slotIndex` | Dev 1 (server), Dev 3 (UI) | same, exhibit slot |
 | `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 1 (server), Dev 3 (UI) | slot mine, not reserved by a customer, capacity (kind is "Display" or "Exhibit") |
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
-| `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
+| `RequestQuickSell` | `uid` | Dev 1 | **Switched off for players (Sean + Ace, 2026-11-25):** restored items sell only on display shelves; a request is refused with an Info toast. `InventoryService.QuickSell` stays for tests / DevTools |
 | `RequestDisposeItems` | `{ uid, ... }` (max `Economy.DisposeMaxPerRequest`) | Dev 1 | each item mine & `Dirty` (never InProgress/Restored); pays `Formulas.disposePrice` = `Economy.DisposeFraction` (40%) of est. value at 2★, min $1; rate-limited; bad uids skipped; one `Notify "Sale"` toast |
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | **Unused for now (2026-11-16):** likes come from `Counter.LikePrompt` Triggered on the server (Roblox checks the distance). Same rules: not own shop, not liked today |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
-| `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
+| `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`, and `autoSell<Rarity>` for each rarity in `Economy.AutoSellRarities`: Common, Uncommon, Rare, Epic), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id (a `Shared.Tutorial` step id, "done" or "skip"); order = the step must already be true in saved data ("done" = all steps); rate limit 2/s |
 | `RequestGiveChange` | `amount` | Dev 1 | integer 0..Economy.CashierMaxChange; an open till (CashierService) for this player; near own Counter (InteractMaxStuds + 4); rate limit 4/s. Right change (paid - due) completes the sale via CustomerService.Checkout with `CashierService.Judge`: fast first try +25%, first try +10%, after a mistake 0%; wrong = attempts + 1, CashierUpdate "wrong"; the `CashierMaxMistakes`-th wrong = sale at -10% (angry). Any amount may be sent (Dev 3, 2026-11-23) |
 | `RequestCloseCashier` | — | Dev 1 | closes the player's own till only; rate limit 4/s |
@@ -260,7 +260,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `StateChanged` | `path: string, value: any` | Update ClientState (e.g. `"cash"`, `"inventory.<uid>"`, `"upgrades.CleaningBrush"`) |
 | `StateChanged("rating", stars)` | `number` 1-5 | Derived, not saved. In the first `GetInitialState` snapshot as `rating`, then pushed when upgrades or exhibits change |
 | `Notify` | `kind, text` | Toasts and banners. Kinds: `LevelUp`, `Upgrade`, `Delivery` ("Crate delivered!", "Free delivery arrived!"), `Info` |
-| `BoxOpened` | `uid, itemId, isGolden, isNew` | Play reveal |
+| `BoxOpened` | `uid, itemId, isGolden, isNew, autoSold` | Play reveal. `autoSold` = cash paid when auto sell sold it on opening (0 = kept; added 2026-11-25) |
 | `RestoreSession` | `uid, recipe, stepIndex, enabledSpotsSeed, sessionId` | Begin/resume bench view |
 | `ItemRestored` | `uid, stars, value` | RESTORED! card |
 | `SaleMade` | `amount, wishMatched, tip` | Coins and `+$` popup |
@@ -464,7 +464,8 @@ local TEMPLATE = {
     stats = { restored = 0, sold = 0, earned = 0, playSeconds = 0 },
     timers = { lastFreeDelivery = 0 },
     tutorial = { step = 0, done = false },
-    settings = { music = true, sfx = true, reduceEffects = false, announcements = true },
+    settings = { music = true, sfx = true, reduceEffects = false, announcements = true,
+                 autoSellCommon = false, autoSellUncommon = false, autoSellRare = false, autoSellEpic = false }, -- auto sell: 2026-11-25
 }
 ```
 
