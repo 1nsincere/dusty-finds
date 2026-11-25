@@ -52,6 +52,19 @@ function Formulas.quickSellPrice(itemId: string, stars: number, golden: boolean?
 	return round(baseTimesQualityTimesVariant(itemId, stars, golden) * Economy.QuickSellFraction)
 end
 
+-- Chance (0.15-0.98) that a customer standing at a shelf decides to BUY the item: the shop's rating stars (1-5) set the base, a
+-- wish match and the item's restore stars (1-3) nudge it, `bonus` is for a customer who came back to think about it.
+function Formulas.buyChance(ratingStars: number, itemStars: number?, wishMatched: boolean?, bonus: number?): number
+	local rating = math.clamp(math.floor(cleanNumber(ratingStars, 1)), 1, #Economy.BuyChanceByRating)
+	local chance = Economy.BuyChanceByRating[rating]
+	if wishMatched == true then
+		chance += Economy.BuyChanceWish
+	end
+	chance += Economy.BuyChanceItemStars[cleanStars(itemStars)] or 0
+	chance += cleanNumber(bonus, 0)
+	return math.clamp(chance, 0.15, 0.98)
+end
+
 -- Dispose payout for a Dirty item: DisposeFraction of its estimated value (price at DisposeEstimateStars), rounded down, at
 -- least DisposeMinimum. Always far below what a restored item sells for, so disposing never beats restoring. 0 = unknown item.
 function Formulas.disposePrice(itemId: string, golden: boolean?): number

@@ -122,6 +122,9 @@ function CashierService.Open(player: Player, customerId: string): boolean
 		return false
 	end
 	local due = Formulas.sellPrice(item.itemId, item.stars, item.golden, customer.wishMatched)
+	if type(customer.priceMult) == "number" then
+		due = math.max(1, math.floor(due * customer.priceMult + 0.5)) -- an accepted haggle: same rounding as InventoryService.CompleteSale
+	end
 	if due <= 0 then
 		return false
 	end

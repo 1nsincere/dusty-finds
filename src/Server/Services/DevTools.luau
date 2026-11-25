@@ -211,6 +211,8 @@ local ALL_CHECKS = {
 	{ "CashierCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CashierCheck") end }, -- Dev 3: till speed/mistake rules
 	{ "StorageShelfCheck", function() return script.Parent.Parent.Tests:FindFirstChild("StorageShelfCheck") end }, -- Dev 3: storage room shelf rule
 	{ "SkinCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SkinCheck") end }, -- Dev 3: skins stall stock + buy / apply / draw
+	{ "LayoutCheck", function() return script.Parent.Parent.Tests:FindFirstChild("LayoutCheck") end }, -- Dev 1: edit-mode layout rules (RequestSaveLayout)
+	{ "PersonalityCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PersonalityCheck") end }, -- Dev 1: customer personalities + haggle roll + buy chance
 	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
 }
 
