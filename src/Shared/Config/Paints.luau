@@ -48,6 +48,14 @@ for _, paint in Paints.LIST do
 	Paints.BY_ID[paint.id] = paint
 end
 
+-- The look every wall / floor has when the owner has NOT chosen a paint (and in shops nobody owns). ONE look for the main shop, the
+-- second storey, the Back Room and the Showroom, so they always match. A floor default also retires the textured main-floor overlay
+-- (see Shared.PlotTargets): all floors are the same planks. Change these two entries to restyle every shop's default at once.
+Paints.DEFAULTS = {
+	Wall = { color = rgb(236, 246, 238) }, -- the main walls' own tint (the wall texture shows through it)
+	Floor = { color = rgb(255, 233, 176), material = M.WoodPlanks }, -- the main plank slab's classic look
+}
+
 Paints.KINDS = { "Wall", "Floor" }
 -- the save field (data.paints.<field>) that holds the paint in use for each kind
 Paints.FIELD = { Wall = "wall", Floor = "floor" }

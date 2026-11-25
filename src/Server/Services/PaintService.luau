@@ -78,10 +78,18 @@ end
 -- Draws a plot with its owner's paints (or the original look when nobody owns it).
 function PaintService.DrawPlot(plot: Instance)
 	for _, kind in Paints.KINDS do
-		local paint = paintFor(plot, kind)
+		-- no paint chosen (or nobody owns the shop): every room gets the same default look (Paints.DEFAULTS)
+		local paint = paintFor(plot, kind) or Paints.DEFAULTS[kind]
 		for _, part in targetsOf(plot, kind) do
 			drawPart(part, paint)
 		end
+	end
+end
+
+-- Draws the default look (Paints.DEFAULTS) on one kind. Used by the tests on a copy of a plot.
+function PaintService.DrawDefault(plot: Instance, kind: string)
+	for _, part in targetsOf(plot, kind) do
+		drawPart(part, Paints.DEFAULTS[kind])
 	end
 end
 

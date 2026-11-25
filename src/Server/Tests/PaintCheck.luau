@@ -257,6 +257,19 @@ function PaintCheck.run()
 		Paint.DrawKind(plot, "Floor", "")
 		check("one floor: with no floor paint the main floor texture shows again and the slab is as it was", overlay.Transparency == 0 and overlaySA.Color == Color3.fromRGB(255, 255, 255)
 			and slab.Color == Color3.fromRGB(20, 20, 20) and slab.Material == Enum.Material.Wood)
+		Paint.DrawDefault(plot, "Floor")
+		Paint.DrawDefault(plot, "Wall")
+		local dFloor, dWall = Paints.DEFAULTS.Floor, Paints.DEFAULTS.Wall
+		check("default: with no paint every floor (main slab, Back Room, Showroom) has the SAME default colour and material, the main texture is hidden",
+			slab.Color == dFloor.color and slab.Material == dFloor.material and backFloor.Color == dFloor.color and backFloor.Material == dFloor.material
+			and showFloor.Color == dFloor.color and showFloor.Material == dFloor.material and overlay.Transparency == 1)
+		check("default: with no paint every wall (main walls, second storey, Back Room) has the SAME default colour",
+			wallSA.Color == dWall.color and upSA.Color == dWall.color and backWall.Color == dWall.color and backOuter.Color == dWall.color and back.Color == dWall.color)
+		check("default: trim, rails and decor are not touched", backCornice.Color == Color3.fromRGB(11, 11, 11) and showRail.Color == Color3.fromRGB(13, 13, 13))
+		Paint.DrawKind(plot, "Wall", "WallUbe")
+		check("default: a chosen paint still overrides the default in every room", backWall.Color == Paints.BY_ID.WallUbe.color and upSA.Color == Paints.BY_ID.WallUbe.color)
+		Paint.DrawKind(plot, "Wall", "")
+		Paint.DrawKind(plot, "Floor", "")
 		check("expansions: the original look comes back in the extra rooms too", upSA.Color == Color3.fromRGB(240, 240, 240) and backWall.Color == Color3.fromRGB(8, 8, 8)
 			and backFloor.Color == Color3.fromRGB(7, 7, 7) and showFloor.Color == Color3.fromRGB(12, 12, 12) and showFloor.Material == Enum.Material.WoodPlanks)
 
