@@ -31,7 +31,7 @@ local FIT_PITCH = 38 -- degrees looking down at the item
 local FIT_MARGIN = 1.05 -- 1 = item just touches the safe area; a little air round it
 local SAFE_HEIGHT = 0.64 -- share of the screen height the item may use (the first guess)
 -- the working area in screen-centred units (-1..1): the hint and chips take the top, the progress bar the bottom
-local SAFE_X, SAFE_UP, SAFE_DOWN = 0.92, 0.70, 0.56
+local SAFE_X, SAFE_UP, SAFE_DOWN = 0.92, 0.88, 0.45 -- (2026-11-25: the HUD is a column on the LEFT now, so the top is free; the Test card takes the bottom)
 
 -- Centre and bounding-sphere radius of everything visible on the model (helper carriers like Base/hidden spots don't count).
 function RestorationView.VisualBounds(model: Model): (Vector3, number)
@@ -58,7 +58,10 @@ function RestorationView.VisualBounds(model: Model): (Vector3, number)
 end
 
 -- flat = horizontal unit vector from the item toward the player's side of the bench.
-function RestorationView.FitCamera(model: Model, flat: Vector3, fov: number, aspect: number): CFrame
+-- leftReserve (0..1, share of the screen width): the HUD column on the left. The item is fitted into, and centred in, the rest.
+-- eyePos (optional): where the player's EYES would be at the bench. The camera starts there (the true first-person view) and is only
+-- pulled back along the same line when the item would not fit the screen from there (a tall Lava Lamp), never pushed in.
+function RestorationView.FitCamera(model: Model, flat: Vector3, fov: number, aspect: number, leftReserve: number?, eyePos: Vector3?): CFrame
 	local center, radius = RestorationView.VisualBounds(model)
 	local tanV = math.tan(math.rad(fov) / 2)
 	local tanH = tanV * math.max(aspect, 0.3)
@@ -76,15 +79,50 @@ function RestorationView.FitCamera(model: Model, flat: Vector3, fov: number, asp
 			end
 		end
 	end
+	-- the free part of the screen in -1..1 units: from the HUD column to just inside the right edge
+	local xMin = -1 + 2 * (leftReserve or 0)
+	local xMax = 0.96
+	local halfWidth = math.min(SAFE_X, (xMax - xMin) / 2)
+	local midX = (xMax + xMin) / 2
 	local pitch = math.rad(FIT_PITCH)
 	local direction = flat * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 	local distance = (radius * 0.84) / (tanV * SAFE_HEIGHT) * FIT_MARGIN -- a first guess from the size
+	-- never pull back through a wall: the first solid thing between the item and the eye line limits the distance
+	local maxDistance = math.huge
+	if eyePos and (eyePos - center).Magnitude > 0.5 then
+		direction = (eyePos - center).Unit -- look at the item from where the player's eyes are
+		distance = (eyePos - center).Magnitude
+		local ignore: { Instance } = { model }
+		local character = Players.LocalPlayer.Character
+		if character then
+			table.insert(ignore, character)
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		for _ = 1, 8 do
+			params.FilterDescendantsInstances = ignore
+			local hit = workspace:Raycast(center, direction * 400, params)
+			if hit == nil then
+				break
+			end
+			local part = hit.Instance
+			-- only real walls / furniture count: not glass, light fittings or small props
+			if part.Transparency < 0.5 and math.max(part.Size.X, part.Size.Y, part.Size.Z) > 3 then
+				maxDistance = math.max((hit.Position - center).Magnitude - 0.8, 2)
+				break
+			end
+			table.insert(ignore, part)
+		end
+		distance = math.min(distance, maxDistance)
+	end
 	local look = CFrame.lookAt(center + direction * distance, center)
 	-- Then pull back until EVERY corner is inside the part of the screen the player can really work in (the hint and chips
 	-- take the top, the progress bar the bottom). A tall item with parts on a tray (the Plush Bunny's ears) is not round, so a
 	-- bounding sphere left the tray under the progress bar and its parts could not be tapped.
 	for _ = 1, 6 do
 		look = CFrame.lookAt(center + direction * distance, center)
+		-- slide the camera left so the item sits in the middle of the free area (right of the HUD column)
+		look = look * CFrame.new(-midX * tanH * distance, 0, 0)
 		local worst = 0
 		for _, c in corners do
 			local v = look:PointToObjectSpace(c)
@@ -92,13 +130,13 @@ function RestorationView.FitCamera(model: Model, flat: Vector3, fov: number, asp
 				worst = math.max(worst, 4)
 			else
 				local nx, ny = v.X / -v.Z / tanH, v.Y / -v.Z / tanV
-				worst = math.max(worst, math.abs(nx) / SAFE_X, if ny > 0 then ny / SAFE_UP else -ny / SAFE_DOWN)
+				worst = math.max(worst, math.abs(nx - midX) / halfWidth, if ny > 0 then ny / SAFE_UP else -ny / SAFE_DOWN)
 			end
 		end
 		if worst <= 1 then
 			break
 		end
-		distance *= math.min(worst * 1.02, 2)
+		distance = math.min(distance * math.min(worst * 1.02, 2), maxDistance)
 	end
 	return look
 end
@@ -229,6 +267,73 @@ function RestorationView.ApplyStepState(model: Model, recipe: { any }, stepIndex
 end
 
 -- SetViewProvider contract: plain functions, because the runner and Ace's adapters call them without a receiver.
+-- ===== Focus mode while restoring (Ace, 2026-11-25) =====
+-- Hides the whole HUD (every screen except the Restoration one) and switches the movement controls off, which also removes the
+-- touch thumbstick and jump button on phones / tablets / iPads, so nothing sits on top of the item and nothing can walk you away.
+-- Screens that switch themselves back on (a controller, a toast) or appear meanwhile are put away again. Returns the undo function.
+-- Every restoring screen (Restoration, RestorationTest, RestorationWork... each minigame makes its own) stays: only the HUD goes.
+local KEEP_SCREENS = { MainMenu = true, LoadingScreen = true }
+local function keepScreen(screen: Instance): boolean
+	return KEEP_SCREENS[screen.Name] == true or string.sub(screen.Name, 1, 11) == "Restoration"
+end
+
+local function enterFocusMode(): () -> ()
+	local player = Players.LocalPlayer
+	local playerGui = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui", 1)
+	local hiddenByUs: { [ScreenGui]: boolean } = {}
+	local connections: { RBXScriptConnection } = {}
+	local active = true
+	local function hide(screen: Instance)
+		if not screen:IsA("ScreenGui") or keepScreen(screen) then
+			return
+		end
+		if screen.Enabled then
+			hiddenByUs[screen] = true
+			screen.Enabled = false
+		end
+		table.insert(connections, screen:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if active and screen.Enabled then
+				hiddenByUs[screen] = true
+				screen.Enabled = false
+			end
+		end))
+	end
+	for _, screen in playerGui:GetChildren() do
+		hide(screen)
+	end
+	table.insert(connections, playerGui.ChildAdded:Connect(function(screen)
+		task.defer(hide, screen)
+	end))
+	-- movement controls (the touch thumbstick and jump button live in the PlayerModule's controls)
+	-- NEVER wait here: WaitForChild("PlayerModule", 5) froze the start of every restoration for 5 seconds whenever the module is not
+	-- there (Studio test servers), which was the "wait before I can restore". Take it if it exists, otherwise carry on without.
+	local controls
+	local scripts = player:FindFirstChild("PlayerScripts")
+	local module = scripts and scripts:FindFirstChild("PlayerModule")
+	if module then
+		pcall(function()
+			controls = require(module):GetControls()
+		end)
+	end
+	if controls then
+		controls:Disable()
+	end
+	return function()
+		active = false
+		for _, c in connections do
+			c:Disconnect()
+		end
+		for screen in hiddenByUs do
+			if screen.Parent then
+				screen.Enabled = true
+			end
+		end
+		if controls then
+			controls:Enable()
+		end
+	end
+end
+
 function RestorationView.Provider(ctx, onCancel)
 	local view = RestorationView.new(ctx, onCancel)
 	local disposed = false
@@ -360,7 +465,10 @@ function RestorationView.new(ctx, onCancel)
 			local vs = camera.ViewportSize
 			local aspect = if vs.Y > 0 then vs.X / vs.Y else 1.78
 			if fitted == nil or math.abs(aspect - fittedAspect) > 0.01 then
-				fitted = RestorationView.FitCamera(self.model, flatDir, FP_FOV, aspect)
+				-- the HUD column (Exit, tracker, guide) is about 280 px wide at 720 px high: keep the item out from under it
+				local hudScale = math.clamp(vs.Y / 720, 0.62, 1.1)
+				fitted = RestorationView.FitCamera(self.model, flatDir, FP_FOV, aspect, math.clamp(282 * hudScale / math.max(vs.X, 1), 0, 0.4),
+					point.Position) -- the CameraPoint part at the bench IS where the eyes go: it is placed inside the shop, clear of walls
 				fittedAspect = aspect
 			end
 			return fitted :: CFrame
@@ -388,6 +496,13 @@ function RestorationView.new(ctx, onCancel)
 				end
 			end
 		end)
+		-- hide the HUD and the thumbstick while restoring (undone in Destroy)
+		local focusOk, undoFocus = pcall(enterFocusMode)
+		if focusOk then
+			self.undoFocus = undoFocus
+		else
+			warn("[RestorationView] focus mode failed (restoring continues with the HUD): " .. tostring(undoFocus))
+		end
 		-- the tool you work with (visual only): a failure here must never stop the restoration
 		local toolOk, tool = pcall(ToolRig.new, { model = self.model, stepType = ctx.step and ctx.step.type })
 		if toolOk then
@@ -445,6 +560,7 @@ function RestorationView:Destroy()
 		ContextActionService:UnbindAction(self.binding)
 	end
 	if self.tool then self.tool:Destroy() end
+	if self.undoFocus then self.undoFocus() end -- the HUD and the controls come back
 	if self.model then self.model:Destroy() end
 	for part, value in self.hidden or {} do
 		if part.Parent then part.LocalTransparencyModifier = value end

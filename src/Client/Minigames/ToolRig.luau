@@ -149,6 +149,7 @@ function ToolRig:SetStep(stepType: string?)
 		entry.part:Destroy()
 	end
 	table.clear(self.toolParts)
+	self.lastScale = nil
 	if self.emitter then
 		self.emitter:Destroy()
 		self.emitter = nil
@@ -257,12 +258,20 @@ function ToolRig:Step(dt: number)
 end
 
 function ToolRig:PlaceTool(cf: CFrame, scale: number)
+	-- resizing every part every frame is the expensive bit: only when the scale really changed (the camera distance barely moves)
+	local resize = self.lastScale == nil or math.abs(scale - self.lastScale) > 0.01 * self.lastScale
+	if resize then
+		self.lastScale = scale
+	end
 	for _, entry in self.toolParts do
 		local p = entry.part
-		if p:GetAttribute("BaseSize") == nil then
-			p:SetAttribute("BaseSize", p.Size)
+		if entry.base == nil then
+			entry.base = p.Size
+			resize = true
 		end
-		p.Size = (p:GetAttribute("BaseSize") :: Vector3) * scale
+		if resize then
+			p.Size = entry.base * (self.lastScale or scale)
+		end
 		p.CFrame = cf * CFrame.new(entry.offset.Position * scale) * (entry.offset - entry.offset.Position)
 	end
 end

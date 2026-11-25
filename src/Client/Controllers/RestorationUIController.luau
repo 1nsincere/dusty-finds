@@ -24,13 +24,14 @@ local DEBUG = true
 local LOCAL_PLAYER = Players.LocalPlayer
 
 -- Presentation only: the step types themselves come from each item's Config recipe.
+-- The guide: what to DO on each step, in plain words (a bold first line, then how). Shown on the left under the step tracker.
 local STEP_HINTS = {
-	Wipe = "Wipe away the dirt",
-	Scrape = "Scrape off the rust",
-	Reassemble = "Fit the loose parts",
-	Replace = "Fit the matching part",
-	Polish = "Polish until it shines",
-	Test = "Stop in the green",
+	Wipe = "<b>🧽 Wipe it clean</b>\nHold and drag over the dirty spots until they disappear.",
+	Scrape = "<b>🔧 Scrape off the rust</b>\nHold and drag over the rusty patches until they flake away.",
+	Reassemble = "<b>🧩 Put the pieces back</b>\nTap a loose piece marked PICK ME and it jumps to its spot.",
+	Replace = "<b>🔩 Find the right part</b>\nThe missing part is the <b>%PARTS%</b>. Pick it from the tray, then tap the glowing ring.",
+	Polish = "<b>✨ Make it shine</b>\nHold and rub over the dull spots until they sparkle.",
+	Test = "<b>🎯 Does it work?</b>\nTap when the needle is in the GREEN zone.",
 }
 local QUALITY_NAMES = { "FAIR", "GOOD", "MINT" } -- index = stars (docs/01 B8)
 local TICKET_PAPER = Color3.fromHex("F8E9D1")
@@ -45,7 +46,7 @@ local others = nil
 local gui: ScreenGui? = nil
 local finishing = false
 local cardTween: Tween? = nil
-local current: { uid: string, recipe: { any }, stepIndex: number, sessionId: number? }? = nil
+local current: { uid: string, recipe: { any }, stepIndex: number, sessionId: number?, provisional: boolean? }? = nil
 
 local function log(...)
 	if DEBUG then
@@ -76,31 +77,221 @@ end
 
 -- ===== Drawing =====
 
-local function drawChips(screen, recipe, stepIndex, docked)
+-- ===== The restoring HUD (redesigned 2026-11-25, Figma "Restoration HUD — Redesign") =====
+-- One walnut tracker card at the top centre (STEP n OF m, the step name, one pill per step, a gold progress bar), a cream hint chip
+-- under it and an Exit button top-left. The pieces stay DIRECT children of StarterGui.Restoration (Hint, StepChips, Progress,
+-- ExitButton, FinishCard) because TutorialController, TownTalk and RestorationView look them up by name; this code only restyles
+-- and places them, scaled for the screen height so phones get the same layout.
+local Skin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
+local HC = Skin.COLORS
+local CARD_W, CARD_H, GUIDE_H = 250, 118, 96 -- the left column: tracker card, then the guide under it
+local CHIP_GAP = 10
+-- Idle nudge: if nothing happens for a few seconds the guide card pulses gold, so a player who is lost looks at it.
+local IDLE_PULSE_AFTER = 7
+local lastActive = os.clock()
+local lastSeenFraction = 0
+local pulsing = false
+
+local function clearGradients(object: Instance)
+	for _, child in object:GetChildren() do
+		if child:IsA("UIGradient") then
+			child:Destroy()
+		end
+	end
+end
+
+local function ensure(parent: Instance, className: string, name: string): Instance
+	local found = parent:FindFirstChild(name)
+	if found and found.ClassName == className then
+		return found
+	end
+	local made = Instance.new(className)
+	made.Name = name
+	made.Parent = parent
+	return made
+end
+
+local function styleBox(box: GuiObject, fill: Color3, radius: number, strokeThickness: number?)
+	clearGradients(box)
+	box.BackgroundColor3 = fill
+	box.BackgroundTransparency = 0
+	local corner = box:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius)
+	corner.Parent = box
+	if strokeThickness then
+		local stroke = box:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+		stroke.Color = HC.ink
+		stroke.Thickness = strokeThickness
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		stroke.Transparency = 0
+		stroke.Parent = box
+	end
+end
+
+local function hudScale(screen: ScreenGui): number
+	return math.clamp(screen.AbsoluteSize.Y / 720, 0.62, 1.1)
+end
+
+-- Creates the card and its two labels once, and restyles the template's controls.
+local function buildHud(screen: ScreenGui)
+	local card = ensure(screen, "Frame", "TrackerCard") :: Frame
+	card.AnchorPoint = Vector2.new(0, 0)
+	card.ZIndex = 1
+	card.BorderSizePixel = 0
+	styleBox(card, HC.walnut, 18, 3)
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(HC.panelTop, HC.panelBottom)
+	gradient.Rotation = 90
+	gradient.Parent = card
+
+	for _, spec in { { "StepLabel", HC.accent }, { "StepName", HC.edge } } do
+		local label = ensure(screen, "TextLabel", spec[1]) :: TextLabel
+		label.BackgroundTransparency = 1
+		label.AnchorPoint = Vector2.new(0, 0)
+		label.TextColor3 = spec[2]
+		label.FontFace = Skin.FONT_TITLE
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextScaled = false
+		label.ZIndex = 3
+	end
+
+	local hint = screen.Hint :: TextLabel
+	styleBox(hint, HC.edge, 16, 2.5) -- the guide card
+	hint.TextColor3 = HC.ink
+	hint.FontFace = Skin.FONT_TITLE
+	hint.TextScaled = false
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+	hint.TextYAlignment = Enum.TextYAlignment.Center
+	hint.TextWrapped = true
+	hint.RichText = true
+	local hintPad = hint:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
+	hintPad.PaddingLeft, hintPad.PaddingRight = UDim.new(0, 12), UDim.new(0, 10)
+	hintPad.Parent = hint
+	hint.ZIndex = 3
+
+	local progress = screen.Progress :: Frame
+	styleBox(progress, Color3.fromRGB(26, 15, 8), 5)
+	progress.ZIndex = 2
+	local fill = progress.Fill :: Frame
+	styleBox(fill, HC.accent, 5)
+	fill.ZIndex = 3
+
+	local chips = screen.StepChips :: Frame
+	chips.ZIndex = 2
+	chips.BackgroundTransparency = 1
+	chips.AnchorPoint = Vector2.new(0, 0)
+	chips.UIListLayout.Padding = UDim.new(0, CHIP_GAP)
+	chips.UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	chips.UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+
+	local exit = screen.ExitButton :: TextButton
+	styleBox(exit, HC.edge, 14, 3)
+	exit.TextColor3 = HC.ink
+	exit.FontFace = Skin.FONT_TITLE
+	exit.TextScaled = false
+	exit.Text = "×  Exit"
+	exit.AnchorPoint = Vector2.new(0, 0)
+	exit.ZIndex = 3
+end
+
+-- Places everything for the current screen size (also runs when the screen resizes or rotates).
+local function layoutHud(screen: ScreenGui)
+	local card = screen:FindFirstChild("TrackerCard") :: Frame?
+	if card == nil then
+		return
+	end
+	-- Everything sits in a column on the LEFT so nothing covers the item in the middle (Ace, 2026-11-25).
+	local s = hudScale(screen)
+	local left = 16 * s
+	local cw = CARD_W * s
+	local top = 66 * s -- under the Exit button
+	card.Position = UDim2.fromOffset(left, top)
+	card.Size = UDim2.fromOffset(cw, CARD_H * s)
+	local pad = left + 18 * s
+	local stepLabel, stepName = screen.StepLabel :: TextLabel, screen.StepName :: TextLabel
+	stepLabel.Position = UDim2.fromOffset(pad, top + 10 * s)
+	stepLabel.Size = UDim2.fromOffset(cw - 36 * s, 14 * s)
+	stepLabel.TextSize = math.max(10, math.floor(11 * s))
+	stepName.Position = UDim2.fromOffset(pad, top + 24 * s)
+	stepName.Size = UDim2.fromOffset(cw - 36 * s, 28 * s)
+	stepName.TextSize = math.max(15, math.floor(22 * s))
+	local chips = screen.StepChips :: Frame
+	chips.AnchorPoint = Vector2.new(0, 0)
+	chips.Position = UDim2.fromOffset(pad, top + 60 * s)
+	chips.Size = UDim2.fromOffset(cw - 36 * s, 22 * s)
+	local progress = screen.Progress :: Frame
+	progress.AnchorPoint = Vector2.new(0, 0)
+	progress.Position = UDim2.fromOffset(pad, top + 94 * s)
+	progress.Size = UDim2.fromOffset(cw - 36 * s, 8 * s)
+	-- the guide: what to do, in plain words, under the tracker
+	local hint = screen.Hint :: TextLabel
+	hint.AnchorPoint = Vector2.new(0, 0)
+	hint.Position = UDim2.fromOffset(left, top + (CARD_H + 10) * s)
+	hint.Size = UDim2.fromOffset(cw, GUIDE_H * s)
+	hint.TextSize = math.max(13, math.floor(17 * s))
+	local exit = screen.ExitButton :: TextButton
+	exit.Position = UDim2.fromOffset(left, 16 * s)
+	exit.Size = UDim2.fromOffset(92 * s, 40 * s)
+	exit.TextSize = math.max(12, math.floor(15 * s))
+end
+
+local function drawChips(screen, recipe, stepIndex)
 	local chips = screen.StepChips
-	local gap = chips.UIListLayout.Padding.Offset
-	local currentWidth = if docked then 104 else 120
-	local otherWidth = if docked then 16 else 22
-	chips.Size = UDim2.new(0, currentWidth + (#recipe - 1) * (otherWidth + gap), chips.Size.Y.Scale, chips.Size.Y.Offset)
+	local count = #recipe
 	for _, child in chips:GetChildren() do
 		if child:IsA("GuiObject") and child.Name ~= "ChipTemplate" then
 			child:Destroy()
 		end
 	end
-	for index, step in recipe do
-		local stepType = type(step) == "table" and step.type or "?"
+	for index in recipe do
 		local chip = chips.ChipTemplate:Clone()
 		chip.Name = "Chip" .. index
 		chip.LayoutOrder = index
 		local done = index < stepIndex
 		local isCurrent = index == stepIndex
-		chip.Text = if isCurrent then `{index}/{#recipe} · {stepType}` elseif done then "✓" else tostring(index)
-		chip.Size = UDim2.new(0, if isCurrent then currentWidth else otherWidth, 1, 0)
-		chip.BackgroundColor3 = if done then UiTheme.Teal elseif isCurrent then UiTheme.Coral else UiTheme.Disabled
-		chip.TextColor3 = if isCurrent then Color3.new(0, 0, 0) else UiTheme.Ink
+		clearGradients(chip)
+		chip.Text = tostring(index) -- done pills are teal (the skin font has no check-mark glyph)
+		chip.FontFace = Skin.FONT_TITLE
+		chip.TextScaled = false
+		chip.TextSize = math.max(10, math.floor(13 * hudScale(screen)))
+		-- equal pills that fill the row, whatever the number of steps
+		chip.Size = UDim2.new(1 / count, -CHIP_GAP * (count - 1) / count, 1, 0)
+		chip.BackgroundColor3 = if done then UiTheme.Teal elseif isCurrent then HC.accent else Color3.fromRGB(90, 70, 58)
+		chip.BackgroundTransparency = 0
+		chip.TextColor3 = if done or isCurrent then HC.ink else HC.edge
+		local corner = chip:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = chip
+		local stroke = chip:FindFirstChildOfClass("UIStroke")
+		if isCurrent then
+			stroke = stroke or Instance.new("UIStroke")
+			stroke.Color = HC.edge
+			stroke.Thickness = 2
+			stroke.Parent = chip
+		elseif stroke then
+			stroke:Destroy()
+		end
 		chip.Visible = true
 		chip.Parent = chips
 	end
+end
+
+function RestorationUIController.DrawStep(screen, recipe, stepIndex)
+	lastActive = os.clock()
+	lastSeenFraction = 0
+	local step = recipe[stepIndex]
+	local stepType = type(step) == "table" and step.type or nil
+	local hintText = STEP_HINTS[stepType] or "Restore the item"
+	if string.find(hintText, "%PARTS%", 1, true) then
+		-- name the missing part(s) so nobody has to guess what to look for
+		local names = if type(step) == "table" and type(step.parts) == "table" then string.upper(table.concat(step.parts, " + ")) else "PART"
+		hintText = string.gsub(hintText, "%%PARTS%%", names)
+	end
+	screen.Hint.Text = hintText
+	screen.StepLabel.Text = `STEP {stepIndex} OF {#recipe}`
+	screen.StepName.Text = string.upper(tostring(stepType or "Restore"))
+	layoutHud(screen)
+	drawChips(screen, recipe, stepIndex)
 end
 
 function RestorationUIController.SetProgress(fraction: number)
@@ -109,9 +300,13 @@ function RestorationUIController.SetProgress(fraction: number)
 		return
 	end
 	screen.Progress.Fill.Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1)
+	if fraction ~= lastSeenFraction then
+		lastSeenFraction = fraction
+		lastActive = os.clock() -- the player is making progress: no nudge
+	end
 	if current and fraction >= 1 then
 		finishing = true
-		screen.Hint.Text = "Finishing this step…"
+		screen.Hint.Text = "<b>✅ Nice!</b>\nGetting the next step ready…"
 	end
 end
 
@@ -130,6 +325,12 @@ local function setPlayingVisible(visible: boolean)
 	screen.StepChips.Visible = visible
 	screen.Progress.Visible = visible
 	screen.ExitButton.Visible = visible
+	for _, name in { "TrackerCard", "StepLabel", "StepName" } do
+		local piece = screen:FindFirstChild(name)
+		if piece and piece:IsA("GuiObject") then
+			piece.Visible = visible
+		end
+	end
 end
 
 function RestorationUIController.IsOpen(): boolean
@@ -153,35 +354,30 @@ function RestorationUIController.Hide()
 	end
 end
 
-function RestorationUIController.DrawStep(screen, recipe, stepIndex)
-	local step = recipe[stepIndex]
-	local stepType = type(step) == "table" and step.type or nil
-	local trayStep = stepType == "Reassemble" or stepType == "Replace"
-	local docked = trayStep or stepType == "Test"
-	-- Replacement trays include decoys. Keep the stack above the loose parts and below the HUD.
-	local stackShift = if stepType == "Replace" then -30 else 0
-	local exitOffset = if stepType == "Replace" then -38 else 4
-	local template = StarterGui.Restoration
-	screen.ExitButton.BackgroundColor3 = UiTheme.Cream
-	screen.ExitButton.TextColor3 = UiTheme.Ink
-	screen.ExitButton.Position = if docked then UDim2.new(1, -12, 0.5, exitOffset) else template.ExitButton.Position
-	for name, offset in { Hint = -74, Progress = -44, StepChips = -36 } do
-		local control = screen[name]
-		if docked then
-			control.AnchorPoint = Vector2.new(1, 0)
-			control.Position = UDim2.new(1, -12, 0.5, offset + stackShift)
-		else
-			control.AnchorPoint = template[name].AnchorPoint
-			control.Position = template[name].Position
-		end
+-- The screen opens the moment Restore is pressed (RestorationController starts before the server answers); the server's RestoreSession
+-- then only confirms it (onSession below). Everything the server decides still wins: see onSession.
+function RestorationUIController.Begin(uid: string, recipe: { any }, stepIndex: number)
+	if gui == nil then
+		return
 	end
-	screen.Hint.Text = STEP_HINTS[stepType] or "Restore the item"
-	drawChips(screen, recipe, stepIndex, docked)
+	stopCardAnimation()
+	finishing = false
+	current = { uid = uid, recipe = recipe, stepIndex = stepIndex, sessionId = nil, provisional = true }
+	closeOtherWindows()
+	gui.FinishCard.Visible = false
+	setPlayingVisible(true)
+	RestorationUIController.SetProgress(0)
+	RestorationUIController.DrawStep(gui, recipe, stepIndex)
 end
 
 -- RestoreSession arrives on start, on resume, and after every rejection (resync): always redraw from it.
 local function onSession(uid: any, recipe: any, stepIndex: any, _seed: any, sessionId: any)
 	if gui == nil or type(uid) ~= "string" or type(recipe) ~= "table" or type(stepIndex) ~= "number" then
+		return
+	end
+	if current and current.provisional and current.uid == uid and current.stepIndex == stepIndex then
+		current.provisional = nil -- the server confirmed what is already on screen: do not redraw or reset the bar
+		current.sessionId = sessionId
 		return
 	end
 	stopCardAnimation()
@@ -198,6 +394,18 @@ end
 
 -- An ACCEPTED step has no message of its own (the server only answers rejections): it saves item.stepIndex, which
 -- reaches us through ClientState. Follow it so the chips move on.
+-- The controller moved on to the next step before the server's answer (RestorationController ADVANCE_DELAY): redraw the screen.
+function RestorationUIController.AdvanceTo(stepIndex: number)
+	local session = current
+	if session == nil or gui == nil or stepIndex < 1 or stepIndex > #session.recipe then
+		return
+	end
+	session.stepIndex = stepIndex
+	finishing = false
+	RestorationUIController.SetProgress(0)
+	RestorationUIController.DrawStep(gui, session.recipe, stepIndex)
+end
+
 local function onInventoryChanged()
 	local session = current
 	if session == nil then
@@ -205,7 +413,7 @@ local function onInventoryChanged()
 	end
 	local item = ClientState.Get("inventory." .. session.uid)
 	local saved = type(item) == "table" and item.stepIndex
-	if type(saved) == "number" and saved ~= session.stepIndex and saved >= 1 and saved <= #session.recipe and item.state == "InProgress" then
+	if type(saved) == "number" and saved > session.stepIndex and saved >= 1 and saved <= #session.recipe and item.state == "InProgress" then
 		session.stepIndex = saved
 		finishing = false
 		RestorationUIController.SetProgress(0)
@@ -317,6 +525,32 @@ function RestorationUIController.Start()
 			warn("[RestorationUIController] PlayerGui.Restoration not found: is StarterGui.Restoration missing?")
 			return
 		end
+		buildHud(gui)
+		-- the idle nudge: pulse the guide card while the player has done nothing for IDLE_PULSE_AFTER seconds
+		task.spawn(function()
+			while true do
+				task.wait(0.7)
+				local screen = gui
+				local hint = screen and screen:FindFirstChild("Hint")
+				if hint and hint:IsA("TextLabel") then
+					local idle = current ~= nil and not finishing and screen.Enabled and os.clock() - lastActive > IDLE_PULSE_AFTER
+						and ClientState.Get("settings.reduceEffects") ~= true
+					if idle then
+						pulsing = true
+						TweenService:Create(hint, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, true), { BackgroundColor3 = HC.accent }):Play()
+					elseif pulsing then
+						pulsing = false
+						hint.BackgroundColor3 = HC.edge
+					end
+				end
+			end
+		end)
+		layoutHud(gui)
+		gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			if gui then
+				layoutHud(gui)
+			end
+		end)
 		RestorationUIController.Hide()
 		gui.ExitButton.Activated:Connect(onExitTapped)
 		gui.FinishCard.DoneButton.Activated:Connect(RestorationUIController.Hide)
