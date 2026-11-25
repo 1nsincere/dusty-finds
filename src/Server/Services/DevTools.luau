@@ -42,6 +42,19 @@ function commands.giveCash(player: Player, amount: any)
 	return S.EconomyService.AddCash(player, amount, "Dev"), nil
 end
 
+-- givePass(player, passId, on): grants (on = true, default) or takes back (false) a Robux pass for testing the perks without paying
+function commands.givePass(player: Player, passId: any, on: any)
+	if type(passId) ~= "string" then
+		return false, "passId must be a string (see Config.Monetization)"
+	end
+	if on == false then
+		local ok = S.DataService.Set(player, "entitlements." .. passId, nil)
+		S.MonetizationService.PublishCosmetics(player)
+		return ok, nil
+	end
+	return S.MonetizationService.Grant(player, passId, true)
+end
+
 -- setLevel(player, level): sets level directly and clears XP (no level-up rewards)
 function commands.setLevel(player: Player, level: any)
 	if not Validate.isInteger(level, 1, Economy.MaxLevel) then

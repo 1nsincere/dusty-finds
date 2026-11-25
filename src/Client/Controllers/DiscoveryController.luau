@@ -93,7 +93,7 @@ local function inventoryRoom(): (number, number)
 			used += 1
 		end
 	end
-	return used, Formulas.inventoryCapacity(ClientState.Get("upgrades.StorageRacks") or 0)
+	return used, Formulas.inventoryCapacity(ClientState.Get("upgrades.StorageRacks") or 0, ClientState.Get("entitlements"))
 end
 
 local function isInventoryFull(): boolean

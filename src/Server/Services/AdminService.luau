@@ -392,6 +392,36 @@ COMMANDS.skin = { usage = "/skin <who> <skin|set|all> [use]  (e.g. /skin me cosm
 	tell(admin, string.format("Gave %s%s to %d player(s)", table.concat(ids, ", "), if use then " (in use)" else "", n))
 end }
 
+-- Dev 1: give / take a Robux pass for free while testing (Config.Monetization ids: ThemeArcade, ThemeCabin, GlowPack, SavedLayouts,
+-- Companion, BigStorage, VIP). Gives what the pass includes (theme items); /unpass only removes the pass flag.
+local function passIdOf(word: string?): string?
+	local Monetization = require(Config:WaitForChild("Monetization"))
+	for _, pass in Monetization.PASSES do
+		if string.lower(pass.id) == string.lower(word or "") then
+			return pass.id
+		end
+	end
+	return nil
+end
+COMMANDS.pass = { usage = "/pass <who> <passId>  (e.g. /pass me vip; ids: ThemeArcade ThemeCabin GlowPack SavedLayouts Companion BigStorage VIP)", run = function(admin, a)
+	local id = passIdOf(a[2])
+	if id == nil then return tell(admin, COMMANDS.pass.usage) end
+	local n = each(admin, a[1], function(p)
+		return (S.MonetizationService.Grant(p, id, false))
+	end)
+	tell(admin, string.format("Gave the %s pass to %d player(s)", id, n))
+end }
+COMMANDS.unpass = { usage = "/unpass <who> <passId>  (takes the pass flag back; theme items stay owned)", run = function(admin, a)
+	local id = passIdOf(a[2])
+	if id == nil then return tell(admin, COMMANDS.unpass.usage) end
+	local n = each(admin, a[1], function(p)
+		local ok = S.DataService.Set(p, "entitlements." .. id, nil)
+		S.MonetizationService.PublishCosmetics(p)
+		return ok
+	end)
+	tell(admin, string.format("Took the %s pass from %d player(s)", id, n))
+end }
+
 COMMANDS.skins = { usage = "/skins  (list skin ids)", run = function(admin)
 	local Skins = require(Config:WaitForChild("Skins"))
 	local byRarity = {}

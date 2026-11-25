@@ -38,7 +38,7 @@ end
 
 function InventoryService.GetCapacity(player: Player): number
 	local upgrades = DataService.GetValue(player, "upgrades") or {}
-	return Formulas.inventoryCapacity(upgrades.StorageRacks or 0)
+	return Formulas.inventoryCapacity(upgrades.StorageRacks or 0, DataService.GetValue(player, "entitlements")) -- + the Big Storage pass
 end
 
 -- Number of items that use up capacity.

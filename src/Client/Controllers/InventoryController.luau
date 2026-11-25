@@ -99,7 +99,7 @@ end
 
 -- Same formula the server uses (Formulas is shared), so the "used/max" number always matches.
 local function capacity(): number
-	return Formulas.inventoryCapacity(ClientState.Get("upgrades.StorageRacks") or 0)
+	return Formulas.inventoryCapacity(ClientState.Get("upgrades.StorageRacks") or 0, ClientState.Get("entitlements"))
 end
 
 local function starsText(stars: number?): string

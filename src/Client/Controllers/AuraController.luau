@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Settings = require(Shared:WaitForChild("Config"):WaitForChild("Collector"))
+local Monetization = require(Shared:WaitForChild("Config"):WaitForChild("Monetization"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local AuraController = {}
@@ -47,18 +48,27 @@ local function applyTier(player: Player)
 		removeAura(part)
 		return
 	end
+	-- VIP aura STYLE (DF_AuraStyle): recolours the sparkles; the tier (earned) still decides how strong the aura is
+	local style = player:GetAttribute("DF_AuraStyle")
+	local color: Color3 = look.color
+	for _, option in Monetization.VIP.AuraStyles do
+		if option.id == style then
+			color = option.color
+		end
+	end
 	local holder = part:FindFirstChild(AURA)
-	if holder == nil or holder:GetAttribute("Tier") ~= tier then
+	if holder == nil or holder:GetAttribute("Tier") ~= tier or holder:GetAttribute("Style") ~= tostring(style) then
 		removeAura(part)
 		holder = Instance.new("Attachment")
 		holder.Name = AURA
 		holder:SetAttribute("Tier", tier)
+		holder:SetAttribute("Style", tostring(style))
 		holder.Position = Vector3.new(0, -0.5, 0)
 		holder.Parent = part
 		local sparkles = Instance.new("ParticleEmitter")
 		sparkles.Name = "Sparkles"
 		sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		sparkles.Color = ColorSequence.new(look.color)
+		sparkles.Color = ColorSequence.new(color)
 		sparkles.LightEmission = 0.8
 		sparkles.Rate = look.rate
 		sparkles.Lifetime = NumberRange.new(1.2, 2)
@@ -73,7 +83,7 @@ local function applyTier(player: Player)
 		if look.light > 0 then
 			local glow = Instance.new("PointLight")
 			glow.Name = "Glow"
-			glow.Color = look.color
+			glow.Color = color
 			glow.Brightness = look.light
 			glow.Range = 9
 			glow.Shadows = false
@@ -103,10 +113,12 @@ local function syncVisibility(player: Player)
 end
 
 local function hook(player: Player)
-	player:GetAttributeChangedSignal("DF_CollectorTier"):Connect(function()
-		applyTier(player)
-		syncVisibility(player)
-	end)
+	for _, name in { "DF_CollectorTier", "DF_AuraStyle" } do
+		player:GetAttributeChangedSignal(name):Connect(function()
+			applyTier(player)
+			syncVisibility(player)
+		end)
+	end
 	player.CharacterAdded:Connect(function()
 		task.wait(0.5) -- let the character finish loading
 		applyTier(player)

@@ -60,6 +60,11 @@ function MonetizationCheck.run()
 	check("config: a theme pass grants only paints and skins that are marked with that pass", grantsOk)
 	check("config: the approved passes exist", Config.BY_PASS.VIP and Config.BY_PASS.Companion and Config.BY_PASS.GlowPack and Config.BY_PASS.SavedLayouts and Config.BY_PASS.BigStorage and Config.BY_PASS.ThemeArcade and Config.BY_PASS.ThemeCabin ~= nil)
 	check("config: Big Storage gives the approved +16 slots", Config.BY_PASS.BigStorage.storageSlots == 16)
+	local Formulas = require(ReplicatedStorage.Shared.Formulas)
+	local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+	check("storage: the Big Storage pass adds 16 slots on top of the racks, nothing else changes it", Formulas.inventoryCapacity(0, { BigStorage = true }) == Economy.StartingInventoryCapacity + 16
+		and Formulas.inventoryCapacity(0) == Economy.StartingInventoryCapacity and Formulas.inventoryCapacity(0, {}) == Economy.StartingInventoryCapacity
+		and Formulas.inventoryCapacity(2, { BigStorage = true }) == Formulas.inventoryCapacity(2) + 16 and Formulas.inventoryCapacity(1, { VIP = true }) == Formulas.inventoryCapacity(1))
 	check("config: VIP choice lists are filled", #Config.VIP.Pets >= 3 and #Config.VIP.AuraStyles >= 3 and #Config.VIP.Titles >= 3 and Config.VIP.TitleMaxLength > 0)
 
 	-- ===== pass-only items stay out of cash shops and stock =====

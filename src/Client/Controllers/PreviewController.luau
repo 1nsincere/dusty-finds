@@ -184,39 +184,54 @@ local function lookAtShop(state: any, plot: Instance)
 	TweenService:Create(camera, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.lookAt(from, target) }):Play()
 end
 
--- kind = "Wall" | "Floor" (id = a paint) or "Shelf" | "Pedestal" (id = a skin). Returns ok, reason.
-function PreviewController.Try(kind: string, id: string): (boolean, string?)
+-- What one thing looks like on the shop: the parts it covers + its colour / material. nil, reason if it can't be previewed.
+local function describe(plot: Instance, kind: string, id: string): (any?, string?)
+	if kind == "Wall" or kind == "Floor" then
+		local paint = Paints.BY_ID[id]
+		if paint == nil or paint.kind ~= kind then
+			return nil, "Unknown paint."
+		end
+		return { label = paint.name, targets = PlotTargets.paint(plot, kind), color = paint.color, material = paint.material }, nil
+	elseif kind == "Shelf" or kind == "Pedestal" then
+		local skin = Skins.BY_ID[id]
+		if skin == nil or skin.kind ~= kind or skin.look == nil then
+			return nil, "Unknown skin."
+		end
+		return { label = skin.name, targets = PlotTargets.pieces(plot, kind), color = skin.look.color, material = skin.look.material }, nil
+	end
+	return nil, "Cashier skins can't be previewed yet."
+end
+
+-- Shows a list of { kind, id } on the shop together (one preview): a single paint or skin, or a whole theme.
+local function start(label: string, items: { { string } }): (boolean, string?)
 	local plot = myPlot()
 	if plot == nil then
 		return false, "You don't have a shop to preview in yet."
 	end
-	local label, targets, color, material
-	if kind == "Wall" or kind == "Floor" then
-		local paint = Paints.BY_ID[id]
-		if paint == nil or paint.kind ~= kind then
-			return false, "Unknown paint."
+	local parts = {}
+	for _, item in items do
+		local what, reason = describe(plot, item[1], item[2])
+		if what == nil then
+			if item[1] ~= "Cashier" then
+				return false, reason
+			end
+		elseif #what.targets > 0 then
+			table.insert(parts, what)
 		end
-		label, targets, color, material = paint.name, PlotTargets.paint(plot, kind), paint.color, paint.material
-	elseif kind == "Shelf" or kind == "Pedestal" then
-		local skin = Skins.BY_ID[id]
-		if skin == nil or skin.kind ~= kind or skin.look == nil then
-			return false, "Unknown skin."
-		end
-		label, targets, color, material = skin.name, PlotTargets.pieces(plot, kind), skin.look.color, skin.look.material
-	else
-		return false, "Cashier skins can't be previewed yet."
 	end
-	if #targets == 0 then
+	if #parts == 0 then
 		return false, "Nothing to preview on your shop."
 	end
 	PreviewController.Stop() -- one preview at a time (puts the last one back first)
 	local state = { saved = {}, hidden = {}, endsAt = os.clock() + PREVIEW_SECONDS, label = label, camera = nil }
 	active = state
-	for _, part in targets do
-		remember(state, part, color)
-		part.Color = color
-		if material then
-			part.Material = material
+	for _, what in parts do
+		for _, part in what.targets do
+			remember(state, part, what.color)
+			part.Color = what.color
+			if what.material then
+				part.Material = what.material
+			end
 		end
 	end
 	lookAtShop(state, plot)
@@ -224,8 +239,33 @@ function PreviewController.Try(kind: string, id: string): (boolean, string?)
 		buildBanner()
 	end
 	(gui :: ScreenGui).Enabled = true
-	log("trying", kind, id)
+	log("trying", label)
 	return true, nil
+end
+
+-- kind = "Wall" | "Floor" (id = a paint) or "Shelf" | "Pedestal" (id = a skin). Returns ok, reason.
+function PreviewController.Try(kind: string, id: string): (boolean, string?)
+	local plot = myPlot()
+	local what = if plot then describe(plot, kind, id) else nil
+	return start(if what then what.label else "it", { { kind, id } })
+end
+
+-- A whole theme (Config.Monetization pass with `grants`): its wall, floor, shelf and pedestal skin together. Returns ok, reason.
+function PreviewController.TryTheme(label: string, paintIds: { string }, skinIds: { string }): (boolean, string?)
+	local items = {}
+	for _, id in paintIds do
+		local paint = Paints.BY_ID[id]
+		if paint then
+			table.insert(items, { paint.kind, id })
+		end
+	end
+	for _, id in skinIds do
+		local skin = Skins.BY_ID[id]
+		if skin and skin.kind ~= "Cashier" then
+			table.insert(items, { skin.kind, id })
+		end
+	end
+	return start(label, items)
 end
 
 function PreviewController.Init(controllers)

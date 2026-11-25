@@ -8,6 +8,7 @@ local Config = script.Parent:WaitForChild("Config")
 local Economy = require(Config:WaitForChild("Economy"))
 local Items = require(Config:WaitForChild("Items"))
 local Upgrades = require(Config:WaitForChild("Upgrades"))
+local Monetization = require(Config:WaitForChild("Monetization"))
 
 local Formulas = {}
 
@@ -113,12 +114,17 @@ function Formulas.ratingStars(points: number): number
 end
 
 -- Inventory slots for a Storage Racks level (0 = not bought). One copy for the server and the UI.
-function Formulas.inventoryCapacity(storageLevel: number): number
+-- `entitlements` (optional, data.entitlements): the Big Storage Room pass (Config.Monetization) adds its slots on top.
+function Formulas.inventoryCapacity(storageLevel: number, entitlements: any?): number
 	local level = math.floor(cleanNumber(storageLevel, 0))
+	local base = Economy.StartingInventoryCapacity
 	if level > 0 then
-		return Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
+		base = Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
 	end
-	return Economy.StartingInventoryCapacity
+	if type(entitlements) == "table" and entitlements.BigStorage == true then
+		base += Monetization.BY_PASS.BigStorage.storageSlots
+	end
+	return base
 end
 
 -- Chance (0-1) that a customer tips: 5% + 5% x rating stars (docs/02 §5), plus the customer type's own bonus.
