@@ -234,6 +234,16 @@ function PaintService.Start()
 			plot:GetAttributeChangedSignal("OwnerUserId"):Connect(function()
 				PaintService.DrawPlot(plot)
 			end)
+			-- a room bought later (Back Room, Showroom) is built after the paint was applied: paint it too once it has its parts
+			plot.ChildAdded:Connect(function(child)
+				if string.sub(child.Name, 1, 10) == "Expansion_" then
+					task.delay(1, function()
+						if plot.Parent then
+							PaintService.DrawPlot(plot)
+						end
+					end)
+				end
+			end)
 			PaintService.DrawPlot(plot)
 		end
 		for _, plot in plots:GetChildren() do

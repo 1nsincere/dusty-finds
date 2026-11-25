@@ -64,7 +64,22 @@ function PlotTargets.restorePart(part: BasePart, original: { color: Color3, mate
 	end
 end
 
--- kind = "Wall" | "Floor"
+-- Parts of a bought expansion room (Plot.Expansion_BackRoom / Expansion_Showroom): the named parts that sit directly in `group`.
+-- The room only exists once it is bought, so a missing model simply adds nothing.
+local function addNamed(list: { BasePart }, plot: Instance, expansion: string, group: string, names: { string })
+	local model = plot:FindFirstChild(expansion)
+	if model == nil then
+		return
+	end
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and d.Parent and d.Parent.Name == group and table.find(names, d.Name) then
+			table.insert(list, d)
+		end
+	end
+end
+
+-- kind = "Wall" | "Floor". Covers the ground-floor shop AND the bought Back Room and Showroom (second floor), so a paint or a
+-- theme matches the whole shop.
 function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 	local list: { BasePart } = {}
 	local facade = plot:FindFirstChild("Facade")
@@ -79,7 +94,13 @@ function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 			end
 		end
 		addAll(list, shell and shell:FindFirstChild("Shop_Walls"))
+		-- the second storey's wall mesh and the Back Room's walls
+		local upper = facade and facade:FindFirstChild("Upper")
+		addAll(list, upper and upper:FindFirstChild("Shop_UpWalls"))
+		addNamed(list, plot, "Expansion_BackRoom", "Shell", { "BackWall", "OuterWall", "OuterWallR" })
 	else
+		addNamed(list, plot, "Expansion_BackRoom", "Shell", { "Floor" })
+		addNamed(list, plot, "Expansion_Showroom", "UpperFloor", { "FloorMain" })
 		addAll(list, shell and shell:FindFirstChild("Shop_Floor"))
 		local base = plot:FindFirstChild("Floor") -- the plank slab under the floor mesh (shows at the edges)
 		if base and base:IsA("BasePart") then

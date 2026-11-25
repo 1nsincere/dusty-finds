@@ -186,7 +186,64 @@ function PaintCheck.run()
 		local wallSA = Instance.new("SurfaceAppearance")
 		wallSA.Color = Color3.fromRGB(236, 246, 238)
 		wallSA.Parent = wallPart
+		-- the second storey's wall mesh, a bought Back Room and a bought Showroom (second floor)
+		local upperFolder = Instance.new("Folder")
+		upperFolder.Name = "Upper"
+		upperFolder.Parent = facade
+		local upWallsModel = Instance.new("Model")
+		upWallsModel.Name = "Shop_UpWalls"
+		upWallsModel.Parent = upperFolder
+		local upWalls = Instance.new("MeshPart")
+		upWalls.Color = Color3.fromRGB(5, 5, 5)
+		upWalls.Parent = upWallsModel
+		local upSA = Instance.new("SurfaceAppearance")
+		upSA.Color = Color3.fromRGB(240, 240, 240)
+		upSA.Parent = upWalls
+		local backRoom = Instance.new("Model")
+		backRoom.Name = "Expansion_BackRoom"
+		backRoom.Parent = plot
+		local backShell = Instance.new("Folder")
+		backShell.Name = "Shell"
+		backShell.Parent = backRoom
+		local function shellPart(name: string, color: Color3, material: Enum.Material): Part
+			local p = Instance.new("Part")
+			p.Name = name
+			p.Color = color
+			p.Material = material
+			p.Parent = backShell
+			return p
+		end
+		local backFloor = shellPart("Floor", Color3.fromRGB(7, 7, 7), Enum.Material.WoodPlanks)
+		local backWall = shellPart("BackWall", Color3.fromRGB(8, 8, 8), Enum.Material.Plaster)
+		local backOuter = shellPart("OuterWall", Color3.fromRGB(9, 9, 9), Enum.Material.Plaster)
+		local backCornice = shellPart("CorniceBack", Color3.fromRGB(11, 11, 11), Enum.Material.WoodPlanks) -- trim: never painted
+		local showroom = Instance.new("Model")
+		showroom.Name = "Expansion_Showroom"
+		showroom.Parent = plot
+		local upperFloorFolder = Instance.new("Folder")
+		upperFloorFolder.Name = "UpperFloor"
+		upperFloorFolder.Parent = showroom
+		local showFloor = Instance.new("Part")
+		showFloor.Name = "FloorMain"
+		showFloor.Color = Color3.fromRGB(12, 12, 12)
+		showFloor.Material = Enum.Material.WoodPlanks
+		showFloor.Parent = upperFloorFolder
+		local showRail = Instance.new("Part")
+		showRail.Name = "RailSide"
+		showRail.Color = Color3.fromRGB(13, 13, 13)
+		showRail.Parent = upperFloorFolder
 		plot.Parent = ServerScriptService
+
+		Paint.DrawKind(plot, "Wall", "WallUbe")
+		check("expansions: a wall paint also covers the second storey's wall mesh and the Back Room walls (not its trim)", upSA.Color == Paints.BY_ID.WallUbe.color and backWall.Color == Paints.BY_ID.WallUbe.color
+			and backOuter.Color == Paints.BY_ID.WallUbe.color and backCornice.Color == Color3.fromRGB(11, 11, 11))
+		Paint.DrawKind(plot, "Floor", "FloorNarra")
+		check("expansions: a floor paint also covers the Back Room floor and the Showroom's second floor (not its rails)", backFloor.Color == Paints.BY_ID.FloorNarra.color and showFloor.Color == Paints.BY_ID.FloorNarra.color
+			and showFloor.Material == Paints.BY_ID.FloorNarra.material and showRail.Color == Color3.fromRGB(13, 13, 13))
+		Paint.DrawKind(plot, "Wall", "")
+		Paint.DrawKind(plot, "Floor", "")
+		check("expansions: the original look comes back in the extra rooms too", upSA.Color == Color3.fromRGB(240, 240, 240) and backWall.Color == Color3.fromRGB(8, 8, 8)
+			and backFloor.Color == Color3.fromRGB(7, 7, 7) and showFloor.Color == Color3.fromRGB(12, 12, 12) and showFloor.Material == Enum.Material.WoodPlanks)
 
 		Paint.DrawKind(plot, "Wall", "WallUbe")
 		check("draw: a wall paint colours the walls (the material stays); a textured wall is tinted, its own Color untouched", back.Color == Paints.BY_ID.WallUbe.color and wallSA.Color == Paints.BY_ID.WallUbe.color and wallPart.Color == Color3.fromRGB(1, 2, 3) and back.Material == Enum.Material.Plaster)
