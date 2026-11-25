@@ -15,6 +15,7 @@ local Validate = require(script.Parent.Parent.Lib.Validate)
 local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Paints = require(ReplicatedStorage.Shared.Config.Paints)
+local PlotTargets = require(ReplicatedStorage.Shared.PlotTargets)
 
 local PaintService = {}
 local DEBUG = true
@@ -44,35 +45,7 @@ end
 
 -- The parts a kind of paint covers in one plot.
 local function targetsOf(plot: Instance, kind: string): { BasePart }
-	local list: { BasePart } = {}
-	local function addAll(container: Instance?)
-		if container == nil then
-			return
-		end
-		for _, d in container:GetDescendants() do
-			if d:IsA("BasePart") then
-				table.insert(list, d)
-			end
-		end
-		if container:IsA("BasePart") then
-			table.insert(list, container)
-		end
-	end
-	local shell = plot:FindFirstChild("Facade") and plot.Facade:FindFirstChild("Shell")
-	if kind == "Wall" then
-		local walls = plot:FindFirstChild("Walls")
-		if walls then
-			for _, part in walls:GetChildren() do
-				if part:IsA("BasePart") then
-					table.insert(list, part)
-				end
-			end
-		end
-		addAll(shell and shell:FindFirstChild("Shop_Walls"))
-	else
-		addAll(shell and shell:FindFirstChild("Shop_Floor"))
-	end
-	return list
+	return PlotTargets.paint(plot, kind) -- shared with the client's 60-second Preview
 end
 
 local function paintFor(plot: Instance, kind: string): any

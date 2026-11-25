@@ -152,7 +152,19 @@ local function card(paint: any, kind: string, order: number)
 			text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
 		else
 			local cash = ClientState.Get("cash") or 0
-			button(c, "Buy", UiTheme.formatCash(paint.price), UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+			-- "Try" shows it on YOUR shop for 60 s (client only); the window closes so you can see it
+			button(c, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), function()
+				local pv = others.PreviewController
+				if pv then
+					local ok, reason = pv.Try(kind, paint.id)
+					if ok then
+						PaintShopController.Close()
+					else
+						log("preview refused:", reason)
+					end
+				end
+			end)
+			button(c, "Buy", UiTheme.formatCash(paint.price), UDim2.new(0.62, -10, 0, 30), UDim2.new(0.38, 4, 1, -36), function()
 				Remotes.RequestBuyPaint:FireServer(paint.id)
 				log("asked to buy", paint.id)
 			end, if cash >= paint.price then UiSkin.COLORS.money else UiSkin.COLORS.textDim)

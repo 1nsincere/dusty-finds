@@ -42,6 +42,7 @@
 - **Paints:** Paint Bar buy/apply screen (wall and floor colours with the Filipino food names), client-only **Preview** (60 s try-on).
 - **Market stalls:** point the existing `SkinShopController` at the new Skins Booth counter (already moved) and add the Shelves & Pedestals and Paint Bar prompts; restock countdown on a sign; wishlist toast.
 - **Decor rooms (Cozy Living, Kitchen Nook, Gallery & Study):** only after paints work; needs edit-mode placement rules (docs/10 build step 4).
+- **STATUS (2026-11-25):** paints window, Preview (60 s try-on) and the restock sign are DONE; the decor rooms and the centre stall are NOT (they need edit-mode placement rules).
 - **Exit:** a new player can buy a skin or paint with cash, apply it, and see it in their shop and in a visitor's view.
 
 ## Stage 4: Collector score and auras (about 1 week)

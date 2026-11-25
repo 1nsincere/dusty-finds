@@ -175,6 +175,22 @@ local function inUse(kind: string): string
 	return if type(skins) == "table" and type(skins[field]) == "string" then skins[field] else ""
 end
 
+-- "Try" (60 s on your own shop, client only): shelves and pedestals; cashier skins are models and can't be previewed yet
+local function tryable(kind: string): boolean
+	return (kind == "Shelf" or kind == "Pedestal") and others.PreviewController ~= nil
+end
+
+local function tryButton(parent: Instance, skin: any, kind: string)
+	button(parent, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), function()
+		local ok, reason = others.PreviewController.Try(kind, skin.id)
+		if ok then
+			SkinShopController.Close()
+		else
+			log("preview refused:", reason)
+		end
+	end)
+end
+
 local function card(skin: any, kind: string, order: number)
 	local c = panel(list :: ScrollingFrame, "Card_" .. (if skin then skin.id else "Classic" .. kind), UDim2.new(), nil)
 	c.LayoutOrder = order
@@ -187,7 +203,10 @@ local function card(skin: any, kind: string, order: number)
 	if tab == "Wishlist" then
 		-- pin / unpin; the server tells you when a pinned skin is in stock (notify only: never changes the odds)
 		local isPinned = pinned(id)
-		button(c, "Pin", if isPinned then "★ Pinned" else "☆ Pin", UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+		if tryable(kind) then
+			tryButton(c, skin, kind)
+		end
+		button(c, "Pin", if isPinned then "★ Pinned" else "☆ Pin", if tryable(kind) then UDim2.new(0.62, -10, 0, 30) else UDim2.new(1, -16, 0, 30), if tryable(kind) then UDim2.new(0.38, 4, 1, -36) else UDim2.new(0, 8, 1, -36), function()
 			Remotes.RequestSetWishlist:FireServer(skin.id, not isPinned)
 			log("asked to", if isPinned then "unpin" else "pin", skin.id)
 		end, if isPinned then UiSkin.COLORS.accent else nil)
@@ -196,7 +215,10 @@ local function card(skin: any, kind: string, order: number)
 			text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
 		else
 			local cash = ClientState.Get("cash") or 0
-			button(c, "Buy", UiTheme.formatCash(skin.price), UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+			if tryable(kind) then
+				tryButton(c, skin, kind)
+			end
+			button(c, "Buy", UiTheme.formatCash(skin.price), if tryable(kind) then UDim2.new(0.62, -10, 0, 30) else UDim2.new(1, -16, 0, 30), if tryable(kind) then UDim2.new(0.38, 4, 1, -36) else UDim2.new(0, 8, 1, -36), function()
 				Remotes.RequestBuySkin:FireServer(skin.id)
 				log("asked to buy", skin.id)
 			end, if cash >= skin.price then UiSkin.COLORS.money else UiSkin.COLORS.textDim)
@@ -478,6 +500,42 @@ function SkinShopController.Start()
 		log("ready: stall prompt hooked")
 	end)
 	task.spawn(watchSparkles)
+	-- a floating "Fresh stock in m:ss" sign over the stall (so you can see the restock from the market floor without opening the window)
+	task.spawn(function()
+		local stall = workspace:WaitForChild("SkinStall", 60)
+		local counter = stall and stall:WaitForChild("Counter", 10)
+		if not (counter and counter:IsA("BasePart")) then
+			return
+		end
+		local board = Instance.new("BillboardGui")
+		board.Name = "RestockSign"
+		board.Adornee = counter
+		board.Size = UDim2.fromOffset(190, 34)
+		board.StudsOffsetWorldSpace = Vector3.new(0, 8, 0)
+		board.MaxDistance = 70
+		board.AlwaysOnTop = false
+		board.Parent = counter
+		local label = Instance.new("TextLabel")
+		label.Name = "Label"
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundColor3 = Color3.fromRGB(34, 36, 42)
+		label.BackgroundTransparency = 0.2
+		label.TextScaled = true
+		label.FontFace = UiSkin.FONT_TITLE
+		label.TextColor3 = UiSkin.COLORS.accent
+		label.Parent = board
+		Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
+		local acc = 0
+		RunService.Heartbeat:Connect(function(dt)
+			acc += dt
+			if acc < 0.5 then
+				return
+			end
+			acc = 0
+			local left = math.max(0, math.floor(Stock.secondsLeft(now())))
+			label.Text = string.format("Fresh stock in %d:%02d", left // 60, left % 60)
+		end)
+	end)
 	-- live data: re-draw when skins or cash change; timer and restock while open
 	ClientState.OnChanged("skins", function()
 		if SkinShopController.IsOpen() then

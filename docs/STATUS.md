@@ -279,3 +279,9 @@ Changed from the earlier proposal: `Wheels` -> `Wheel`, `Limbs` -> `Leg`, `ArmL`
 - **Saved data v3 (Ace OK):** new fields `paints`, `wishlist`, `entitlements`, `vip` (the last two are empty until Stage 5). Existing saves get them from Reconcile; checked in Play (version 3, all four present).
 - **Remotes added (docs/03 section 6):** `RequestBuyPaint`, `RequestApplyPaint`, `RequestSetWishlist`.
 - **Note:** my Play test left the Studio test profile with +$4,450 and two paints owned.
+
+## 2026-11-25 (Ace + Claude): Stage 3 part 1, Preview + restock sign
+- **Preview ("Try it for 60 seconds"):** new `PreviewController` (client only, nothing saved or sent). A "Try" button on paint cards and on shelf / pedestal skin cards (kind tabs and the Wishlist tab) shows the paint or skin on YOUR shop for 60 s, flies the camera over the shop with the roof and upper floor hidden, shows a "Trying X · 59s [Stop]" banner, then puts everything back (only parts nobody changed meanwhile). Skins preview as colour + material only; cashier skins can't be previewed yet. New shared `Shared/PlotTargets.luau` (which parts a paint / skin covers) used by PaintService and the preview. Play test: paint applied during, restored after, camera Scriptable then Custom, roof hidden then restored. NOT yet looked at by a person or on a phone.
+- **Restock sign:** a floating "Fresh stock in m:ss" over the Skins Booth counter (client, `SkinShopController`).
+- **Skins Booth vs "Shelves & Pedestals" stall:** Sean's skins stall (shelf / pedestal / cashier skins) is the Skins Booth. The centre "Shelves & Pedestals" stall has no function yet; it is meant for decor (Stage 3 part 2, needs edit-mode placement rules, docs/10 step 4).
+- Tests: `testAll` unchanged (the same 2 pre-existing failures).
