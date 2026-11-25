@@ -237,13 +237,15 @@ for z in (-12.0, -3.0, 6.0, 15.0):
     box("Gold", (-17.0, F0 + 9.0, z), (0.2, 0.3, 0.2))
 box("Gold", (-15.9, F0 + 3.9, 1.25), (0.12, 0.12, 35.0))
 # 2. checkout nook (right front): back shelving with jars, a clock, chalkboard frame around the SupplyBoard
-box("Wood", (18.6, F0 + 4.0, -7.5), (1.6, 8.0, 10.0))
+# The jar shelf and clock are their own Nook* groups (Sean, 2026-11-24): the Showroom stairs run along this wall, so
+# PlotService hides Shop_Nook* / Shop_Jars in shops that own the Showroom. Kept out of Shop_Wood / Shop_Trim / Shop_Gold.
+box("NookWood", (18.6, F0 + 4.0, -7.5), (1.6, 8.0, 10.0))
 for k, hgt in enumerate((2.2, 4.4, 6.6)):
-    box("Trim", (17.7, F0 + hgt, -7.5), (0.5, 0.15, 9.6))
+    box("NookTrim", (17.7, F0 + hgt, -7.5), (0.5, 0.15, 9.6))
     for j in range(7):
         add("Jars", cyl("jar", 0.32, 0.8 + 0.15 * (j % 3), B(17.6, F0 + hgt + 0.5, -11.5 + j * 1.3), 10))
-add("Gold", cyl("clock", 0.9, 0.15, B(17.8, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
-add("Trim", cyl("clockface", 0.75, 0.17, B(17.75, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
+add("NookGold", cyl("clock", 0.9, 0.15, B(17.8, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
+add("NookTrim", cyl("clockface", 0.75, 0.17, B(17.75, F0 + 9.6, -7.5), 20, (0, math.pi / 2, 0)))
 box("Wood", (14.0, F0 + 5.0, -18.7), (5.4, 4.4, 0.25))     # frame behind the SupplyBoard (plot (14, 5.5, -18.8))
 box("Gold", (14.0, F0 + 7.5, -18.7), (5.6, 0.25, 0.3))
 # 3. restoration workshop (right back): raised platform, glass half wall, tool pegboard, work lamp
@@ -253,22 +255,33 @@ add("Glass", c.box("g", (0.1, 10.0, 2.6), B(7.6, F0 + 3.6, 14.2)))
 box("Wood", (7.6, F0 + 4.95, 14.2), (0.35, 0.25, 10.2))
 for z in (9.3, 14.2, 19.0):
     box("Wood", (7.6, F0 + 2.5, z), (0.3, 5.0, 0.3))
-box("Wood", (18.9, F0 + 6.5, 14.0), (0.25, 5.0, 8.0))
-for i in range(6):   # tool silhouettes on the pegboard
-    box("Iron", (18.65, F0 + 5.0 + (i % 2) * 2.2, 10.8 + i * 1.3), (0.15, 1.6, 0.25))
-    box("Iron", (18.65, F0 + 5.8 + (i % 2) * 2.2, 10.8 + i * 1.3), (0.15, 0.3, 0.7))
-add("Iron", c.tube("lamparm", [B(17.5, F0 + 4.2, 16.5), B(16.5, F0 + 7.5, 16.0), B(14.0, F0 + 7.8, 15.0)], [1, 1, 1], bevel=0.1))
-add("Lamp", c.sphere("worklamp", 0.45, B(13.8, F0 + 7.4, 14.9), segments=10, rings=6))
+# The tool board, its tool silhouettes and the work lamp are their own Work* groups (Sean, Ace OK 2026-11-24): the
+# storage room now fills this corner, so they hang on the storage room's back wall (StorageRoom.WallBack, room face at
+# plot z 18.57 = 26.0 studs in a 1.4x shop) behind the workbench (Bench1 at plot x 12.0). Kept out of Wood/Iron/Lamp.
+WB_X, WB_Z, WB_Y = 12.0, 18.57 - 0.14, F0 + 6.1   # board centre: just off the wall, bottom over the bench's pegboard
+box("WorkWood", (WB_X, WB_Y, WB_Z), (7.0, 4.0, 0.25))
+box("WorkWood", (WB_X, WB_Y + 2.1, WB_Z - 0.06), (7.3, 0.22, 0.3))   # top rail
+box("WorkWood", (WB_X, WB_Y - 2.1, WB_Z - 0.06), (7.3, 0.22, 0.3))   # bottom rail
+for i in range(6):   # tool silhouettes on the board
+    tx_ = WB_X - 3.0 + i * 1.2
+    ty_ = WB_Y - 1.3 + (i % 2) * 0.5
+    box("WorkIron", (tx_, ty_ + 0.8, WB_Z - 0.2), (0.25, 1.6, 0.15))   # handle
+    box("WorkIron", (tx_, ty_ + 1.6, WB_Z - 0.2), (0.7, 0.3, 0.15))    # head
+add("WorkIron", c.tube("lamparm", [B(WB_X + 3.0, WB_Y + 2.3, WB_Z - 0.1), B(WB_X + 2.6, WB_Y + 3.0, WB_Z - 0.9),
+                                   B(WB_X + 2.0, WB_Y + 2.7, WB_Z - 1.6)], [1, 1, 1], bevel=0.1))
+add("WorkLamp", c.sphere("worklamp", 0.45, B(WB_X + 1.9, WB_Y + 2.3, WB_Z - 1.7), segments=10, rings=6))
 # 4. collector's vault (back): free-standing arches over the exhibit row, gold rope posts with velvet rope, plaques
+# The vault is its own Vault* groups (+ the existing Velvet) (Sean, 2026-11-24): the Showroom moves every exhibit
+# pedestal upstairs, so PlotService hides Shop_Vault* / Shop_Velvet in shops that own the Showroom.
 for x in (-12.5, -7.5, -2.5, 2.5, 7.0):
-    box("Trim", (x, F0 + 3.5, 17.6), (0.8, 7.0, 0.8))
+    box("VaultTrim", (x, F0 + 3.5, 17.6), (0.8, 7.0, 0.8))
 for x in (-10.0, -5.0, 0.0, 5.0):
-    add("Trim", front(x, F0 + 6.0, [(u * 5.0 / 4.2, v) for (u, v) in arch(4.2, 2.6)], 17.3, 17.9))
-    add("Lamp", cyl("vspot", 0.25, 0.3, B(x, F0 + 7.6, 16.2), 10))
-    box("Gold", (x, F0 + 0.9, 14.4), (0.9, 0.5, 0.12))
+    add("VaultTrim", front(x, F0 + 6.0, [(u * 5.0 / 4.2, v) for (u, v) in arch(4.2, 2.6)], 17.3, 17.9))
+    add("VaultLamp", cyl("vspot", 0.25, 0.3, B(x, F0 + 7.6, 16.2), 10))
+    box("VaultGold", (x, F0 + 0.9, 14.4), (0.9, 0.5, 0.12))
 for x in (-12.5, -6.5, -0.5, 5.5):
-    add("Gold", c.lathe("post", [(0.01, 0), (0.45, 0), (0.12, 0.2), (0.1, 2.4), (0.25, 2.6), (0.01, 2.8)], 10))
-    G["Gold"][-1].location = B(x, F0, 12.8)
+    add("VaultGold", c.lathe("post", [(0.01, 0), (0.45, 0), (0.12, 0.2), (0.1, 2.4), (0.25, 2.6), (0.01, 2.8)], 10))
+    G["VaultGold"][-1].location = B(x, F0, 12.8)
 for x0, x1 in ((-12.5, -6.5), (-6.5, -0.5), (-0.5, 5.5)):
     add("Velvet", c.tube("rope", [B(x0, F0 + 2.4, 12.8), B((x0 + x1) / 2, F0 + 1.7, 12.8), B(x1, F0 + 2.4, 12.8)], [1, 1, 1], bevel=0.11))
 # window display plinths behind the front windows
@@ -415,10 +428,13 @@ else:
 SPEC = {"Walls": "sand", "Stone": "stone", "Trim": "white", "Gold": "gold", "Glass": "glass", "Wood": "wood", "Leaves": "leaf", "Flowers": "pink",
         "Accent": "accent", "Stripe": "stripe", "Iron": "black", "Lamp": "warm", "Floor": "wood", "Jars": "jar", "Velvet": "velvet",
         "UpWalls": "sand", "UpTrim": "white", "UpGlass": "glass", "UpAccent": "accent", "UpIron": "black", "UpWood": "wood", "UpLeaves": "leaf",
-        "UpFlowers": "pink", "UpGold": "gold", "UpStone": "stone", "Roof": "terracotta"}
+        "UpFlowers": "pink", "UpGold": "gold", "UpStone": "stone", "Roof": "terracotta",
+        "NookWood": "wood", "NookTrim": "white", "NookGold": "gold", "VaultTrim": "white", "VaultLamp": "warm", "VaultGold": "gold",
+        "WorkWood": "wood", "WorkIron": "black", "WorkLamp": "warm"}
 TEX = {"Walls": "plaster", "UpWalls": "plaster", "Stone": "stone", "UpStone": "stone", "Trim": "limestone", "UpTrim": "limestone",
-       "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay"}
-SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars"}
+       "Wood": "wood", "UpWood": "wood", "Floor": "wood", "Roof": "clay", "NookWood": "wood", "NookTrim": "limestone",
+       "VaultTrim": "limestone", "WorkWood": "wood"}
+SMOOTH = {"Leaves", "Flowers", "UpLeaves", "UpFlowers", "Gold", "UpGold", "Lamp", "Velvet", "Jars", "NookGold", "VaultLamp", "VaultGold", "WorkLamp"}
 if STYLE == "B":
     SPEC.update({"Walls": "stone", "UpWalls": "wood"})
     TEX.update({"Walls": "stone", "UpWalls": "wood"})
@@ -438,6 +454,9 @@ os.makedirs(c.OUT_MODELS, exist_ok=True)
 os.makedirs(c.OUT_PREVIEWS, exist_ok=True)
 print("SHOP triangles", c.triangle_count(final), [(o.name, c.triangle_count([o])) for o in final])
 c.export_glb(os.path.join(c.OUT_MODELS, "Shop" + SUFFIX + ".glb"), final)
+if os.environ.get("DF_SKIP_RENDER"):  # export only (no Cycles previews): DF_SKIP_RENDER=1
+    print("done (no renders)")
+    raise SystemExit
 
 
 def render(path, cam_loc, target, lens=35, samples=40, hide_upper=False, res=(1200, 860)):

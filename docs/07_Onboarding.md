@@ -12,11 +12,12 @@ Dusty Finds: Restore & Sell. Team: Ace (Dev 1), Dwayne (Dev 2), Sean (Dev 3). Se
    ```
 4. In Studio: **File → Beta Features**, tick **Script Sync**, restart Studio.
 
-## Part 2: Link Script Sync (3 folders)
+## Part 2: Link Script Sync (4 folders)
 For each folder: right-click it in the Explorer → **Script Sync → Sync with Directory** → pick the **parent `src` folder** of your clone (for example `C:\...\dusty-finds\src`).
 - `ServerScriptService → Server`
 - `ReplicatedStorage → Shared`
 - `StarterPlayer → StarterPlayerScripts → Client`
+- `ReplicatedFirst → Loading` (the loading screen; added 2026-11-25)
 
 Rules:
 - Always pick `src`, never `src\Server`. Picking the inner folder creates a nested `Server\Server`.

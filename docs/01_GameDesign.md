@@ -193,7 +193,7 @@ stateDiagram-v2
 ### B10. Selling system [Dev 1 server · Dev 3 UI]
 Two ways to sell, both server-calculated:
 1. **Customers (main way):** price = `baseValue × qualityMult × variantMult × (1.25 if wish match) + tip`. Tip chance rises with rating.
-2. **Quick Sell (at the counter):** instant, 70% of the base price, no wish bonus. For full inventory or players who just want to keep restoring.
+2. **Quick Sell:** switched off (Sean + Ace, 2026-11-25). Restored items sell **only on a display shelf**; the Inventory shows "⚠ Sell on a shelf" instead. For a full inventory, players sell **unrestored** items ("Sell unrestored…", ~40%) or switch on **Auto sell** for low rarities in Settings.
 
 Selling grants money (and XP is earned on restoration, not on sale, so keeping items isn't punished).
 
@@ -210,7 +210,7 @@ Selling grants money (and XP is earned on restoration, not on sale, so keeping i
 
 ### B13. Shop expansion [Dev 3 models · Dev 1 logic]
 - Each plot is built in Studio at its **largest** size; expansion rooms are stored hidden in `ServerStorage` and cloned into the plot when bought (classic tycoon technique).
-- **MVP expansions:** **Back Room** (2nd workbench, more storage), **Showroom** (premium display slots, 3 exhibit pedestals, customer cap +2).
+- **MVP expansions:** **Showroom** first (the shop's **second floor**, Lv 4: stairs along the right wall up to a gallery inside the building; the 4 downstairs exhibit pedestals move up there and 6 more are added, plus the Fountain slot; customer cap +2), then the **Back Room** (Lv 10: a full-width room behind the shop with the Fish Tank slot; its 2nd workbench was removed 2026-11-24). The second floor moved from Update 2 into the MVP on 2026-11-24 (Sean, with Ace's OK).
 - Walls between rooms are "Coming soon" boards until bought.
 
 ### B14. Collectibles and display system [Dev 3 · Dev 1]

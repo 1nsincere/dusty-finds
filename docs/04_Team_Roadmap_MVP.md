@@ -196,7 +196,7 @@ gantt
 | Haggling with customers | Update 1 |
 | Daily free mystery crate / login streak | Update 1 |
 | Rotate-item button / more Test styles | Update 1 |
-| Estate Sale tier, second floor expansion | Update 2 |
+| Estate Sale tier | Update 2 |
 | More variants (color, signed, prototype) | Update 2 |
 | Seasonal events & themed item sets | Update 2+ |
 | Free-placement build mode | Update 3 (big feature) |

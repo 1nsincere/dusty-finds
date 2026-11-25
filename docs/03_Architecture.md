@@ -59,12 +59,14 @@ Workspace
 │       │                        -- PottedPlant1, PottedPlant2, Rug, WallPosters, PendantLamps, NeonSign
 │       ├── DeliveryPoint (Part)  -- where boxes appear
 │       ├── SupplyBoard (Part) → Prompt
-│       └── CustomerPath/ (Door, Browse1..3, CounterSpot, Exit: invisible marker Parts)
+│       ├── StorageRoom (Model: walls with a doorway, STORAGE sign, 2 shelf units, MoreSign with SurfaceGui label More; Dev 3, built in the back corner around Benches/Bench1)
+│       ├── StorageShelves/ (Slot1..16: invisible Parts, attribute SlotIndex; StorageShelfService sets ItemId + Golden, the folder gets More = items that did not fit)
+│       └── CustomerPath/ (StreetEntry, Approach, Door, Browse1..3, CounterSpot, Exit: invisible marker Parts; customers fade in at StreetEntry and walk Approach -> Door, and leave the same way)
 ├── Street (Part)                -- in front of the plots; default SpawnLocation sits on it
 └── scenery…
 
 ServerStorage
-├── Expansions/BackRoom, Showroom      -- cloned into a plot when bought. Authored in PLOT-LOCAL coordinates (plot Floor centre = origin, WorldPivot (0,0.5,0)); children Benches/<Bench2> and DecorSlots/<model> are moved into the plot's own folders; everything carries attribute ExpansionOf. PlotService opens the BackWall (restyle only) while a room exists
+├── Expansions/BackRoom, Showroom      -- cloned into a plot when bought. Authored in PLOT-LOCAL coordinates (plot Floor centre = origin, WorldPivot (0,0.5,0)); children Benches/<Bench2> and DecorSlots/<model> are moved into the plot's own folders; everything carries attribute ExpansionOf. PlotService opens the BackWall (restyle only) while a room whose template has attribute OpensBackWall = true exists (only the Back Room, full width since 2026-11-24). The Showroom is the second floor inside the building (Shell.Stairs along plot-local x 20..26.6, Shell.UpperFloor with its top at local y 18.5, invisible walls, lamps, Shell.Gallery with arches, velvet ropes and a jar cabinet). Art that must make room for a room carries the attribute HideWithExpansion = <expansion name> and PlotService hides it (Transparency only, original in ShownTransparency) while that room is owned: Facade.Shell.Shop_Jars / Shop_NookWood / Shop_NookTrim / Shop_NookGold, the jar shelf and clock on the right wall, split out of Ace's Shop_Wood / Trim / Gold meshes in tools/blender/shop.py (uploaded as asset 109093635333336; the old meshes are in ServerStorage.ExpansionsOld.FacadeMeshBackup) and does not open the wall. ExhibitSlots with attribute HideWhenLocked are invisible and not solid while locked (Exhibit2..10 stand upstairs). A part with MoveWithExpansion = <room> stands at its plot-local HomeCFrame, or at ExpansionCFrame while that room is owned (Exhibit1 goes upstairs with the Showroom). The downstairs collector's vault (Shop_Vault* + Shop_Velvet) is also HideWithExpansion = "Showroom" (asset 95777163380035). Ace's old templates are kept in ServerStorage.ExpansionsOld (unused)
 └── NPCs/Kid, Grandpa, Collector, Teen   -- built (greybox R15 rigs, PrimaryPart = HumanoidRootPart, unanchored,
                                           --   name hidden, attribute CustomerType, "Hat" part welded to Head);
                                           --   names = Config/Customers `model`; code sets WalkSpeed from Config
@@ -128,6 +130,8 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── UpgradeService.luau      [Dev 1] purchase validation, apply effects, expansions & decor
 │   ├── CollectionBookService.luau [Dev 1] found/stars/golden tracking, page rewards
 │   ├── TutorialService.luau     [Dev 3] RequestTutorialStep: saves tutorial.step / tutorial.done after checking the step against saved data (Shared.Tutorial)
+│   ├── StorageShelfService.luau [Dev 3] storage room shelves: each owner's Dirty / InProgress items, rarest first, as StorageShelves slot attributes (read-only on data, no remotes; the item on the bench is skipped)
+│   ├── SkinService.luau [Dev 3] shelf / pedestal / cashier skins: buy at Workspace.SkinStall (RequestBuySkin, stock from Shared.Stock), use an owned skin (RequestApplySkin), draws every shop's Shelves / ExhibitSlots (colour, material, SkinTrims rims with attribute Piece, SkinLight, SkinSparkle); data field `skins` (owned, shelf, pedestal, cashier); kinds Shelf / Pedestal / Cashier (cashier skins drawn over ShopProps.CashCounter, first design pending); announces Legendary+ restocks
 │   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
@@ -146,15 +150,24 @@ src/Client/                                  (StarterPlayerScripts.Client)
 │   ├── ShopController.luau         [Dev 3] upgrades + supply board UI
 │   ├── CollectionController.luau   [Dev 3]
 │   ├── CustomerUIController.luau   [Dev 3] wish bubbles over customers (BillboardGui "WishBubble" in PlayerGui: wish, then chosen item), hides Checkout prompt from visitors
+│   ├── StorageShelfController.luau [Dev 3] draws the unrestored items on every shop's storage shelves (still dirty) + the "+N more" sign; owners and visitors
+│   ├── TownsfolkController.luau    [Dev 3] ambient townspeople (client-only decoration, shared clock: same people in the same place for every player); routes in Config/Townsfolk, looks in ReplicatedStorage.Assets.Townsfolk
 │   ├── SettingsController.luau     [Dev 3]
 │   ├── VisitController.luau        [Dev 3] 👥 Visit window: players on this server, Visit / Go home (RequestVisit) + hides Counter.LikePrompt where a like cannot work
-│   └── TutorialController.luau     [Dev 3] tutorial hint + ▼ arrow from Shared.Tutorial; Skip; finish glow on HUD Upgrades
+│   ├── TutorialController.luau     [Dev 3] tutorial hint + ▼ arrow from Shared.Tutorial; Skip; finish glow on HUD Upgrades
+│   └── MainMenuController.luau     [Dev 3] title menu after the loading screen (PLAY / Settings / Updates / Credits, Config/MainMenu); last in ORDER: hides every other ScreenGui + controls until PLAY
 └── Minigames/                      [Dev 2]
     ├── PointerInput.luau   -- unified mouse/touch → raycast hits
     ├── SpotClear.luau      -- Wipe + Scrape
     ├── Socket.luau         -- Reassemble + Replace
     ├── Rub.luau            -- Polish
     └── Timing.luau         -- Test
+
+src/Loading/                                 (ReplicatedFirst.Loading)
+└── LoadingScreen.local.luau  [Dev 3] join screen: box opens, dusty find wiped clean, real progress bar
+                              (game loaded -> DF_SaveLoaded -> ground under you -> DF_ClientReady -> art preloaded, local Player
+                              attributes set by Client/Main.local.luau), tips, Skip after 16 s, at least 15 s shown, closes by itself at 40 s;
+                              soft SFX (game sound ids) that follow the Settings switch (DF_SfxOn) once the save loads
 ```
 
 `CollectionBookService` and `ShopSocialService` are named that way so they never get confused with Roblox's built-in `CollectionService` and `SocialService`.
@@ -228,16 +241,18 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestPlaceExhibit` | `uid, slotIndex` | Dev 1 (server), Dev 3 (UI) | same, exhibit slot |
 | `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 1 (server), Dev 3 (UI) | slot mine, not reserved by a customer, capacity (kind is "Display" or "Exhibit") |
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
-| `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
+| `RequestQuickSell` | `uid` | Dev 1 | **Switched off for players (Sean + Ace, 2026-11-25):** restored items sell only on display shelves; a request is refused with an Info toast. `InventoryService.QuickSell` stays for tests / DevTools |
 | `RequestDisposeItems` | `{ uid, ... }` (max `Economy.DisposeMaxPerRequest`) | Dev 1 | each item mine & `Dirty` (never InProgress/Restored); pays `Formulas.disposePrice` = `Economy.DisposeFraction` (40%) of est. value at 2★, min $1; rate-limited; bad uids skipped; one `Notify "Sale"` toast |
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | **Unused for now (2026-11-16):** likes come from `Counter.LikePrompt` Triggered on the server (Roblox checks the distance). Same rules: not own shop, not liked today |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
-| `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`), booleans only, all-or-nothing, rate limit 2/s |
+| `RequestSaveSettings` | `settings: table` | Dev 1 (server), Dev 3 (screen) | known keys (`music`, `sfx`, `reduceEffects`, `announcements`, and `autoSell<Rarity>` for each rarity in `Economy.AutoSellRarities`: Common, Uncommon, Rare, Epic), booleans only, all-or-nothing, rate limit 2/s |
 | `RequestTutorialStep` | `stepId` | Dev 3 | known id (a `Shared.Tutorial` step id, "done" or "skip"); order = the step must already be true in saved data ("done" = all steps); rate limit 2/s |
-| `RequestGiveChange` | `amount` | Dev 1 | integer 0..Economy.CashierMaxChange; an open till (CashierService) for this player; near own Counter (InteractMaxStuds + 4); rate limit 4/s. Right change (paid - due) completes the sale via CustomerService.Checkout (first try = checkout bonus); wrong = attempts + 1, CashierUpdate "wrong" |
+| `RequestGiveChange` | `amount` | Dev 1 | integer 0..Economy.CashierMaxChange; an open till (CashierService) for this player; near own Counter (InteractMaxStuds + 4); rate limit 4/s. Right change (paid - due) completes the sale via CustomerService.Checkout with `CashierService.Judge`: fast first try +25%, first try +10%, after a mistake 0%; wrong = attempts + 1, CashierUpdate "wrong"; the `CashierMaxMistakes`-th wrong = sale at -10% (angry). Any amount may be sent (Dev 3, 2026-11-23) |
 | `RequestCloseCashier` | — | Dev 1 | closes the player's own till only; rate limit 4/s |
 | `RequestTravel` | `placeId` | Dev 1 | known id in Config.Travel (string ≤ 32); 4 s cooldown; alive, not seated, no restoration session; rate limit 2/s; server picks the landing spot |
+| `RequestBuySkin` | `skinId` | Dev 3 | known id in Config.Skins; data loaded; not owned yet; in stock in the current restock (Shared.Stock, server clock); within Config.Stock.BuyMaxStuds of Workspace.SkinStall.Counter; Spend price (refund if the save fails); rate limit 2/s |
+| `RequestApplySkin` | `kind, skinId` | Dev 3 | kind "Shelf" / "Pedestal"; skinId "" (classic) or a known skin of that kind that the player owns; rate limit 4/s |
 
 ### Server → Client (RemoteEvents)
 | Remote | Payload | Purpose |
@@ -245,12 +260,12 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `StateChanged` | `path: string, value: any` | Update ClientState (e.g. `"cash"`, `"inventory.<uid>"`, `"upgrades.CleaningBrush"`) |
 | `StateChanged("rating", stars)` | `number` 1-5 | Derived, not saved. In the first `GetInitialState` snapshot as `rating`, then pushed when upgrades or exhibits change |
 | `Notify` | `kind, text` | Toasts and banners. Kinds: `LevelUp`, `Upgrade`, `Delivery` ("Crate delivered!", "Free delivery arrived!"), `Info` |
-| `BoxOpened` | `uid, itemId, isGolden, isNew` | Play reveal |
+| `BoxOpened` | `uid, itemId, isGolden, isNew, autoSold` | Play reveal. `autoSold` = cash paid when auto sell sold it on opening (0 = kept; added 2026-11-25) |
 | `RestoreSession` | `uid, recipe, stepIndex, enabledSpotsSeed, sessionId` | Begin/resume bench view |
 | `ItemRestored` | `uid, stars, value` | RESTORED! card |
 | `SaleMade` | `amount, wishMatched, tip` | Coins and `+$` popup |
 | `Announcement` | `text, rarity` | Server-wide rare find (also posted via TextChatService) |
-| `CashierUpdate` | `{state, due, paid, item, attempts, bills}` | The till: state "open" (show bill + payment), "wrong", "done", "closed" |
+| `CashierUpdate` | `{state, due, paid, item, attempts, bills, fastSeconds, fastPercent, maxMistakes, mood?, bonusPercent?}` | The till: state "open" (3D drawer opens), "wrong", "done" (with `mood` Delighted/Happy/Upset/Angry and `bonusPercent`, negative when angry), "closed". Moods also show over the NPC (attributes `CashierPaid`, `Mood` via `CustomerNpcService.SetCashierState`) |
 
 ### RemoteFunction
 | Remote | Returns |
@@ -449,7 +464,8 @@ local TEMPLATE = {
     stats = { restored = 0, sold = 0, earned = 0, playSeconds = 0 },
     timers = { lastFreeDelivery = 0 },
     tutorial = { step = 0, done = false },
-    settings = { music = true, sfx = true, reduceEffects = false, announcements = true },
+    settings = { music = true, sfx = true, reduceEffects = false, announcements = true,
+                 autoSellCommon = false, autoSellUncommon = false, autoSellRare = false, autoSellEpic = false }, -- auto sell: 2026-11-25
 }
 ```
 

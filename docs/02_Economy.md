@@ -26,7 +26,7 @@ MVP gives roughly **4–6 hours** of progression plus Golden-variant hunting. Up
 | Starting cash | **$100** |
 | Starting inventory capacity | 8 |
 | Display slots | 3 |
-| Exhibit pedestals | 1 |
+| Exhibit pedestals | 4 (was 1; since 2026-11-24 all 4 downstairs pedestals are usable) |
 | Workbenches | 1 |
 | Free Delivery | 1 Tier-1 item every **3 minutes** (max 1 waiting) |
 | First box | A guaranteed **Rubber Duck** waits at the door (tutorial) |
@@ -114,8 +114,9 @@ price = baseValue × qualityMult × variantMult × wishMult + tip
 | variantMult | Normal 1 · Golden 3 |
 | wishMult | 1.25 if the item's category matches the customer's wish, else 1 |
 | tip | chance = 5% + 5% × rating stars; amount = 10–25% of price |
-| Checkout bonus | +10% if the owner taps Checkout before the 8 s auto-checkout |
-| **Quick Sell** | 70% of `baseValue × qualityMult × variantMult` (no wish, no tip) |
+| Checkout bonus (the till) | Owner serves at the till and counts out the change (Dev 3, 2026-11-23): right + fast (first try, within `CashierFastSeconds` = 8 s) **+25%**; right first try **+10%**; right after a mistake **+0%** (customer upset); `CashierMaxMistakes` (2) wrong hand-overs = customer angry, pays **-10%** and leaves. Unserved customers auto-pay after `AutoCheckoutSeconds` with no bonus and no tip |
+| **Quick Sell** | **Off for players since 2026-11-25** (restored items sell only on shelves). Formula kept: 70% of `baseValue × qualityMult × variantMult` (no wish, no tip) |
+| **Auto sell** (2026-11-25) | Settings → Auto sell: a new item of a switched-on rarity (`Economy.AutoSellRarities` = Common, Uncommon, Rare, Epic; all OFF by default) is sold the moment its box opens for the **Dispose price** (`Formulas.disposePrice`, ~40% of its 2★ value) and needs no inventory slot. Legendary and up and Golden items are never auto-sold |
 
 Customer spawn interval: **30 s × 0.9^(Shop Sign level)**, then by rating: 1★ ×1.0 · 2★ ×0.9 · 3★ ×0.8 · 4★ ×0.7 · 5★ ×0.6 (minimum 10 s).
 Max simultaneous customers: 3 (Showroom: 5).
@@ -139,6 +140,8 @@ Max simultaneous customers: 3 (Showroom: 5).
 | Shop Sign | $300 (Lv 2) | $2,500 (Lv 6) | $12,000 (Lv 12) | −10% customer interval each |
 
 ### Decor (one-time, fixed slots, rating points)
+> **Switched off 2026-11-24 (Sean + Ace):** decor will be sold in a decor shop once the shop edit mode exists. Until then `Economy.ClosedUpgradeTabs = { Decor = true }`: the Decor tab is hidden, the server refuses decor purchases (reason `"closed"`), and decor models are not shown. Decor already bought stays saved and **keeps its rating points**. The table below is the old price list, kept for the decor shop.
+
 | Decor | Cost | Points |
 |---|---|---|
 | Potted Plants (×2) | $80 each | 1 each |
@@ -152,8 +155,8 @@ Max simultaneous customers: 3 (Showroom: 5).
 ### Expansions
 | Expansion | Cost | Unlock | Adds | Rating pts |
 |---|---|---|---|---|
-| **Back Room** | $2,500 | Lv 4 | 2nd workbench (used for co-op in Update 1; solo players can use either bench), storage decor slot, Fish Tank slot | 3 |
-| **Showroom** | $20,000 | Lv 10 | +6 premium display slots, +3 exhibit pedestals, Fountain slot, customer cap 5 | 8 |
+| **Back Room** (first expansion) | $6,500 | Lv 4 | A big room behind the shop (full width); the 4 downstairs exhibit pedestals move into it (the downstairs arches hide); Fish Tank slot. The 2nd workbench was removed (2026-11-24) | 3 |
+| **Showroom** (second floor) | $20,000 | Lv 10 | Stairs + upstairs gallery with **6 pedestals of its own**, Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
 
 ### Shop rating
 Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 4★ 40 · 5★ 65.**
@@ -172,7 +175,7 @@ Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 
 | 2 | Toolkit, Polisher, Shop Sign |
 | 4 | Back Room |
 | 5 | **Flea Market Crate**, Brush 2, Polisher 2 |
-| 10 | **Showroom**, Brush 3, Polisher 3 |
+| 10 | **Showroom** (second floor), Brush 3, Polisher 3 |
 | 12 | Sign 3 (Antique Dealer crate in Update 1) |
 | 15 | Cap: "Master Restorer" title |
 
