@@ -62,11 +62,13 @@ local function drawPart(part: BasePart, paint: any)
 		local original = PlotTargets.snapshot(part) -- a textured part keeps its tint here (SurfaceAppearance.Color), see PlotTargets
 		part:SetAttribute(ORIG_COLOR, original.color)
 		part:SetAttribute(ORIG_MATERIAL, original.material.Name)
+		part:SetAttribute("PaintOrigTransparency", original.transparency) -- the main floor texture is hidden while a floor paint is on
 	end
 	if paint == nil then
 		PlotTargets.restorePart(part, {
 			color = part:GetAttribute(ORIG_COLOR),
 			material = Enum.Material[part:GetAttribute(ORIG_MATERIAL)] or part.Material,
+			transparency = part:GetAttribute("PaintOrigTransparency") or 0,
 		})
 		return
 	end

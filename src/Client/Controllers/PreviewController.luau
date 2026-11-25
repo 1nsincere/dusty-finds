@@ -26,7 +26,7 @@ local PREVIEW_SECONDS = 60
 local player = Players.LocalPlayer
 
 local active: {
-	saved: { [BasePart]: { color: Color3, material: Enum.Material, applied: Color3 } },
+	saved: { [BasePart]: { color: Color3, material: Enum.Material, transparency: number, applied: Color3 } },
 	endsAt: number,
 	label: string,
 	returnTo: CFrame?, -- where you stood before the preview took you into your shop (nil = you were already in it)
@@ -109,7 +109,7 @@ end
 local function remember(state: any, part: BasePart, applied: Color3)
 	if state.saved[part] == nil then
 		local original = PlotTargets.snapshot(part)
-		state.saved[part] = { color = original.color, material = original.material, applied = applied }
+		state.saved[part] = { color = original.color, material = original.material, transparency = original.transparency, applied = applied }
 	end
 end
 

@@ -232,6 +232,17 @@ function PaintCheck.run()
 		showRail.Name = "RailSide"
 		showRail.Color = Color3.fromRGB(13, 13, 13)
 		showRail.Parent = upperFloorFolder
+		-- the main floor: a textured overlay mesh on top of the plank slab (Plot.Floor)
+		local overlay = Instance.new("MeshPart")
+		overlay.Name = "Overlay"
+		overlay.Parent = floorModel
+		local overlaySA = Instance.new("SurfaceAppearance")
+		overlaySA.Parent = overlay
+		local slab = Instance.new("Part")
+		slab.Name = "Floor"
+		slab.Color = Color3.fromRGB(20, 20, 20)
+		slab.Material = Enum.Material.Wood
+		slab.Parent = plot
 		plot.Parent = ServerScriptService
 
 		Paint.DrawKind(plot, "Wall", "WallUbe")
@@ -240,8 +251,12 @@ function PaintCheck.run()
 		Paint.DrawKind(plot, "Floor", "FloorNarra")
 		check("expansions: a floor paint also covers the Back Room floor and the Showroom's second floor (not its rails)", backFloor.Color == Paints.BY_ID.FloorNarra.color and showFloor.Color == Paints.BY_ID.FloorNarra.color
 			and showFloor.Material == Paints.BY_ID.FloorNarra.material and showRail.Color == Color3.fromRGB(13, 13, 13))
+		check("one floor: the main floor texture is hidden and the slab gets the SAME colour and material as the bought rooms' floors", overlay.Transparency == 1
+			and slab.Color == showFloor.Color and slab.Material == showFloor.Material and slab.Color == backFloor.Color and slab.Material == backFloor.Material)
 		Paint.DrawKind(plot, "Wall", "")
 		Paint.DrawKind(plot, "Floor", "")
+		check("one floor: with no floor paint the main floor texture shows again and the slab is as it was", overlay.Transparency == 0 and overlaySA.Color == Color3.fromRGB(255, 255, 255)
+			and slab.Color == Color3.fromRGB(20, 20, 20) and slab.Material == Enum.Material.Wood)
 		check("expansions: the original look comes back in the extra rooms too", upSA.Color == Color3.fromRGB(240, 240, 240) and backWall.Color == Color3.fromRGB(8, 8, 8)
 			and backFloor.Color == Color3.fromRGB(7, 7, 7) and showFloor.Color == Color3.fromRGB(12, 12, 12) and showFloor.Material == Enum.Material.WoodPlanks)
 
