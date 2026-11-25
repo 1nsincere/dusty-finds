@@ -1,29 +1,62 @@
 -- ShopController.luau
 -- Purpose: Supply Board screen: lists the crates from Config/Crates with price, item count and odds, and
 -- asks the server to buy one (RequestBuyCrate). Opens from my plot's SupplyBoard prompt or the HUD 📦 button.
+-- Look (Sean, 2026-11-25): the Figma "Window · Supply (Warehouse)" (94:7998, 560 x 325): two crate cards a row (scrolls
+-- down for more), each with the crate's real 3D model (ReplicatedStorage.Assets.Boxes.<boxModel>) turning slowly on a
+-- glow, name, item count, level chip, ODDS bars per rarity, the special-find chances, and a chunky Buy button.
 -- The server rolls, charges and refuses (toasts come from HudController); this screen only shows and requests.
 -- Also the Upgrades screen (HUD 🔨): cards per upgrade in Config/Upgrades with level dots, next-level effect,
 -- cost or lock reason, and RequestBuyUpgrade. The server re-checks all 5 rules (UpgradeService).
--- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, Shared.Remotes, Shared.Config (Crates, Rarities,
--- Upgrades, Economy), StarterGui.Supply + StarterGui.Upgrades + HUD.LeftButtons.{Supply,Upgrades}
+-- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, WindowKit, Shared.Remotes, Shared.Config (Crates, Rarities,
+-- Upgrades, Economy, UiSkin), ReplicatedStorage.Assets.Boxes, StarterGui.Supply + StarterGui.Upgrades + HUD.LeftButtons.{Supply,Upgrades}
 -- (UI contract, docs/03 §8), Workspace.Plots (OwnerUserId attribute).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
+local WindowKit = require(script.Parent.Parent:WaitForChild("WindowKit"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Crates = require(Shared:WaitForChild("Config"):WaitForChild("Crates"))
 local Rarities = require(Shared:WaitForChild("Config"):WaitForChild("Rarities"))
 local Upgrades = require(Shared:WaitForChild("Config"):WaitForChild("Upgrades"))
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
+local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
 
 local ShopController = {}
 local DEBUG = true
 
 local BUY_COOLDOWN = 1.5 -- seconds the button shows "Ordering…" (also stops double taps)
+
+-- Supply window, Figma "Window · Supply (Warehouse)": numbers are the 560 x 325 design in px (WindowKit.Fit scales it).
+local SUPPLY_DESIGN = Vector2.new(560, 325)
+local CRATE_CARD = Vector2.new(256, 254) -- + a 3 px ink lip under it
+local INK = Color3.fromRGB(43, 27, 20)
+local WALNUT_LIGHT = Color3.fromRGB(90, 59, 40)
+local CREAM = Color3.fromRGB(255, 241, 214)
+local GOLD = Color3.fromRGB(255, 200, 58)
+local CHIP_OPEN = Color3.fromRGB(70, 101, 122) -- "Unlocked at Lv 5+"
+local CHIP_LOCKED = Color3.fromRGB(150, 64, 48) -- "Locked · Lv 10"
+local GLOW_IMAGE = "rbxassetid://93831669035461" -- the soft glow the Discovery card and Inventory use
+-- glow colour behind each crate, cheapest first (Figma: Starter warm, Flea Market blue)
+local CRATE_GLOWS = {
+	Color3.fromRGB(255, 150, 60), Color3.fromRGB(95, 209, 107), Color3.fromRGB(77, 163, 255),
+	Color3.fromRGB(176, 112, 255), Color3.fromRGB(255, 200, 58),
+}
+-- the design's odds colours (dot + bar)
+local ODDS_COLORS = {
+	Common = Color3.fromRGB(207, 199, 184), Uncommon = Color3.fromRGB(95, 209, 107), Rare = Color3.fromRGB(77, 163, 255),
+	Epic = Color3.fromRGB(176, 112, 255), Legendary = Color3.fromRGB(255, 200, 58),
+}
+-- special finds per item (Economy.<key>[crateId]), shown under the odds so nothing is hidden (docs/01 J3)
+local SPECIALS = { { "RelicChance", "Relic" }, { "MythicChance", "Mythic" }, { "SecretChance", "Secret" }, { "TimeCapsuleChance", "Time Capsule" } }
+local FONT_TITLE = Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
+local FONT_BOLD = Font.new("rbxasset://fonts/families/TitilliumWeb.json", Enum.FontWeight.Bold)
+local FONT_BODY = Font.new("rbxasset://fonts/families/TitilliumWeb.json", Enum.FontWeight.Regular)
 
 -- Upgrades screen
 local UPGRADE_TABS = { "Tools", "Shop", "Decor", "Expansions" } -- = `tab` field in Config/Upgrades
@@ -44,6 +77,8 @@ local others = nil
 local supply: ScreenGui? = nil
 local cards: { [string]: Frame } = {} -- [crateId] = card
 local ordering: { [string]: boolean } = {}
+local crateSpins: { (number) -> () } = {} -- turns each crate model a little every frame while the window is open
+local spinAngle = 0.6
 local upgradesGui: ScreenGui? = nil
 local currentUpgradeTab = "Tools"
 local buyingUpgrade: { [string]: boolean } = {}
@@ -85,17 +120,21 @@ local function refreshButtons()
 	for crateId, card in cards do
 		local crate = Crates[crateId]
 		local button = card.BuyButton :: TextButton
+		local locked = level < crate.requiredLevel
+		local chip = card:FindFirstChild("LevelChip") :: TextLabel?
+		if chip then
+			chip.Text = if locked then `Locked · Lv {crate.requiredLevel}` else `Unlocked at Lv {crate.requiredLevel}+`
+			chip.BackgroundColor3 = if locked then CHIP_LOCKED else CHIP_OPEN
+		end
 		if ordering[crateId] then
 			continue
 		end
-		if level < crate.requiredLevel then
+		if locked then
+			WindowKit.Chunky(button, WindowKit.BUTTON.Disabled, 16, 13)
 			button.Text = `Reach Lv {crate.requiredLevel}`
-			button.BackgroundColor3 = UiTheme.Disabled
-			button.AutoButtonColor = false
 		else
-			button.Text = `${crate.price}`
-			button.BackgroundColor3 = UiTheme.Coral
-			button.AutoButtonColor = true
+			WindowKit.Chunky(button, WindowKit.BUTTON.Primary, 16, 13)
+			button.Text = `Buy  {UiTheme.formatCash(crate.price)}`
 		end
 	end
 end
@@ -118,43 +157,271 @@ local function onBuy(crateId: string)
 	end)
 end
 
+local function new(class: string, props: { [string]: any }, parent: Instance?): any
+	local inst = Instance.new(class)
+	for k, v in props do
+		(inst :: any)[k] = v
+	end
+	inst.Parent = parent
+	return inst
+end
+
+local function round(parent: Instance, radius: number)
+	new("UICorner", { CornerRadius = UDim.new(0, radius) }, parent)
+end
+
+local function outline(parent: Instance, color: Color3, thickness: number)
+	new("UIStroke", { Color = color, Thickness = thickness, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, parent)
+end
+
+local function text(parent: Instance, props: { [string]: any }): TextLabel
+	local label = new("TextLabel", {
+		BackgroundTransparency = 1, TextColor3 = CREAM, FontFace = FONT_BOLD, TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center,
+	}, parent)
+	for k, v in props do
+		(label :: any)[k] = v
+	end
+	return label
+end
+
+-- "0.2%", "1.5%", "0.08%"
+local function percentText(p: number): string
+	return string.format("%g%%", math.round(p * 100) / 100)
+end
+
+-- The crate's real model (ReplicatedStorage.Assets.Boxes.<boxModel>, the one that arrives at the door) in a viewport.
+-- Returns a function(angle) that turns the camera round it, or nil (then the crate glyph is shown).
+local function crateArt(holder: GuiObject, boxModel: string?): ((number) -> ())?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local boxes = assets and assets:FindFirstChild("Boxes")
+	local template = boxes and ((boxModel and boxes:FindFirstChild(boxModel)) or boxes:FindFirstChild("Box"))
+	if template == nil then
+		new("ImageLabel", { BackgroundTransparency = 1, Image = UiSkin.Art("Crate"), ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromScale(1, 1), ZIndex = holder.ZIndex }, holder)
+		return nil
+	end
+	local vp = new("ViewportFrame", {
+		Name = "Model", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = holder.ZIndex,
+		LightColor = Color3.fromRGB(255, 240, 215), Ambient = Color3.fromRGB(150, 130, 118), LightDirection = Vector3.new(-0.6, -1, -0.5),
+	}, holder)
+	local model = template:Clone()
+	if not model:IsA("Model") then
+		local wrap = Instance.new("Model")
+		model.Parent = wrap
+		model = wrap
+	end
+	-- only the look: no prompts or scripts inside the picture
+	for _, d in model:GetDescendants() do
+		if d:IsA("ProximityPrompt") or d:IsA("BaseScript") or d:IsA("Sound") then
+			d:Destroy()
+		end
+	end
+	model.Parent = vp
+	local cf, size = model:GetBoundingBox()
+	local cam = new("Camera", { FieldOfView = 30 }, vp)
+	vp.CurrentCamera = cam
+	local dist = math.max(size.X, size.Y, size.Z) * 2.4
+	return function(angle: number)
+		local eye = cf.Position + Vector3.new(math.sin(angle) * dist, size.Y * 0.55 + dist * 0.25, math.cos(angle) * dist)
+		cam.CFrame = CFrame.lookAt(eye, cf.Position)
+	end
+end
+
+-- One crate card (Figma "Crate card"): positions are px inside the 256 x 254 card.
+local function buildCrateCard(crate, order: number, rarities, parent: Instance): Frame
+	local z = (parent :: any).ZIndex + 1
+	local cell = new("Frame", { Name = crate.id, LayoutOrder = order, BackgroundTransparency = 1, Size = UDim2.fromOffset(CRATE_CARD.X, CRATE_CARD.Y + 3), ZIndex = z }, parent)
+	local lip = new("Frame", { Name = "Lip", BackgroundColor3 = INK, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 3), Size = UDim2.fromOffset(CRATE_CARD.X, CRATE_CARD.Y), ZIndex = z }, cell)
+	round(lip, 16)
+	local card = new("Frame", { Name = "Card", BackgroundColor3 = WALNUT_LIGHT, BorderSizePixel = 0, Size = UDim2.fromOffset(CRATE_CARD.X, CRATE_CARD.Y), ZIndex = z + 1 }, cell)
+	round(card, 16)
+	outline(card, INK, 2.5)
+	card.ClipsDescendants = true -- the big soft glow stays inside the card
+	local cz = z + 2
+
+	-- art: the glow, and the crate's model turning on it
+	new("ImageLabel", {
+		Name = "Glow", BackgroundTransparency = 1, Image = GLOW_IMAGE, ImageColor3 = CRATE_GLOWS[(order - 1) % #CRATE_GLOWS + 1],
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(63, 44), Size = UDim2.fromOffset(150, 150), ZIndex = cz,
+	}, card)
+	-- the glow image alone is too faint on walnut: two soft tinted discs under it make the spotlight (Figma "Crate glow")
+	for i, disc in { { 98, 0.84 }, { 72, 0.76 } } do
+		local spot = new("Frame", {
+			Name = "Spot" .. i, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(63, 44), Size = UDim2.fromOffset(disc[1], disc[1]),
+			BackgroundColor3 = CRATE_GLOWS[(order - 1) % #CRATE_GLOWS + 1], BackgroundTransparency = disc[2], BorderSizePixel = 0, ZIndex = cz,
+		}, card)
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }, spot)
+	end
+	local art = new("Frame", { Name = "Art", BackgroundTransparency = 1, Position = UDim2.fromOffset(24, 2), Size = UDim2.fromOffset(78, 78), ZIndex = cz + 1 }, card)
+	local spin = crateArt(art, crate.boxModel)
+	if spin then
+		local offset = order * 0.9 -- so the crates don't all face the same way
+		table.insert(crateSpins, function(angle)
+			spin(angle + offset)
+		end)
+		spin(spinAngle + offset)
+	end
+
+	text(card, { Name = "CrateName", Text = crate.name, FontFace = FONT_TITLE, TextSize = 19, TextWrapped = true, Position = UDim2.fromOffset(104, 8), Size = UDim2.fromOffset(146, 26), ZIndex = cz, TextScaled = true })
+	local nameLabel = card.CrateName :: TextLabel
+	new("UITextSizeConstraint", { MaxTextSize = 19, MinTextSize = 12 }, nameLabel)
+	text(card, {
+		Name = "Info", Text = `{crate.itemCount} items · Tier {crate.tier} finds`, FontFace = FONT_BODY, TextSize = 11.5, TextTransparency = 0.15,
+		Position = UDim2.fromOffset(104, 34), Size = UDim2.fromOffset(146, 16), ZIndex = cz,
+	})
+	if crate.requiredLevel > 1 then
+		local chip = text(card, {
+			Name = "LevelChip", Text = "", TextSize = 10.5, BackgroundTransparency = 0, BackgroundColor3 = CHIP_OPEN, AutomaticSize = Enum.AutomaticSize.X,
+			TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(104, 52), Size = UDim2.fromOffset(0, 18), ZIndex = cz,
+		})
+		round(chip, 9)
+		outline(chip, INK, 2)
+		new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, chip)
+	end
+
+	-- ODDS: dot, rarity, bar (longest = the crate's most likely rarity, like the design), percent
+	text(card, { Name = "OddsTitle", Text = "ODDS", TextSize = 10.5, TextColor3 = GOLD, Position = UDim2.fromOffset(14, 78), Size = UDim2.fromOffset(60, 14), ZIndex = cz })
+	local rows = {}
+	local most = 0
+	for _, rarity in rarities do
+		local percent = crate.odds[rarity.id] or 0
+		if percent > 0 then
+			table.insert(rows, { id = rarity.id, percent = percent })
+			most = math.max(most, percent)
+		end
+	end
+	for i, row in rows do
+		local y = 96 + (i - 1) * 17
+		local color = ODDS_COLORS[row.id] or UiTheme.rarityColor(row.id)
+		local dot = new("Frame", { Name = "Dot_" .. row.id, BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(14, y), Size = UDim2.fromOffset(9, 9), ZIndex = cz }, card)
+		round(dot, 5)
+		outline(dot, INK, 1.5)
+		text(card, { Name = "Rarity_" .. row.id, Text = row.id, Position = UDim2.fromOffset(28, y - 3), Size = UDim2.fromOffset(70, 15), ZIndex = cz })
+		local track = new("Frame", { Name = "Track_" .. row.id, BackgroundColor3 = INK, BorderSizePixel = 0, Position = UDim2.fromOffset(100, y), Size = UDim2.fromOffset(100, 9), ZIndex = cz }, card)
+		round(track, 5)
+		local fill = new("Frame", {
+			Name = "Fill", BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1),
+			Size = UDim2.fromOffset(math.max(3, math.round(98 * row.percent / most)), 7), ZIndex = cz + 1,
+		}, track)
+		round(fill, 4)
+		text(card, {
+			Name = "Percent_" .. row.id, Text = percentText(row.percent), FontFace = FONT_TITLE, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right,
+			Position = UDim2.fromOffset(206, y - 4), Size = UDim2.fromOffset(36, 16), ZIndex = cz,
+		})
+	end
+
+	-- special finds (per item): Relic / Mythic / Secret / Time Capsule, when this crate has them
+	local specials = {}
+	for _, entry in SPECIALS do
+		local chances = Economy[entry[1]]
+		local chance = type(chances) == "table" and chances[crate.id] or nil
+		if type(chance) == "number" and chance > 0 then
+			table.insert(specials, `{entry[2]} {percentText(chance * 100)}`)
+		end
+	end
+	if #specials > 0 then
+		local line = text(card, {
+			Name = "Specials", Text = "Per item: " .. table.concat(specials, " · "), FontFace = FONT_BODY, TextColor3 = GOLD, TextScaled = true,
+			Position = UDim2.fromOffset(14, 178), Size = UDim2.fromOffset(228, 13), ZIndex = cz,
+		})
+		new("UITextSizeConstraint", { MaxTextSize = 10.5, MinTextSize = 7 }, line)
+	end
+
+	local buy = new("TextButton", {
+		Name = "BuyButton", Text = "", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 200), Size = UDim2.fromOffset(180, 38),
+		BackgroundColor3 = WindowKit.BUTTON.Primary.face, ZIndex = cz,
+	}, card)
+	WindowKit.Chunky(buy, WindowKit.BUTTON.Primary, 16, 13)
+	buy.Activated:Connect(function()
+		onBuy(crate.id)
+	end)
+	return card
+end
+
+-- The Figma window: shell size, title, cash pill, close button, a 2-column scrolling list of cards.
+local function applyFigmaSupply(window: Frame)
+	window:SetAttribute("DfFigma", true) -- WindowKit: draw only the shell, this controller does the rest
+	window.AnchorPoint = Vector2.new(0.5, 0.5)
+	window.Position = UDim2.fromScale(0.5, 0.5)
+	window.Size = UDim2.fromOffset(SUPPLY_DESIGN.X, SUPPLY_DESIGN.Y)
+	WindowKit.Fit(window, SUPPLY_DESIGN.Y)
+
+	local title = window:FindFirstChild("Title")
+	if title and title:IsA("TextLabel") then
+		title.Text = "WAREHOUSE SUPPLY"
+	end
+	local close = window.CloseButton :: GuiButton
+	close.AnchorPoint = Vector2.new(1, 0)
+	close.Position = UDim2.new(1, -10, 0, 5)
+	close.Size = UDim2.fromOffset(38, 38)
+
+	-- cash pill: dark, coin glyph, gold amount, grows to the left from just beside the close button
+	local cash = window:FindFirstChild("Cash")
+	if cash and cash:IsA("TextLabel") then
+		for _, c in cash:GetChildren() do
+			if c:IsA("UICorner") or c:IsA("UIStroke") or c:IsA("UIPadding") or c:IsA("UITextSizeConstraint") or c:IsA("UIGradient") then
+				c:Destroy()
+			end
+		end
+		cash:SetAttribute("DfCash", true) -- Start's updateCash: plain amount, no 💰 (the glyph is an image)
+		cash.AnchorPoint = Vector2.new(1, 0)
+		cash.Position = UDim2.new(1, -56, 0, 7)
+		cash.Size = UDim2.fromOffset(0, 30)
+		cash.AutomaticSize = Enum.AutomaticSize.X
+		cash.BackgroundTransparency = 0
+		cash.BackgroundColor3 = INK
+		cash.TextScaled = false
+		cash.FontFace = FONT_TITLE
+		cash.TextSize = 18
+		cash.TextColor3 = GOLD
+		round(cash, 16)
+		outline(cash, WALNUT_LIGHT, 2.5)
+		new("UIPadding", { PaddingLeft = UDim.new(0, 36), PaddingRight = UDim.new(0, 14) }, cash)
+		new("ImageLabel", {
+			Name = "Coin", BackgroundTransparency = 1, Image = UiSkin.Art("Cash"), ScaleType = Enum.ScaleType.Fit,
+			Position = UDim2.new(0, -28, 0.5, -12), Size = UDim2.fromOffset(24, 24), ZIndex = cash.ZIndex + 1,
+		}, cash)
+	end
+
+	local list = window.List :: ScrollingFrame
+	list.Position = UDim2.fromOffset(12, 50)
+	list.Size = UDim2.fromOffset(SUPPLY_DESIGN.X - 24, 266)
+	list.BackgroundTransparency = 1
+	list.ScrollingDirection = Enum.ScrollingDirection.Y
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.CanvasSize = UDim2.new()
+	list.ScrollBarThickness = 5
+	list.ScrollBarImageColor3 = GOLD
+	for _, c in list:GetChildren() do
+		if c:IsA("UIListLayout") or c:IsA("UIGridLayout") or c:IsA("UIPadding") then
+			c:Destroy()
+		end
+	end
+	new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(CRATE_CARD.X, CRATE_CARD.Y + 3), CellPadding = UDim2.fromOffset(14, 12),
+		SortOrder = Enum.SortOrder.LayoutOrder, FillDirectionMaxCells = 2,
+	}, list)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 1), PaddingTop = UDim.new(0, 1), PaddingBottom = UDim.new(0, 6) }, list)
+
+	-- turn the crates while the window is open (nothing runs while it's closed)
+	RunService.RenderStepped:Connect(function(dt)
+		if window.Visible and #crateSpins > 0 then
+			spinAngle += dt * 0.6
+			for _, spin in crateSpins do
+				spin(spinAngle)
+			end
+		end
+	end)
+end
+
 local function buildCards()
 	if supply == nil then
 		return
 	end
 	local list = supply.Window.List
-	local template = supply.CrateTemplate
 	local rarities = rarityOrder()
 	for order, crate in buyableCrates() do
-		local card = template:Clone()
-		card.Name = crate.id
-		card.LayoutOrder = order
-		card.Visible = true
-		-- The label is called "Name", which clashes with the built-in Name property, so look it up as a child.
-		(card:FindFirstChild("Name") :: TextLabel).Text = crate.name
-		card.Info.Text = `{crate.itemCount} items · Tier {crate.tier}`
-
-		-- Odds table: always visible before buying (docs/01 J3 "transparent odds").
-		local odds = card.Odds
-		local rowTemplate = odds.RowTemplate
-		for i, rarity in rarities do
-			local percent = crate.odds[rarity.id] or 0
-			if percent > 0 then
-				local row = rowTemplate:Clone()
-				row.Name = rarity.id
-				row.LayoutOrder = i
-				row.Text = `● {rarity.id} {percent}%`
-				row.TextColor3 = UiTheme.rarityColor(rarity.id)
-				row.Visible = true
-				row.Parent = odds
-			end
-		end
-
-		card.BuyButton.Activated:Connect(function()
-			onBuy(crate.id)
-		end)
-		card.Parent = list
-		cards[crate.id] = card
+		cards[crate.id] = buildCrateCard(crate, order, rarities, list)
 	end
 	refreshButtons()
 end
@@ -200,6 +467,9 @@ function ShopController.OpenSupply()
 	end
 	if upgradesGui then
 		upgradesGui.Window.Visible = false
+	end
+	if next(cards) == nil then
+		buildCards()
 	end
 	refreshButtons()
 	supply.Window.Visible = true
@@ -481,7 +751,19 @@ function ShopController.Start()
 			warn("[ShopController] PlayerGui.Supply not found: is StarterGui.Supply missing?")
 			return
 		end
-		buildCards()
+		-- load the crate meshes now, so the 3D crates are ready by the time the player walks to the Warehouse
+		task.spawn(function()
+			local assets = ReplicatedStorage:FindFirstChild("Assets")
+			local boxes = assets and assets:FindFirstChild("Boxes")
+			if boxes then
+				pcall(function()
+					ContentProvider:PreloadAsync({ boxes })
+				end)
+			end
+		end)
+		applyFigmaSupply(supply.Window)
+		-- the cards are built on the first open (OpenSupply): HudSkinController restyles every window once at startup (all
+		-- corners 10 px, plain font), which would undo the Figma cards if they already existed
 		supply.Window.CloseButton.Activated:Connect(ShopController.CloseSupply)
 		ClientState.OnChanged("level", refreshButtons)
 
@@ -514,14 +796,16 @@ function ShopController.Start()
 		for _, screen in { supply, playerGui:FindFirstChild("Upgrades") } do
 			local label = screen and screen:FindFirstChild("Window") and screen.Window:FindFirstChild("Cash")
 			if label and label:IsA("TextLabel") then
-				label.BackgroundColor3 = UiTheme.Teal
+				if not label:GetAttribute("DfCash") then
+					label.BackgroundColor3 = UiTheme.Teal
+				end
 				table.insert(cashLabels, label)
 			end
 		end
 		local function updateCash()
-			local text = "💰 " .. UiTheme.formatCash(ClientState.Get("cash") or 0)
+			local amount = UiTheme.formatCash(ClientState.Get("cash") or 0)
 			for _, label in cashLabels do
-				label.Text = text
+				label.Text = if label:GetAttribute("DfCash") then amount else "💰 " .. amount
 			end
 		end
 		updateCash()

@@ -27,7 +27,8 @@ local Crates = {
 		odds = { Common = 60, Uncommon = 25, Rare = 10, Epic = 4, Legendary = 1, Relic = 0, Mythic = 0, Secret = 0 },
 	},
 	-- Yard Sale (Sean, 2026-11-25): between Starter and Flea Market. Same tier 1 items as Starter, fewer Commons, so each
-	-- inventory slot is worth more. Expected value ~$260 at 2 stars (~2.9x the price).
+	-- inventory slot is worth more. Odds ladder (Sean, 2026-11-25): a pricier crate is never worse on Rare / Epic / Legendary,
+	-- so Yard Sale sits between Starter and Flea Market (was 45/30/16/7/2, which beat Flea Market). ~2.4x the price.
 	YardSale = {
 		id = "YardSale",
 		name = "Yard Sale Crate",
@@ -36,7 +37,7 @@ local Crates = {
 		requiredLevel = 3,
 		itemCount = 5,
 		tier = 1,
-		odds = { Common = 45, Uncommon = 30, Rare = 16, Epic = 7, Legendary = 2, Relic = 0, Mythic = 0, Secret = 0 },
+		odds = { Common = 54, Uncommon = 28, Rare = 12, Epic = 4, Legendary = 2, Relic = 0, Mythic = 0, Secret = 0 },
 	},
 	FleaMarket = {
 		id = "FleaMarket",
@@ -46,7 +47,7 @@ local Crates = {
 		requiredLevel = 5,
 		itemCount = 6, -- was 3
 		tier = 2,
-		odds = { Common = 55, Uncommon = 27, Rare = 12, Epic = 5, Legendary = 1, Relic = 0, Mythic = 0, Secret = 0 },
+		odds = { Common = 53, Uncommon = 28, Rare = 12, Epic = 5, Legendary = 2, Relic = 0, Mythic = 0, Secret = 0 },
 	},
 	-- Antique Dealer + Estate Sale (Sean, 2026-11-25): tier 2 items (no tier 3 items exist yet) with better odds and more
 	-- special pulls (Economy RelicChance / MythicChance / SecretChance / TimeCapsuleChance). Expected value ~$2,590 and

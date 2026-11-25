@@ -56,10 +56,14 @@ Updated 2026-11-25 (Sean, three new crates; values = average sale value at 2★,
 |---|---|---|---|---|---|---|---|---|
 | Free Delivery | free | Lv 1 | 2 | 1 | 75 / 20 / 5 / 0 / 0 | none | ~$40 | n/a |
 | **Starter Crate** | $50 | Lv 1 | 5 | 1 | 60 / 25 / 10 / 4 / 1 | Time Capsule 1.5% | ~$190 | 3.8× |
-| **Yard Sale Crate** *(new)* | $90 | Lv 3 | 5 | 1 | 45 / 30 / 16 / 7 / 2 | Time Capsule 2% | ~$260 | 2.9× |
-| **Flea Market Crate** | $300 | Lv 5 | 6 | 2 | 55 / 27 / 12 / 5 / 1 | Relic 0.2%, Mythic 0.08%, Secret 0.02%, Capsule 3% | ~$1,290 | 4.3× |
+| **Yard Sale Crate** *(new)* | $90 | Lv 3 | 5 | 1 | 54 / 28 / 12 / 4 / 2 | Time Capsule 2% | ~$220 | 2.4× |
+| **Flea Market Crate** | $300 | Lv 5 | 6 | 2 | 53 / 28 / 12 / 5 / 2 | Relic 0.2%, Mythic 0.08%, Secret 0.02%, Capsule 3% | ~$1,430 | 4.8× |
 | **Antique Dealer Crate** *(new)* | $800 | Lv 10 | 6 | 2 | 35 / 30 / 20 / 11 / 4 | Relic 0.5%, Mythic 0.15%, Secret 0.04%, Capsule 4% | ~$2,590 | 3.2× |
 | **Estate Sale Crate** *(new)* | $11,000 | Lv 13 | 6 | 2 | 20 / 25 / 27 / 18 / 10 | Relic 1.5%, Mythic 0.4%, Secret 0.1%, Capsule 6% | ~$4,660 | **0.42×** (Sean 2026-11-25: premium chase crate) |
+
+**Odds ladder rule (Sean, 2026-11-25):** a pricier crate is never worse than a cheaper one on Rare, Epic or Legendary
+(players compare the percentages on the Supply board). Yard Sale was 45/30/16/7/2 and beat Flea Market (55/27/12/5/1) on
+all three, so Yard Sale went to 54/28/12/4/2 and Flea Market to 53/28/12/5/2. Check this rule when adding a crate.
 
 Antique Dealer and Estate Sale use tier 2 items for now (there are no tier 3 items yet); move them to tier 3 when Dev 2
 adds those. The new crates are set to about 3× value so they don't make Starter / Flea Market pointless; their real

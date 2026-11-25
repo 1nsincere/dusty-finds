@@ -497,6 +497,9 @@ local function supply(gui: ScreenGui)
 		return
 	end
 	WindowKit.Shell(window, { art = "Crate", color = Color3.fromRGB(255, 106, 77) })
+	if window:GetAttribute("DfFigma") then
+		return -- ShopController draws the Figma supply layout itself (cash pill, crate cards)
+	end
 	local cash = child(window, "Cash")
 	if cash and cash:IsA("GuiObject") then
 		WindowKit.Pill(cash)
