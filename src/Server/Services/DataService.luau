@@ -27,7 +27,7 @@ local MAX_VALUE_DEPTH = 8 -- deepest table we accept in Set (also stops circular
 -- Docs/03 §10.5 (same shape as Types.PlayerData). Changing a field changes saved data: ask the team first
 -- (CLAUDE.md §6.6). Adding a field later is safe: Reconcile() fills it in for existing players.
 local TEMPLATE = {
-	version = 3, -- 2 (2026-11-25): added `layout`; 3 (2026-11-25, Ace OK, docs/12 Stage 2): added `paints`, `wishlist`, `entitlements`, `vip`
+	version = 4, -- 2 (2026-11-25): added `layout`; 3 (2026-11-25, Ace OK, docs/12 Stage 2): added `paints`, `wishlist`, `entitlements`, `vip`; 4 (2026-11-25, Ace OK with the Saved Layouts pass): added `layoutSlots`
 	cash = 100,
 	xp = 0,
 	level = 1,
@@ -57,6 +57,9 @@ local TEMPLATE = {
 	entitlements = {},
 	-- VIP cosmetic choices (not built yet, Stage 5): cosmetic only, never cash, XP, speed or odds.
 	vip = { title = "", pet = "", petColor = "", auraStyle = "" },
+	-- saved shop layouts (Saved Layouts pass 3 slots, VIP +1; LayoutService.SaveSlot / LoadSlot): layoutSlots["1"] = a copy of `layout`
+	-- (same shape: { [pieceId] = { x, z, rot, floor } }); string keys "1".."4". Empty until the player saves one.
+	layoutSlots = {},
 }
 
 local store = nil

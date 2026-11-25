@@ -263,6 +263,8 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestPurchasePass` | `passKey` | Dev 1 | key in Config.Monetization.PASSES; passId > 0 (else comingSoon); not owned; data loaded; only opens Roblox's prompt, the pass is saved after Roblox confirms ownership; rate limit 2/s |
 | `RequestPurchaseProduct` | `productKey` | Dev 1 | key in Config.Monetization.PRODUCTS; productId > 0; opens Roblox's prompt (tip jar, thank-you only); rate limit 2/s |
 | `RequestSetVip` | `field, value` | Dev 1 | player owns the VIP pass; field "title" / "pet" / "petColor" / "auraStyle"; value a string from the Config.Monetization.VIP lists or ""; a custom title: letters, digits, space, - ' ! & . up to 20 chars, then Roblox text filter (refused if changed); rate limit 3/s |
+| `RequestSaveLayoutSlot` | `slot` | Dev 1 | integer 1..Monetization.layoutSlots(entitlements) (Saved Layouts pass 3, VIP +1); data loaded; copies the SAVED `layout` into layoutSlots[slot]; rate limit 2/s |
+| `RequestLoadLayoutSlot` | `slot` | Dev 1 | same slot rule; the slot must exist; then it is saved like a normal layout (LayoutService.Save: all the usual checks, all or nothing); rate limit 2/s |
 
 ### Server → Client (RemoteEvents)
 | Remote | Payload | Purpose |

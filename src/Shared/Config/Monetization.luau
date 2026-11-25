@@ -68,6 +68,25 @@ Monetization.VIP = {
 	Titles = { "Treasure Hunter", "Dust Whisperer", "Master Restorer", "Antique Lover", "Shop Keeper", "Collector" },
 }
 
+-- ===== Saved layouts (Edit Mode) =====
+Monetization.SavedLayoutSlots = 3 -- the Saved Layouts pass
+Monetization.VipExtraSlots = 1 -- VIP adds one more (on top of the pass if you have both)
+
+-- How many layout slots a player has (0 = none). `entitlements` = data.entitlements. One copy for the server and the UI.
+function Monetization.layoutSlots(entitlements: any): number
+	if type(entitlements) ~= "table" then
+		return 0
+	end
+	local n = 0
+	if entitlements.SavedLayouts == true then
+		n += Monetization.SavedLayoutSlots
+	end
+	if entitlements.VIP == true then
+		n += Monetization.VipExtraSlots
+	end
+	return n
+end
+
 Monetization.BY_PASS = {}
 for _, pass in Monetization.PASSES do
 	Monetization.BY_PASS[pass.id] = pass

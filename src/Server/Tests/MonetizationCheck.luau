@@ -231,13 +231,40 @@ function MonetizationCheck.run()
 		check("vip: a failed save is refused", select(2, Service.SetVip(p, "pet", "Cat")) == "saveFailed")
 		failSet = false
 
+		-- layout slots (Saved Layouts pass 3, VIP +1)
+		check("slots: none without a pass, 3 with Saved Layouts, +1 with VIP, 4 with both", Config.layoutSlots(nil) == 0 and Config.layoutSlots({}) == 0
+			and Config.layoutSlots({ SavedLayouts = true }) == 3 and Config.layoutSlots({ VIP = true }) == 1 and Config.layoutSlots({ SavedLayouts = true, VIP = true }) == 4)
+		local layoutCopy = ServerScriptService.Server.Services.LayoutService:Clone()
+		layoutCopy.Parent = services
+		local LS = require(layoutCopy)
+		LS.Init({ DataService = fakeDS })
+		store[p] = { entitlements = {}, layout = { Shelf3 = { x = 4, z = 6, rot = 0, floor = "Ground" } }, layoutSlots = {} }
+		check("slots: saving without a pass is refused", select(2, LS.SaveSlot(p, 1)) == "noSlot" and next(store[p].layoutSlots) == nil)
+		store[p].entitlements = { SavedLayouts = true }
+		check("slots: with the pass, slot 1 keeps a copy of the saved layout", LS.SaveSlot(p, 1) == true and store[p].layoutSlots["1"] ~= nil and store[p].layoutSlots["1"].Shelf3 ~= nil)
+		check("slots: slot 4 needs VIP, 0 and 1.5 and text are not slots", select(2, LS.SaveSlot(p, 4)) == "noSlot" and select(2, LS.SaveSlot(p, 0)) == "noSlot" and select(2, LS.SaveSlot(p, 1.5)) == "noSlot" and select(2, LS.SaveSlot(p, "1")) == "noSlot")
+		store[p].entitlements = { SavedLayouts = true, VIP = true }
+		check("slots: VIP adds a 4th slot", LS.SaveSlot(p, 4) == true and store[p].layoutSlots["4"] ~= nil)
+		store[p].layout = {}
+		check("slots: an empty (default) shop can be saved too", LS.SaveSlot(p, 2) == true and next(store[p].layoutSlots["2"]) == nil)
+		check("slots: using an empty slot is refused", select(2, LS.LoadSlot(p, 3)) == "empty")
+		check("slots: using a slot you can't have is refused", select(2, LS.LoadSlot(p, 5)) == "noSlot")
+		store[p].entitlements = {}
+		check("slots: without the pass nothing can be used (even a saved slot)", select(2, LS.LoadSlot(p, 1)) == "noSlot")
+		store[p].entitlements = { SavedLayouts = true }
+		failSet = true
+		check("slots: a failed save is refused", select(2, LS.SaveSlot(p, 3)) == "saveFailed")
+		failSet = false
+		store[p].layoutSlots = nil
+		check("slots: a profile without the slots field is refused safely", select(2, LS.SaveSlot(p, 1)) == "noData" and select(2, LS.LoadSlot(p, 1)) == "noData")
+
 		-- pass-only paints can't be bought with cash
 		local Paint = require(paintCopy)
 		Paint.Init({ DataService = fakeDS, EconomyService = { Spend = function() return true end, AddCash = function() end } })
 		Paint.SetNearCheck(function()
 			return true
 		end)
-		store[p].paints = { owned = {}, wall = "", floor = "" }
+		store[p] = { paints = { owned = {}, wall = "", floor = "" } }
 		check("themes: a theme paint can't be bought with cash", select(2, Paint.Buy(p, "WallArcade")) == "passOnly" and store[p].paints.owned.WallArcade == nil)
 	end)
 

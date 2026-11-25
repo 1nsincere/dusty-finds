@@ -15,6 +15,8 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Layout = require(Shared:WaitForChild("Layout"))
 local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
+local Monetization = require(Shared:WaitForChild("Config"):WaitForChild("Monetization"))
+local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local EditModeController = {}
 local DEBUG = true
@@ -584,7 +586,7 @@ local function makeGui()
 		local b = Instance.new("ImageButton")
 		b.Name = name
 		b.LayoutOrder = order
-		b.Size = UDim2.new(0.19, -8, 1, 0)
+		b.Size = UDim2.new(0.158, -8, 1, 0) -- six buttons fit: Rotate, Upstairs, Reset, Cancel, Done, Layouts
 		b.Image = ""
 		b.Parent = bar
 		if skin and skin.Panel then
@@ -608,6 +610,16 @@ local function makeGui()
 	local db, dl = button("Done", "Done", 5, done)
 	dl.TextColor3 = UiSkin.COLORS.money
 	doneButton = db
+	-- Layouts: only with the Saved Layouts pass or VIP. Leaves edit mode (unsaved moves are put back: press Done first to keep them),
+	-- then opens the layout slots window.
+	local lb = button("Layouts", "Layouts", 6, function()
+		exitEdit(true)
+		local slots = others.LayoutSlotsController
+		if slots and slots.Open then
+			slots.Open()
+		end
+	end)
+	lb.Visible = Monetization.layoutSlots(ClientState.Get("entitlements")) > 0
 
 	screen.Parent = player:WaitForChild("PlayerGui")
 	return screen

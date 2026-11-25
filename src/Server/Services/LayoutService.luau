@@ -12,6 +12,7 @@ local Validate = require(script.Parent.Parent.Lib.Validate)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Layout = require(ReplicatedStorage.Shared.Layout)
 local Upgrades = require(ReplicatedStorage.Shared.Config.Upgrades)
+local Monetization = require(ReplicatedStorage.Shared.Config.Monetization)
 
 local LayoutService = {}
 local DEBUG = true
@@ -328,6 +329,52 @@ function LayoutService.Save(player: Player, raw: any): (boolean, string?, string
 	return true, nil, nil
 end
 
+-- ===== Layout slots (Saved Layouts pass: 3, VIP: +1; docs/12 Stage 5) =====
+-- A slot holds a COPY of the shop layout that is saved right now. Loading a slot is a normal save of that layout: the same checks,
+-- all or nothing, so a slot made before an upgrade or while a shelf was empty can still be refused today (with the usual reason).
+
+function LayoutService.SlotCount(player: any): number
+	return Monetization.layoutSlots(DataService.GetValue(player, "entitlements"))
+end
+
+-- Returns ok, reason ("noSlot" = no such slot / no pass, "noData", "saveFailed").
+function LayoutService.SaveSlot(player: any, slot: any): (boolean, string?)
+	if not Validate.isInteger(slot, 1, LayoutService.SlotCount(player)) then
+		return false, "noSlot"
+	end
+	if type(DataService.GetValue(player, "layoutSlots")) ~= "table" then
+		return false, "noData"
+	end
+	local layout = savedLayout(player) -- the shop as it is saved now (an empty table = the default shop)
+	if not DataService.Set(player, "layoutSlots." .. tostring(slot), layout) then
+		return false, "saveFailed"
+	end
+	return true, nil
+end
+
+-- Returns ok, reason ("noSlot", "noData", "empty" = nothing saved there, or any LayoutService.Save reason).
+function LayoutService.LoadSlot(player: any, slot: any): (boolean, string?, string?)
+	if not Validate.isInteger(slot, 1, LayoutService.SlotCount(player)) then
+		return false, "noSlot", nil
+	end
+	local slots = DataService.GetValue(player, "layoutSlots")
+	if type(slots) ~= "table" then
+		return false, "noData", nil
+	end
+	local raw = slots[tostring(slot)]
+	if raw == nil then
+		return false, "empty", nil
+	end
+	return LayoutService.Save(player, raw)
+end
+
+local SLOT_TEXT = {
+	noSlot = "You don't have that layout slot. Get Saved Layouts or VIP at the Collector's Corner.",
+	empty = "That slot is empty. Save your shop layout there first.",
+	noData = "Your shop isn't ready yet.",
+	saveFailed = "Couldn't save that. Try again.",
+}
+
 local SAVED_TEXT = "Shop layout saved!"
 
 function LayoutService.Init(services)
@@ -359,6 +406,22 @@ function LayoutService.Start()
 			plot:SetAttribute("LayoutMsg", text)
 			plot:SetAttribute("LayoutRev", (plot:GetAttribute("LayoutRev") or 0) + 1)
 		end
+		Remotes.Notify:FireClient(player, "Info", text)
+	end)
+
+	Remotes.RequestSaveLayoutSlot.OnServerEvent:Connect(function(player, slot)
+		if not Validate.rateLimit(player, "RequestSaveLayoutSlot", 2) then
+			return
+		end
+		local ok, reason = LayoutService.SaveSlot(player, slot)
+		Remotes.Notify:FireClient(player, "Info", if ok then `Layout saved in slot {slot}!` else (SLOT_TEXT[reason or ""] or "Couldn't save the layout slot."))
+	end)
+	Remotes.RequestLoadLayoutSlot.OnServerEvent:Connect(function(player, slot)
+		if not Validate.rateLimit(player, "RequestLoadLayoutSlot", 2) then
+			return
+		end
+		local ok, reason = LayoutService.LoadSlot(player, slot)
+		local text = if ok then `Layout {slot} is on your shop!` else (SLOT_TEXT[reason or ""] or Layout.REASON_TEXT[reason or ""] or "Couldn't use that layout.")
 		Remotes.Notify:FireClient(player, "Info", text)
 	end)
 

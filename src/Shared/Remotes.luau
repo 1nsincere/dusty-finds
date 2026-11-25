@@ -38,6 +38,8 @@ local CLIENT_TO_SERVER = {
 	"RequestPurchasePass", -- Collector's Corner: (passKey) open Roblox's purchase window for a pass (the server checks the key, owned, comingSoon; saves only after Roblox confirms ownership)
 	"RequestPurchaseProduct", -- Collector's Corner tip jar: (productKey) open Roblox's purchase window for a tip
 	"RequestSetVip", -- VIP: (field "title"|"pet"|"petColor"|"auraStyle", value) cosmetic choice; server checks VIP, the choice list, and filters a custom title
+	"RequestSaveLayoutSlot", -- edit mode: (slot 1-4) copy your SAVED shop layout into a layout slot (needs the Saved Layouts pass or VIP; LayoutService.SaveSlot)
+	"RequestLoadLayoutSlot", -- edit mode: (slot 1-4) put a saved layout slot on your shop; validated like a normal save, all or nothing (LayoutService.LoadSlot)
 	"RequestSaveLayout", -- edit mode: ({ [pieceId] = { x, z, rot, floor } }) the whole moved-pieces layout; server validates all-or-nothing (LayoutService)
 	"RequestDisposeItems", -- inventory: ({ uid, ... }) throw away Dirty items for DisposeFraction of their est. value (server re-checks each)
 }

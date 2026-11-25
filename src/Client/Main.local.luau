@@ -53,6 +53,7 @@ local ORDER = {
 	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
 	"StorageShelfController", -- Sean: draws unrestored items on every shop's storage room shelves (StorageShelfService)
 	"EditModeController", -- Sean: shop edit mode, move / turn shelves and pedestals (Shared.Layout; docs/09); after HudSkinController
+	"LayoutSlotsController", -- Dev 1: "Shop layouts" window (Saved Layouts pass / VIP slots); opened from Edit Mode's Layouts button
 	"CollectorsCornerController", -- Dev 1: Collector's Corner window (Robux passes, VIP choices, tip jar); Workspace.CollectorsCorner.Counter prompt
 	"FlairController", -- Dev 1: pass / VIP cosmetics everyone sees: companion pet, VIP title above the head, Glow Pack bursts (Player attributes from MonetizationService)
 	"AuraController", -- Dev 1: collector auras (sparkles + glow by collector tier, DF_CollectorTier); Reduce effects turns them off
