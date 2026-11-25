@@ -35,8 +35,9 @@ local TABS = {
 	{ key = "Shelf", label = "Shelves" },
 	{ key = "Cashier", label = "Cashiers" },
 	{ key = "Owned", label = "Owned" },
+	{ key = "Wishlist", label = "Wishlist" }, -- every skin you don't own: pin up to 5 to get a toast when one is in stock
 }
-local tab = "Pedestal" -- a kind ("Pedestal" | "Shelf" | "Cashier") or "Owned"
+local tab = "Pedestal" -- a kind ("Pedestal" | "Shelf" | "Cashier"), "Owned" or "Wishlist"
 local emptyLabel: TextLabel? = nil
 local shownIndex = -1
 local tabButtons: { [string]: GuiObject } = {}
@@ -163,6 +164,11 @@ local function owned(id: string): boolean
 	return type(skins) == "table" and type(skins.owned) == "table" and skins.owned[id] == true
 end
 
+local function pinned(id: string): boolean
+	local wishlist = ClientState.Get("wishlist")
+	return type(wishlist) == "table" and wishlist[id] == true
+end
+
 local function inUse(kind: string): string
 	local skins = ClientState.Get("skins")
 	local field = Skins.FIELD[kind]
@@ -175,9 +181,17 @@ local function card(skin: any, kind: string, order: number)
 	swatch(c, skin, kind)
 	text(c, "Name", if skin then skin.name else `Classic {kind:lower()}`, UDim2.new(1, -10, 0, 18), UDim2.fromOffset(5, 52))
 	local rarity = if skin then skin.rarity else "Classic"
-	text(c, "Rarity", `{rarity} · {kind}`, UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 70), if skin then UiTheme.rarityColor(skin.rarity) else UiSkin.COLORS.textDim)
+	local liveNow = tab == "Wishlist" and skin ~= nil and Stock.isInStock(Stock.restockIndex(now()), skin.id)
+	text(c, "Rarity", `{rarity} · {kind}{if liveNow then " · IN STOCK" else ""}`, UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 70), if skin then UiTheme.rarityColor(skin.rarity) else UiSkin.COLORS.textDim)
 	local id = if skin then skin.id else ""
-	if tab ~= "Owned" then
+	if tab == "Wishlist" then
+		-- pin / unpin; the server tells you when a pinned skin is in stock (notify only: never changes the odds)
+		local isPinned = pinned(id)
+		button(c, "Pin", if isPinned then "★ Pinned" else "☆ Pin", UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+			Remotes.RequestSetWishlist:FireServer(skin.id, not isPinned)
+			log("asked to", if isPinned then "unpin" else "pin", skin.id)
+		end, if isPinned then UiSkin.COLORS.accent else nil)
+	elseif tab ~= "Owned" then
 		if owned(id) then
 			text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
 		else
@@ -245,7 +259,41 @@ local function render()
 	end
 	local order = 0
 	local empty = ""
-	if tab ~= "Owned" then
+	if tab == "Wishlist" then
+		-- every skin you don't own yet: pinned first, then by kind and rarity (commonest first); "in stock now" shows on the card
+		local index = Stock.restockIndex(now())
+		shownIndex = index
+		local rank: { [string]: number } = {}
+		for i, name in Stock.RARITY_ORDER do
+			rank[name] = i
+		end
+		local todo = {}
+		for _, skin in Skins.LIST do
+			if not owned(skin.id) then
+				table.insert(todo, skin)
+			end
+		end
+		table.sort(todo, function(a, b)
+			local pa, pb = pinned(a.id), pinned(b.id)
+			if pa ~= pb then
+				return pa
+			end
+			if a.kind ~= b.kind then
+				return a.kind < b.kind
+			end
+			if (rank[a.rarity] or 0) ~= (rank[b.rarity] or 0) then
+				return (rank[a.rarity] or 0) < (rank[b.rarity] or 0)
+			end
+			return a.id < b.id
+		end)
+		for _, skin in todo do
+			order += 1
+			card(skin, skin.kind, order)
+		end
+		if #todo == 0 then
+			empty = "You own every skin!"
+		end
+	elseif tab ~= "Owned" then
 		-- a kind's tab: one card per rarity, the real skin if it rolled this restock, else a greyed "?" teaser
 		local kind = tab
 		local index = Stock.restockIndex(now())
@@ -433,6 +481,11 @@ function SkinShopController.Start()
 	-- live data: re-draw when skins or cash change; timer and restock while open
 	ClientState.OnChanged("skins", function()
 		if SkinShopController.IsOpen() then
+			render()
+		end
+	end)
+	ClientState.OnChanged("wishlist", function()
+		if SkinShopController.IsOpen() and tab == "Wishlist" then
 			render()
 		end
 	end)

@@ -213,6 +213,7 @@ local ALL_CHECKS = {
 	{ "SkinCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SkinCheck") end }, -- Dev 3: skins stall stock + buy / apply / draw
 	{ "LayoutCheck", function() return script.Parent.Parent.Tests:FindFirstChild("LayoutCheck") end }, -- Dev 1: edit-mode layout rules (RequestSaveLayout)
 	{ "PersonalityCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PersonalityCheck") end }, -- Dev 1: customer personalities + haggle roll + buy chance
+	{ "PaintCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PaintCheck") end }, -- Dev 1: paints (buy / apply / draw) + skin wishlist
 	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
 }
 

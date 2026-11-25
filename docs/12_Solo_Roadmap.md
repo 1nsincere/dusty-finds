@@ -36,6 +36,7 @@
 - **New remotes (docs/03 section 6):** `RequestBuyPaint`, `RequestApplyPaint`, `RequestSetWishlist`; the VIP and Robux ones wait for Stage 5.
 - **Tests:** extend `SkinCheck` for colourway pools and wishlist; new `PaintCheck`.
 - **Exit:** a colourway shows in stock, can be bought and applied; wishlist notifies; analytics events appear in `testAll`/Output.
+- **STATUS (2026-11-25): DONE except two items that need you:** the paints + wishlist UI has not been looked at on a phone, and the analytics events have not been seen on the live dashboard (needs a published server). The paint buy window is already in the Paint Bar (Stage 3 only adds Preview and the decor rooms).
 
 ## Stage 3: Market MVP, no Robux (about 2 weeks)
 - **Paints:** Paint Bar buy/apply screen (wall and floor colours with the Filipino food names), client-only **Preview** (60 s try-on).

@@ -132,6 +132,7 @@ src/Server/                                  (ServerScriptService.Server)
 │   ├── TutorialService.luau     [Dev 3] RequestTutorialStep: saves tutorial.step / tutorial.done after checking the step against saved data (Shared.Tutorial)
 │   ├── StorageShelfService.luau [Dev 3] storage room shelves: each owner's Dirty / InProgress items, rarest first, as StorageShelves slot attributes (read-only on data, no remotes; the item on the bench is skipped)
 │   ├── SkinService.luau [Dev 3] shelf / pedestal / cashier skins: buy at Workspace.SkinStall (RequestBuySkin, stock from Shared.Stock), use an owned skin (RequestApplySkin), draws every shop's Shelves / ExhibitSlots (colour, material, SkinTrims rims with attribute Piece, SkinLight, SkinSparkle); data field `skins` (owned, shelf, pedestal, cashier); kinds Shelf / Pedestal / Cashier (cashier skins drawn over ShopProps.CashCounter, first design pending); announces Legendary+ restocks
+│   ├── PaintService.luau [Dev 1] wall / floor paints: buy at Workspace.PaintCounter (RequestBuyPaint, always in stock, Config.Paints), use an owned paint (RequestApplyPaint), draws every shop (Walls folder, Facade.Shell Shop_Walls / Shop_Floor; originals kept in attributes); data field `paints` (owned, wall, floor)
 │   └── ShopSocialService.luau     [Dev 3] visits (RequestVisit -> character to the plot's Spawn; refused while restoring); likes (Counter.LikePrompt Triggered on the server: not own shop, 1 per shop per UTC day, owner +1 like, cash capped per day; prompt ObjectText "❤️ N likes"); invites are client only (VisitController, SocialService:PromptGameInvite)
 └── Lib/
     ├── Validate.luau       -- type checks, rate limiter, distance check
@@ -254,6 +255,9 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestTravel` | `placeId` | Dev 1 | known id in Config.Travel (string ≤ 32); 4 s cooldown; alive, not seated, no restoration session; rate limit 2/s; server picks the landing spot |
 | `RequestBuySkin` | `skinId` | Dev 3 | known id in Config.Skins; data loaded; not owned yet; in stock in the current restock (Shared.Stock, server clock); within Config.Stock.BuyMaxStuds of Workspace.SkinStall.Counter; Spend price (refund if the save fails); rate limit 2/s |
 | `RequestApplySkin` | `kind, skinId` | Dev 3 | kind "Shelf" / "Pedestal"; skinId "" (classic) or a known skin of that kind that the player owns; rate limit 4/s |
+| `RequestBuyPaint` | `paintId` | Dev 1 | known id in Config.Paints; data loaded; not owned yet; within Config.Paints.BuyMaxStuds of Workspace.PaintCounter; Spend price (refund if the save fails); rate limit 2/s |
+| `RequestApplyPaint` | `kind, paintId` | Dev 1 | kind "Wall" / "Floor"; paintId "" (original) or a known paint of that kind that the player owns; rate limit 4/s |
+| `RequestSetWishlist` | `skinId, on` | Dev 1 | known skin id; on is a boolean; not already owned when pinning; at most 5 pins (SkinService.SetWishlist); notify only, never changes stock or odds; rate limit 4/s |
 
 ### Server → Client (RemoteEvents)
 | Remote | Payload | Purpose |

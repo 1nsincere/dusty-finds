@@ -32,6 +32,9 @@ local CLIENT_TO_SERVER = {
 	"RequestTravel", -- travel menu: (placeId) teleport to a Config.Travel place (server checks id, cooldown, state)
 	"RequestBuySkin", -- skins stall: (skinId) buy a skin that is in stock right now (server checks stock, owned, cash, distance)
 	"RequestApplySkin", -- skins: (kind "Shelf"|"Pedestal", skinId or "" for classic) use an owned skin in your shop
+	"RequestBuyPaint", -- paint bar: (paintId) buy a wall / floor paint (always in stock; server checks owned, cash, distance to Workspace.PaintCounter)
+	"RequestApplyPaint", -- paints: (kind "Wall"|"Floor", paintId or "" for the original look) use an owned paint in your shop
+	"RequestSetWishlist", -- skins stall: (skinId, on) pin or unpin a skin you want; you get a toast when it is in stock (notify only, never changes the odds)
 	"RequestSaveLayout", -- edit mode: ({ [pieceId] = { x, z, rot, floor } }) the whole moved-pieces layout; server validates all-or-nothing (LayoutService)
 	"RequestDisposeItems", -- inventory: ({ uid, ... }) throw away Dirty items for DisposeFraction of their est. value (server re-checks each)
 }

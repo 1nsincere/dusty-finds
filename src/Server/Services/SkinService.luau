@@ -313,7 +313,45 @@ function SkinService.Grant(player: Player, skinId: string, use: boolean?): (bool
 	return true, nil
 end
 
+-- ===== Wishlist (docs/12 Stage 2): pin skins you want; a toast tells you when one is in stock. NOTIFY ONLY: it never changes
+-- the stock or the odds. At most WISHLIST_MAX pins. Returns ok, reason ("unknown", "noData", "full", "owned", "saveFailed").
+local WISHLIST_MAX = 5
+function SkinService.SetWishlist(player: Player, skinId: any, on: any): (boolean, string?)
+	local skin = type(skinId) == "string" and Skins.BY_ID[skinId] or nil
+	if skin == nil or type(on) ~= "boolean" then
+		return false, "unknown"
+	end
+	local data = DataService.Get(player)
+	if data == nil or type(data.wishlist) ~= "table" or type(data.skins) ~= "table" then
+		return false, "noData"
+	end
+	if on then
+		if data.skins.owned[skinId] then
+			return false, "owned"
+		end
+		if data.wishlist[skinId] then
+			return true, nil
+		end
+		local count = 0
+		for _ in data.wishlist do
+			count += 1
+		end
+		if count >= WISHLIST_MAX then
+			return false, "full"
+		end
+		if not DataService.Set(player, "wishlist." .. skinId, true) then
+			return false, "saveFailed"
+		end
+	else
+		if data.wishlist[skinId] and not DataService.Set(player, "wishlist." .. skinId, nil) then
+			return false, "saveFailed"
+		end
+	end
+	return true, nil
+end
+
 local REASON_TEXT = {
+	full = "Your wishlist is full (5). Remove one first.",
 	owned = "You already own that skin.",
 	notInStock = "That skin is sold out here now. New stock soon!",
 	far = "Buy skins at the skins stall.",
@@ -331,10 +369,23 @@ local function announceLoop()
 		local index = Stock.restockIndex(os.time())
 		if index ~= lastIndex then
 			lastIndex = index
-			for _, id in Stock.roll(index) do
+			local rolled = Stock.roll(index)
+			for _, id in rolled do
 				local skin = Skins.BY_ID[id]
 				if skin and StockConfig.AnnounceRarities[skin.rarity] then
 					Remotes.Announcement:FireAllClients(`New at the skins stall: {skin.name} ({skin.rarity})!`, skin.rarity)
+				end
+			end
+			-- wishlist: tell each player whose pinned skin is in this restock (once per restock)
+			for _, player in Players:GetPlayers() do
+				local data = DataService.Get(player)
+				if data and type(data.wishlist) == "table" then
+					for _, id in rolled do
+						local skin = Skins.BY_ID[id]
+						if skin and data.wishlist[id] and not (data.skins and data.skins.owned[id]) then
+							notify(player, `On your wishlist: {skin.name} ({skin.kind}) is in stock at the skins stall!`)
+						end
+					end
 				end
 			end
 			log.info("restock", index)
@@ -366,6 +417,16 @@ function SkinService.Start()
 			return
 		end
 		local _, reason = SkinService.Apply(player, kind, skinId)
+		if reason and REASON_TEXT[reason] then
+			notify(player, REASON_TEXT[reason])
+		end
+	end)
+
+	Remotes.RequestSetWishlist.OnServerEvent:Connect(function(player, skinId, on)
+		if not Validate.rateLimit(player, "RequestSetWishlist", 4) then
+			return
+		end
+		local _, reason = SkinService.SetWishlist(player, skinId, on)
 		if reason and REASON_TEXT[reason] then
 			notify(player, REASON_TEXT[reason])
 		end
