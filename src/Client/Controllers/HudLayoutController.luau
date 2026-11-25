@@ -372,6 +372,10 @@ end
 
 -- ===== screen shape (dock position, scale sync) =====
 
+-- Extra room under the top chips for a banner that stays up (InventoryController's "Inventory full", Sean 2026-11-25):
+-- the notification dock moves down by this much so the two never overlap. 0 = no banner.
+local topBannerRoom = 0
+
 local function applyScreenShape()
 	local camera = workspace.CurrentCamera
 	local hudGui = hud
@@ -389,10 +393,16 @@ local function applyScreenShape()
 	if widthRef < 800 then
 		-- phones: the dock sits between the status plate (ends x 312) and the top-right buttons
 		local width = math.clamp(widthRef - 318 - 150, 170, 262)
-		NotificationDock.SetLayout(UDim2.fromOffset(318, 56), Vector2.new(0, 0), width, if width < 200 then 2 else 3)
+		NotificationDock.SetLayout(UDim2.fromOffset(318, 56 + topBannerRoom), Vector2.new(0, 0), width, if width < 200 then 2 else 3)
 	else
-		NotificationDock.SetLayout(UDim2.new(0.5, 0, 0, 56), Vector2.new(0.5, 0), 270, 3)
+		NotificationDock.SetLayout(UDim2.new(0.5, 0, 0, 56 + topBannerRoom), Vector2.new(0.5, 0), 270, 3)
 	end
+end
+
+-- Called by InventoryController when its "Inventory full" banner shows (height in reference px) or hides (0).
+function HudLayoutController.SetTopBannerRoom(height: number)
+	topBannerRoom = math.max(0, tonumber(height) or 0)
+	applyScreenShape()
 end
 
 -- ===== window focus: a soft blur of the world while any window is open (off with Reduce effects) =====

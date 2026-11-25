@@ -297,19 +297,16 @@ function InventoryService.Init(services)
 end
 
 function InventoryService.Start()
-	Remotes.RequestQuickSell.OnServerEvent:Connect(function(player, uid)
+	-- Quick Sell is OFF for players (Sean, Ace OK 2026-11-25): restored items sell only on a display shelf, to customers.
+	-- The remote stays declared (other code and docs name it) and QuickSell() stays for tests / DevTools, but a request
+	-- from a client is refused, so an exploiter can't skip the shelf either.
+	Remotes.RequestQuickSell.OnServerEvent:Connect(function(player, _uid)
 		if not Validate.rateLimit(player, "RequestQuickSell", 3) then
 			return
 		end
-		if not isUid(uid) then
-			return
+		if Validate.isPlayer(player) then
+			Remotes.Notify:FireClient(player, "Info", "Restored items sell only on your display shelves.")
 		end
-		local plot = PlotService.GetPlot(player)
-		local counter = plot and plot:FindFirstChild("Counter")
-		if counter == nil or not Validate.withinDistance(player, counter, Economy.InteractMaxStuds) then
-			return
-		end
-		InventoryService.QuickSell(player, uid)
 	end)
 	-- Dispose: the client sends a plain list of uids; everything else (state, price, ownership) is decided here.
 	Remotes.RequestDisposeItems.OnServerEvent:Connect(function(player, list)

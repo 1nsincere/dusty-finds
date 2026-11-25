@@ -33,6 +33,10 @@ local Economy = {
 	DisposeEstimateStars = 2,
 	DisposeMinimum = 1,
 	DisposeMaxPerRequest = 40, -- most items one RequestDisposeItems may carry (inventory is at most 40 anyway)
+	-- Auto sell (Sean, Ace OK 2026-11-25): rarities a player MAY switch on in Settings. A new item of a switched-on rarity
+	-- is sold the moment its box opens, at the Dispose price, and never takes a slot. Each one is a setting
+	-- "autoSell<Rarity>" (default OFF). Legendary and up are left out on purpose, and Golden items are never auto-sold.
+	AutoSellRarities = { "Common", "Uncommon", "Rare", "Epic" },
 	TipBaseChance = 0.05, -- chance = 5% + 5% x rating stars
 	TipChancePerRatingStar = 0.05,
 	TipMinFraction = 0.10, -- tip amount = 10-25% of price

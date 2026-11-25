@@ -1,7 +1,9 @@
 -- InventoryController.luau
 -- Purpose: Inventory screen: grid of my items (from ClientState) with filters and capacity, a details panel per
--- item, and Quick Sell for Restored items at my counter (RequestQuickSell). The server checks state, distance and
+-- item. Restored items sell ONLY on a display shelf (Quick Sell is off, Sean + Ace 2026-11-25: the old button now says so).
+-- "Sell unrestored…" (Ace's Dispose, RequestDisposeItems) sells many Dirty items at once. The server checks state and
 -- price; this screen only shows and requests. Opens from HUD 🎒 (the counter's QuickSellPrompt is switched off, 2026-11-25).
+-- Also the "Inventory full" banner at the top of the screen while every slot is used (InventoryFull, code-built).
 -- Picker mode (OpenPicker, called by DisplayController from an empty slot): choose a Restored item and send
 -- RequestPlaceDisplay / RequestPlaceExhibit for that slot.
 -- Restore (Dirty/InProgress) calls Dev 2's RestorationController.RequestStartRestore(uid); greyed until that exists.
@@ -26,7 +28,9 @@ local InventoryController = {}
 local DEBUG = true
 
 local ESTIMATE_STARS = 2 -- value shown for items not restored yet ("~$X" at 2★, same as the Discovery card)
-local NEAR_CHECK_SECONDS = 0.5 -- how often the Quick Sell button re-checks "am I at my counter?"
+local NEAR_CHECK_SECONDS = 0.5 -- how often the details panel refreshes while the window is open
+local BANNER_HEIGHT = 40 -- the "Inventory full" banner (reference px); the notification dock moves down by this + a gap
+local BANNER_GAP = 6
 local SOLD_MESSAGE_SECONDS = 2
 
 -- States that don't use inventory space. Mirrors InventoryService (docs/08 §2).
@@ -102,18 +106,6 @@ local function rarityOf(item): string
 	return def and def.rarity or "Common"
 end
 
--- ===== Am I at my counter? (server checks again; this only sets the button text) =====
-
-local function nearMyCounter(): boolean
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local counter = myPlot and myPlot:FindFirstChild("Counter")
-	if root == nil or counter == nil or not counter:IsA("BasePart") then
-		return false
-	end
-	return (root.Position - counter.Position).Magnitude <= Economy.InteractMaxStuds
-end
-
 -- ===== Details panel =====
 
 -- True once Dev 2's RestorationController offers RequestStartRestore(uid) (docs/Restoration_Contract.md §4).
@@ -156,15 +148,16 @@ local function updateDisposePanel(details: Frame)
 	end
 	setDetailsVisible(details, false)
 	details.Hint.Visible = true
-	details.Hint.Text = if n == 0
-		then "Tap the items you want to throw away. They pay about 40% of their estimated value."
-		else `{n} picked · you get ${total}` .. (if risky then "\n⚠ Includes rare or golden items!" else "")
+	details.Hint.Text = (if n == 0
+		then "Tap the unrestored items you want to sell. They pay about 40% of their estimated value."
+		else `{n} picked · you get ${total}` .. (if risky then "\n⚠ Includes rare or golden items!" else ""))
+		.. "\n⚠ Restored items can't be sold here: put them on a display shelf."
 	ui.selCommon.Visible = true
 	ui.selCommon.Text = "Select all Common"
 	ui.selCommon.BackgroundColor3 = UiTheme.Teal
 	ui.confirm.Visible = true
 	local sure = os.clock() < confirmUntil
-	ui.confirm.Text = if n == 0 then "Pick items first" elseif sure then "Tap again to confirm" else `Dispose {n} · +${total}`
+	ui.confirm.Text = if n == 0 then "Pick items first" elseif sure then "Tap again to confirm" else `Sell {n} · +${total}`
 	ui.confirm.BackgroundColor3 = if n == 0 then UiTheme.Disabled else UiTheme.Coral
 end
 
@@ -204,21 +197,13 @@ local function updateDetails()
 	local value, estimate = itemValue(item)
 	details.Value.Text = if estimate then `Est. value ${value}` else `Value ${value}`
 
-	-- Quick Sell: only Restored items, only at my counter (docs/01 B10).
+	-- Quick Sell is off (Sean + Ace 2026-11-25): restored items sell only on a display shelf. The button stays as a
+	-- greyed warning so players learn where to sell; tapping it explains (onQuickSell).
 	local quickSell = details.QuickSellButton :: TextButton
 	quickSell.Visible = item.state == "Restored" and type(item.stars) == "number"
 	if quickSell.Visible then
-		local price = Formulas.quickSellPrice(item.itemId, item.stars, item.golden)
-		if selling then
-			quickSell.Text = "Selling…"
-			quickSell.BackgroundColor3 = UiTheme.Teal
-		elseif nearMyCounter() then
-			quickSell.Text = `Quick Sell ${price}`
-			quickSell.BackgroundColor3 = UiTheme.Coral
-		else
-			quickSell.Text = "Sell at your counter"
-			quickSell.BackgroundColor3 = UiTheme.Disabled
-		end
+		quickSell.Text = "⚠ Sell on a shelf"
+		quickSell.BackgroundColor3 = UiTheme.Disabled
 	end
 	-- Restore hands over to Dev 2's RestorationController; greyed until that controller offers RequestStartRestore.
 	local restore = details.RestoreButton :: TextButton
@@ -234,7 +219,7 @@ local function updateDetails()
 		single.Visible = item.state == "Dirty" and pickTarget == nil
 		if single.Visible then
 			local sure = os.clock() < confirmUntil
-			single.Text = if sure then "Tap again to confirm" else `Dispose +${Formulas.disposePrice(item.itemId, item.golden)}`
+			single.Text = if sure then "Tap again to confirm" else `Sell +${Formulas.disposePrice(item.itemId, item.golden)}`
 			single.BackgroundColor3 = if sure then UiTheme.Coral else UiTheme.Disabled
 		end
 	end
@@ -282,16 +267,114 @@ local function sortedItems(filter: string)
 	return list
 end
 
-local function updateCapacity()
-	if inventoryGui == nil then
-		return
-	end
+local function usedSlots(): number
 	local used = 0
 	for _, item in ClientState.Get("inventory") or {} do
 		if type(item) == "table" and not NOT_COUNTED[item.state] then
 			used += 1
 		end
 	end
+	return used
+end
+
+-- ===== "Inventory full" banner (top of the screen, stays while every slot is used) =====
+-- Code-built, under the top chips in HudLayoutController's HudTop screen (so it scales with the HUD); its own screen
+-- if HudTop isn't there. Hidden while the Inventory window is open (the player is already dealing with it).
+
+local banner: Frame? = nil
+local bannerShown = false
+
+local function buildBanner(playerGui: Instance)
+	local top = playerGui:FindFirstChild("HudTop")
+	local parent: Instance
+	if top and top:IsA("ScreenGui") then
+		parent = top
+	else
+		local own = Instance.new("ScreenGui")
+		own.Name = "InventoryFull"
+		own.IgnoreGuiInset = true
+		own.ResetOnSpawn = false
+		own.DisplayOrder = 1
+		own.Parent = playerGui
+		parent = own
+	end
+	local frame = Instance.new("Frame")
+	frame.Name = "InventoryFullBanner"
+	frame.AnchorPoint = Vector2.new(0.5, 0)
+	frame.Position = UDim2.new(0.5, 0, 0, 54) -- just under the top chips (they sit at y 8, 40 tall)
+	frame.Size = UDim2.fromOffset(400, BANNER_HEIGHT)
+	frame.BackgroundColor3 = UiTheme.Coral
+	frame.Visible = false
+	frame.ZIndex = 5
+	Instance.new("UICorner", frame).CornerRadius = UDim.new(1, 0)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(43, 26, 18)
+	stroke.Thickness = 2.5
+	stroke.Parent = frame
+
+	local text = Instance.new("TextLabel")
+	text.Name = "Text"
+	text.BackgroundTransparency = 1
+	text.Position = UDim2.fromOffset(16, 0)
+	text.Size = UDim2.new(1, -128, 1, 0)
+	text.Font = Enum.Font.FredokaOne
+	text.TextScaled = true
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.TextXAlignment = Enum.TextXAlignment.Left
+	text.Text = "🎒 Inventory full! Go sell items to open more boxes"
+	text.ZIndex = 6
+	local textSize = Instance.new("UITextSizeConstraint")
+	textSize.MaxTextSize = 18
+	textSize.Parent = text
+	text.Parent = frame
+
+	local button = Instance.new("TextButton")
+	button.Name = "OpenButton"
+	button.AnchorPoint = Vector2.new(1, 0.5)
+	button.Position = UDim2.new(1, -6, 0.5, 0)
+	button.Size = UDim2.fromOffset(104, BANNER_HEIGHT - 10)
+	button.BackgroundColor3 = Color3.new(1, 1, 1)
+	button.Font = Enum.Font.FredokaOne
+	button.TextScaled = true
+	button.TextColor3 = UiTheme.Coral
+	button.Text = "Sell items"
+	button.ZIndex = 6
+	Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
+	local buttonSize = Instance.new("UITextSizeConstraint")
+	buttonSize.MaxTextSize = 16
+	buttonSize.Parent = button
+	button.Parent = frame
+	button.Activated:Connect(function()
+		InventoryController.Open() -- the "Sell unrestored…" button is right there
+	end)
+
+	frame.Parent = parent
+	banner = frame
+end
+
+local function updateBanner()
+	if banner == nil then
+		return
+	end
+	local full = usedSlots() >= capacity()
+	local show = full and not (inventoryGui ~= nil and inventoryGui.Window.Visible)
+	banner.Visible = show
+	if show ~= bannerShown then
+		bannerShown = show
+		local layout = others and others.HudLayoutController
+		if layout and layout.SetTopBannerRoom then
+			layout.SetTopBannerRoom(if show then BANNER_HEIGHT + BANNER_GAP else 0)
+		end
+		log(if show then "inventory full: banner up" else "inventory has room: banner hidden")
+	end
+end
+
+local function updateCapacity()
+	updateBanner()
+	if inventoryGui == nil then
+		return
+	end
+	local used = usedSlots()
 	local max = capacity()
 	local label = inventoryGui.Window.Capacity
 	label.Text = `{used}/{max}`
@@ -403,22 +486,17 @@ local function onRestore()
 	log("asked to restore", uid)
 end
 
+-- The old Quick Sell button: restored items can't be sold from here any more, so it only explains where to sell them.
 local function onQuickSell()
 	local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
-	if selling or type(item) ~= "table" or item.state ~= "Restored" or not nearMyCounter() then
+	if type(item) ~= "table" or item.state ~= "Restored" then
 		return
 	end
-	selling = true
-	updateDetails() -- "Selling…" right away (docs/01 J4)
-	Remotes.RequestQuickSell:FireServer(selectedUid)
-	log("asked to quick sell", selectedUid)
-	-- If the server refuses (too far, wrong state) nothing changes; unlock the button after a moment.
-	task.delay(2, function()
-		if selling then
-			selling = false
-			updateDetails()
-		end
-	end)
+	local text = "⚠ Restored items can only be sold on a display shelf. Put it on one and customers will buy it!"
+	if others and others.HudController and others.HudController.Notify then
+		others.HudController.Notify("Info", text)
+	end
+	log("quick sell tapped: restored items sell on shelves only")
 end
 
 local function onSaleMade(amount: any)
@@ -451,11 +529,11 @@ local function setDisposeMode(on: boolean)
 	if on then
 		savedTitle = window.Title.Text
 	end
-	window.Title.Text = if on then "Dispose items" else (savedTitle or window.Title.Text)
+	window.Title.Text = if on then "Sell unrestored" else (savedTitle or window.Title.Text)
 	window.Tabs.Visible = not on and pickTarget == nil
-	window.Empty.Text = if on then "No unrestored items to dispose of." else "Nothing here yet. Open boxes at your door!"
-	window.Details.Hint.Size = if on then UDim2.new(1, -20, 0, 100) else UDim2.new(1, -20, 0, 40)
-	disposeUi.mode.Text = if on then "Done" else "Dispose…"
+	window.Empty.Text = if on then "No unrestored items to sell." else "Nothing here yet. Open boxes at your door!"
+	window.Details.Hint.Size = if on then UDim2.new(1, -20, 0, 120) else UDim2.new(1, -20, 0, 40)
+	disposeUi.mode.Text = if on then "Done" else "Sell unrestored…"
 	renderGrid()
 end
 
@@ -500,8 +578,8 @@ local function buildDisposeUi()
 	local mode = clone(tab or details.QuickSellButton, "DisposeModeButton", window)
 	mode.AnchorPoint = Vector2.new(0, 0)
 	mode.Position = UDim2.fromOffset(300, 12)
-	mode.Size = UDim2.fromOffset(120, 30)
-	mode.Text = "Dispose…"
+	mode.Size = UDim2.fromOffset(160, 30) -- ends at x 460, well before the close button
+	mode.Text = "Sell unrestored…"
 	mode.BackgroundColor3 = UiTheme.Disabled
 	mode.Visible = pickTarget == nil
 	local single = clone(details.QuickSellButton, "DisposeButton", details)
@@ -725,7 +803,14 @@ function InventoryController.Start()
 			renderGrid()
 		end)
 		ClientState.OnChanged("upgrades", updateCapacity)
+		window:GetPropertyChangedSignal("Visible"):Connect(updateBanner)
 		selectTab("All")
+		-- HudTop is made by HudLayoutController, which starts after this controller: wait a little for it
+		task.spawn(function()
+			playerGui:WaitForChild("HudTop", 10)
+			buildBanner(playerGui)
+			updateBanner()
+		end)
 
 		local hud = playerGui:WaitForChild("HUD", 10)
 		local hudButton = hud and hud:FindFirstChild("LeftButtons") and hud.LeftButtons:FindFirstChild("Inventory")

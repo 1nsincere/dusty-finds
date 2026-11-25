@@ -14,6 +14,7 @@ local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
+local Formulas = require(ReplicatedStorage.Shared.Formulas)
 
 local ShipmentService = {}
 local DEBUG = true
@@ -279,8 +280,19 @@ function ShipmentService.GrantFirstBox(player: Player): boolean
 	return true
 end
 
+-- Auto sell (Sean, Ace OK 2026-11-25): true if this player switched on auto sell for the item's rarity in Settings.
+-- Only rarities listed in Economy.AutoSellRarities count (Legendary and up never) and never Golden items. Everything is
+-- OFF until the player switches it on. Reads the SAVED setting, never anything the client sends.
+local function shouldAutoSell(player: Player, def, golden: boolean): boolean
+	if def == nil or golden == true or table.find(Economy.AutoSellRarities, def.rarity) == nil then
+		return false
+	end
+	return DataService.GetValue(player, "settings.autoSell" .. def.rarity) == true
+end
+
 -- Opens an Unopened item: it becomes Dirty (needs inventory room), the collection records it, first finds pay a bonus.
--- Returns ok, reason, info = { itemId, golden, isNew, bonus }.
+-- With auto sell on for its rarity it is sold at once for the Dispose price instead (no room needed).
+-- Returns ok, reason, info = { itemId, golden, isNew, bonus, autoSold } (autoSold = cash paid, 0 = kept).
 function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?, { [string]: any }?)
 	local item = InventoryService.Get(player, uid)
 	if item == nil then
@@ -289,15 +301,27 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 	if item.state ~= "Unopened" then
 		return false, "notUnopened", nil
 	end
-	local ok, reason = InventoryService.Update(player, uid, { state = "Dirty" })
-	if not ok then
-		if reason == "full" then
-			notify(player, "Info", "Your inventory is full. Sell something or buy Storage Racks.")
+	local def = Items[item.itemId]
+
+	local autoSold = 0
+	if shouldAutoSell(player, def, item.golden) then
+		local amount = Formulas.disposePrice(item.itemId, item.golden)
+		if amount > 0 and InventoryService.Remove(player, uid) then
+			EconomyService.AddCash(player, amount, "Dispose")
+			autoSold = amount
+			log.info(`{player.Name}: auto-sold {item.itemId} ({def.rarity}) for ${amount}`)
 		end
-		return false, reason, nil
+	end
+	if autoSold == 0 then
+		local ok, reason = InventoryService.Update(player, uid, { state = "Dirty" })
+		if not ok then
+			if reason == "full" then
+				notify(player, "Info", "Your inventory is full. Sell something or buy Storage Racks.")
+			end
+			return false, reason, nil
+		end
 	end
 
-	local def = Items[item.itemId]
 	local isNew = CollectionBookService.RecordFound(player, item.itemId, item.golden) == true
 	local bonus = 0
 	if isNew then
@@ -308,7 +332,7 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 	end
 
 	if Validate.isPlayer(player) then
-		Remotes.BoxOpened:FireClient(player, uid, item.itemId, item.golden, isNew)
+		Remotes.BoxOpened:FireClient(player, uid, item.itemId, item.golden, isNew, autoSold)
 	end
 	if def.rarity == "Secret" or def.rarity == "Mythic" then
 		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
@@ -322,7 +346,7 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 		local name = if Validate.isPlayer(player) then player.DisplayName else tostring(player.Name)
 		Remotes.Announcement:FireAllClients(`{name} found a Legendary {def.name}!`, def.rarity)
 	end
-	return true, nil, { itemId = item.itemId, golden = item.golden, isNew = isNew, bonus = bonus }
+	return true, nil, { itemId = item.itemId, golden = item.golden, isNew = isNew, bonus = bonus, autoSold = autoSold }
 end
 
 function ShipmentService.Init(services)

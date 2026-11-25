@@ -115,6 +115,9 @@ function SettingsCheck.run()
 			end
 			return n == 4
 		end)())
+		-- auto sell (2026-11-25): one key per Economy.AutoSellRarities entry; Legendary and up are not settings at all
+		check("save: auto sell for Common and Epic is accepted", Settings.Save(p, { autoSellCommon = true, autoSellEpic = true }) and settings().autoSellCommon == true and settings().autoSellEpic == true)
+		check("save: auto sell for Legendary / Mythic is refused", select(2, Settings.Save(p, { autoSellLegendary = true })) == "badKey" and select(2, Settings.Save(p, { autoSellMythic = true })) == "badKey" and settings().autoSellLegendary == nil)
 		local stranger = { UserId = 9002, Name = "NoData", DisplayName = "NoData" }
 		check("save: a player with no data fails safely", select(2, Settings.Save(stranger, { music = false })) == "saveFailed")
 
