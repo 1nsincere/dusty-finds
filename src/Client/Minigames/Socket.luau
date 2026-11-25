@@ -33,6 +33,8 @@ function Socket.new(model: Instance, stepConfig: { [string]: any }, onProgress, 
 		total = 0, filled = 0, wrong = 0, selected = nil :: Instance?,
 		onProgress = onProgress, onComplete = onComplete, fx = fx or {},
 		destroyed = false, completed = false,
+		stepType = stepConfig.type, -- "Reassemble" (one part, one place: tapping the part puts it there) or "Replace" (pick the right part among decoys)
+		wrongCount = 0, lastAction = os.clock(),
 	}, Socket)
 	local wanted = if type(stepConfig.parts) == "table" then stepConfig.parts else nil
 	for _, socket in sockets:GetChildren() do
@@ -48,6 +50,9 @@ function Socket.new(model: Instance, stepConfig: { [string]: any }, onProgress, 
 		end
 	end
 	assert(self.total > 0, "no Sockets/<Name> has a matching LooseParts/<Name>")
+	if self.fx.init then
+		self.fx.init(self) -- the feedback layer shows where each part goes (arrows, a guide line, hints)
+	end
 	onProgress(0, 0, self.total)
 	if DEBUG then
 		print(`[Socket] ready: {self.total} sockets, {#loose:GetChildren() - self.total} decoys`)
@@ -80,10 +85,32 @@ function Socket:Score(): number
 	return math.max(MIN_SCORE, 100 - PENALTY_PER_WRONG * self.wrong)
 end
 
+-- puts a loose part into its own socket (used by a correct tap, and by a tap on the part itself in Reassemble)
+function Socket:Place(chosen: Instance, socket: Instance)
+	local target = self.targets[socket.Name]
+	if target == nil or target.filled then
+		return
+	end
+	target.filled = true
+	self.filled += 1
+	self.selected = nil
+	self.lastAction = os.clock()
+	moveTo(self, chosen, pivotOf(socket))
+	if self.fx.place then
+		self.fx.place(chosen, socket)
+	end
+	self.onProgress(self.filled / self.total, self.filled, self.total)
+	if self.filled == self.total then
+		self.completed = true
+		self.onComplete(self:Score())
+	end
+end
+
 function Socket:OnPointerDown(hit)
 	if self.destroyed or self.completed or not hit or not hit.Instance then
 		return
 	end
+	self.lastAction = os.clock()
 	local part = childOf(self.loose, hit.Instance)
 	if part then
 		local target = self.targets[part.Name]
@@ -93,6 +120,10 @@ function Socket:OnPointerDown(hit)
 		self.selected = part
 		if self.fx.select then
 			self.fx.select(part)
+		end
+		-- Reassemble has no decoys: the part you tapped can only go to one place, so it goes there (no second tap to find)
+		if self.stepType == "Reassemble" and target then
+			self:Place(part, target.socket)
 		end
 		return
 	end
@@ -107,19 +138,10 @@ function Socket:OnPointerDown(hit)
 	local chosen = self.selected
 	self.selected = nil
 	if chosen.Name == socket.Name then
-		target.filled = true
-		self.filled += 1
-		moveTo(self, chosen, pivotOf(socket))
-		if self.fx.place then
-			self.fx.place(chosen, socket)
-		end
-		self.onProgress(self.filled / self.total, self.filled, self.total)
-		if self.filled == self.total then
-			self.completed = true
-			self.onComplete(self:Score())
-		end
+		self:Place(chosen, socket)
 	else
 		self.wrong += 1
+		self.wrongCount += 1
 		if self.fx.wrong then
 			self.fx.wrong(chosen, socket)
 		end

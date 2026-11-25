@@ -185,11 +185,153 @@ local function repairFx(model: Instance)
 		glow.FillColor = SOCKET_COLOR
 		glow.OutlineColor = SOCKET_COLOR
 		glow.FillTransparency = 0.5
-		glow.DepthMode = Enum.HighlightDepthMode.Occluded
+		glow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- shows through the item: a spot inside the body (the lamp's bulb) must still be visible
 		glow.Parent = model
 		table.insert(made, glow)
 	end
 	local fx = {}
+	local connections: { RBXScriptConnection } = {}
+
+	-- ===== Where does it go? (Ace + Claude, 2026-11-25) =====
+	-- A bobbing arrow over every empty spot says "GOES HERE", a guide line runs from the loose part to its spot, and the part
+	-- gets a "PICK ME" arrow. In Replace the tray holds decoys, so which PART is right is the puzzle: its arrow and line stay
+	-- hidden until you get one wrong or wait 8 seconds; the spot is always marked. Everything disappears as parts fit.
+	local function basePartOf(instance: Instance): BasePart?
+		if instance:IsA("BasePart") then
+			return instance
+		end
+		if instance:IsA("Model") then
+			return instance.PrimaryPart or instance:FindFirstChildWhichIsA("BasePart", true)
+		end
+		return nil
+	end
+	local function heightOf(instance: Instance): number
+		if instance:IsA("Model") then
+			return instance:GetExtentsSize().Y
+		end
+		return if instance:IsA("BasePart") then instance.Size.Y else 1
+	end
+	local function marker(target: Instance, label: string, color: Color3): BillboardGui?
+		local base = basePartOf(target)
+		if base == nil then
+			return nil
+		end
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "RepairGuide"
+		gui.Adornee = base
+		gui.AlwaysOnTop = false -- (an AlwaysOnTop billboard did not draw in tests, the tutorial arrow hit the same); it floats above the part anyway
+		gui.LightInfluence = 0
+		gui.Size = UDim2.fromOffset(150, 84)
+		-- a spot hidden INSIDE the item (inside a solid part's box, like the lamp's bulb in its foot) gets its arrow above the item's top,
+		-- otherwise the arrow would sit inside the item, hidden behind it
+		local offsetY = heightOf(target) / 2 + 0.55
+		local inside = false
+		local topY = -math.huge
+		for _, p in model:GetDescendants() do
+			if p:IsA("BasePart") and p.Transparency < 0.2 and p ~= base and not p:IsDescendantOf(target) then
+				local folderName = p.Parent and p.Parent.Name
+				if folderName ~= "Sockets" and folderName ~= "LooseParts" and p.Name ~= "Base" then
+					topY = math.max(topY, p.Position.Y + p.Size.Y / 2)
+					local local_ = p.CFrame:PointToObjectSpace(base.Position)
+					if math.abs(local_.X) <= p.Size.X / 2 and math.abs(local_.Y) <= p.Size.Y / 2 and math.abs(local_.Z) <= p.Size.Z / 2 then
+						inside = true
+					end
+				end
+			end
+		end
+		if inside and topY > -math.huge then
+			offsetY = math.max(offsetY, topY - base.Position.Y + 0.6)
+		end
+		gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY, 0)
+		gui:SetAttribute("BaseY", offsetY)
+		gui.MaxDistance = 200
+		gui.Parent = base -- on the part itself (a gui under a Model did not draw)
+		local text = Instance.new("TextLabel")
+		text.BackgroundTransparency = 1
+		text.Size = UDim2.new(1, 0, 0, 26)
+		text.Font = Enum.Font.GothamBold
+		text.Text = label
+		text.TextSize = 19
+		text.TextColor3 = Color3.new(1, 1, 1)
+		text.Parent = gui
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 2.5
+		stroke.Color = Color3.fromRGB(43, 27, 20)
+		stroke.Parent = text
+		local arrow = Instance.new("TextLabel") -- ▼ (the arrow emoji draws nothing in a BillboardGui, the plain glyph does)
+		arrow.Name = "Arrow"
+		arrow.BackgroundTransparency = 1
+		arrow.Position = UDim2.fromOffset(0, 24)
+		arrow.Size = UDim2.new(1, 0, 0, 52)
+		arrow.Font = Enum.Font.GothamBold
+		arrow.Text = "▼"
+		arrow.TextSize = 50
+		arrow.TextColor3 = color
+		arrow.Parent = gui
+		local arrowStroke = Instance.new("UIStroke")
+		arrowStroke.Thickness = 3
+		arrowStroke.Color = Color3.fromRGB(43, 27, 20)
+		arrowStroke.Parent = arrow
+		table.insert(made, gui)
+		return gui
+	end
+	local function guideBeam(part: Instance, socket: Instance): Beam?
+		local a, b = basePartOf(part), basePartOf(socket)
+		if a == nil or b == nil then
+			return nil
+		end
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Parent, a1.Parent = a, b
+		local beam = Instance.new("Beam")
+		beam.Attachment0, beam.Attachment1 = a0, a1
+		beam.Width0, beam.Width1 = 0.11, 0.11
+		beam.Color = ColorSequence.new(Color3.fromRGB(255, 226, 120))
+		beam.LightEmission = 1
+		beam.FaceCamera = true
+		beam.Segments = 24
+		beam.CurveSize0, beam.CurveSize1 = 0.7, -0.7 -- a gentle arc so it never runs through the item
+		beam.Parent = a
+		table.insert(made, a0)
+		table.insert(made, a1)
+		table.insert(made, beam)
+		return beam
+	end
+	function fx.init(game_)
+		local replacing = game_.stepType == "Replace"
+		local guides: { [string]: any } = {}
+		for name, target in game_.targets do
+			local piece = game_.loose:FindFirstChild(name)
+			guides[name] = {
+				baseY = heightOf(target.socket) / 2 + 0.55,
+				socketGui = marker(target.socket, "GOES HERE", SELECT_COLOR),
+				partGui = if piece then marker(piece, "PICK ME", Color3.fromRGB(63, 220, 200)) else nil,
+				beam = if piece then guideBeam(piece, target.socket) else nil,
+			}
+		end
+		table.insert(connections, RunService.Heartbeat:Connect(function()
+			local t = os.clock()
+			local hintOn = not replacing or game_.wrongCount >= 1 or t - game_.lastAction > 8
+			local selectedName = game_.selected and game_.selected.Name
+			for name, g in guides do
+				local filled = game_.targets[name].filled
+				local bob = math.sin(t * 5) * 0.5 + 0.5
+				if g.socketGui then
+					g.socketGui.Enabled = not filled
+					g.socketGui.StudsOffsetWorldSpace = Vector3.new(0, (g.socketGui:GetAttribute("BaseY") or g.baseY) + 0.12 * bob, 0)
+					-- the spot of the part you are holding shouts louder
+					g.socketGui.Arrow.TextTransparency = if selectedName == name then 0 else 0.15 + 0.3 * (1 - bob)
+				end
+				if g.partGui then
+					g.partGui.Enabled = not filled and hintOn and selectedName ~= name
+				end
+				if g.beam then
+					g.beam.Enabled = not filled and (hintOn or selectedName == name)
+					g.beam.Transparency = NumberSequence.new(0.25 + 0.4 * (1 - bob))
+				end
+			end
+		end))
+	end
+
 	function fx.select(part: Instance)
 		playSound("pick")
 		selected.Adornee = part
@@ -219,6 +361,9 @@ local function repairFx(model: Instance)
 		end)
 	end
 	return fx, function()
+		for _, c in connections do
+			c:Disconnect()
+		end
 		for _, instance in made do
 			instance:Destroy()
 		end

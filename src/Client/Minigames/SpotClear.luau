@@ -3,6 +3,8 @@
 -- Owner: Dev 2 (Dwayne). Depends on: disposable Model.DirtSpots and explicit secondsPerSpot tuning.
 -- The adapter reports through ctx.complete; the view owns resetting/destroying the clone.
 
+local WorkHints = require(script.Parent.WorkHints)
+
 local SpotClear = {}
 SpotClear.__index = SpotClear
 local DEBUG = true
@@ -32,8 +34,10 @@ function SpotClear.new(model, stepConfig, onProgress, onComplete)
 		end
 	end
 	assert(self.total > 0, "DirtSpots needs at least one spot Part")
-	for _, spot in self.spots do
+	self.hints = WorkHints.new(Color3.fromRGB(255, 226, 150)) -- a pulsing ring on every spot that still needs wiping
+	for part, spot in self.spots do
 		spot.decal.Transparency = 0
+		self.hints:Add(part)
 	end
 	onProgress(0, 0, self.total)
 	if DEBUG then
@@ -58,6 +62,7 @@ function SpotClear:OnDrag(hit, _delta, dt)
 	end
 	spot.health = math.max(0, spot.health - math.clamp(dt, 0, 0.1) / self.seconds)
 	spot.decal.Transparency = 1 - spot.health
+	self.hints:Set(hit.Instance, spot.health)
 	if spot.health == 0 then
 		hit.Instance.CanQuery = false -- cleared carriers cannot obscure other spots or later Polish rays
 		self.cleared += 1
@@ -89,6 +94,9 @@ function SpotClear:Destroy()
 	if self.destroyed then return end
 	self.destroyed = true
 	self.held = false
+	if self.hints then
+		self.hints:Destroy()
+	end
 	self.onProgress = function() end
 	self.onComplete = function() end
 end

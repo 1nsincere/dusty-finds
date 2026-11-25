@@ -4,6 +4,8 @@
 -- named Layers (default 3) and a Decal named Rust, whose Transparency is faded as layers go. The score is 100 when finished.
 -- Interface: Scrape.new(model, stepConfig, onProgress, onComplete), :OnPointerDown(hit), :OnDrag(hit, delta, dt), :OnPointerUp(), :Destroy().
 
+local WorkHints = require(script.Parent.WorkHints)
+
 local Scrape = {}
 Scrape.__index = Scrape
 local DEBUG = true
@@ -36,6 +38,10 @@ function Scrape.new(model: Instance, stepConfig: { [string]: any }, onProgress, 
 		end
 	end
 	assert(self.total > 0, "RustSpots needs at least one spot Part")
+	self.hints = WorkHints.new(Color3.fromRGB(255, 170, 96)) -- a pulsing ring on every rusty spot
+	for part in self.spots do
+		self.hints:Add(part)
+	end
 	onProgress(0, 0, self.total)
 	if DEBUG then
 		print(`[Scrape] ready: {self.total} spots, {self.totalLayers} layers`)
@@ -72,6 +78,7 @@ function Scrape:OnDrag(hit, delta: Vector2?, _dt)
 	if spot.travelled >= STROKE_PIXELS then
 		spot.left -= 1
 		self.removed += 1
+		self.hints:Set(hit.Instance, spot.left / spot.layers)
 		if spot.decal then
 			spot.decal.Transparency = 1 - spot.left / spot.layers
 		end
@@ -98,6 +105,9 @@ end
 function Scrape:Destroy()
 	self.destroyed = true
 	self.held = false
+	if self.hints then
+		self.hints:Destroy()
+	end
 	self.onProgress = function() end
 	self.onComplete = function() end
 end

@@ -12,6 +12,7 @@ local UserInputService = game:GetService("UserInputService")
 local ClientState = require(script.Parent.Parent.ClientState)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local PointerInput = require(script.Parent.PointerInput)
+local ToolRig = require(script.Parent.ToolRig) -- the tool in the player's view: cloth, scraper, buffing pad (visual only)
 
 local RestorationView = {}
 RestorationView.__index = RestorationView
@@ -21,6 +22,86 @@ local nextViewId = 0
 local FP_DISTANCE = 3.4
 local FP_HEIGHT = 3.2
 local FP_FOV = 62
+
+-- ===== Camera that fits the item (Ace + Claude, 2026-11-25) =====
+-- The eye camera used to sit at one fixed distance, so tall items (Lava Lamp) overflowed the screen and had their dirt cut off.
+-- Now the distance comes from the item's real visible size at the current step (loose parts on the tray count too), so every
+-- item fills the same share of the screen. The eyes stay on the player's side of the bench, looking down at FIT_PITCH degrees.
+local FIT_PITCH = 38 -- degrees looking down at the item
+local FIT_MARGIN = 1.05 -- 1 = item just touches the safe area; a little air round it
+local SAFE_HEIGHT = 0.64 -- share of the screen height the item may use (the first guess)
+-- the working area in screen-centred units (-1..1): the hint and chips take the top, the progress bar the bottom
+local SAFE_X, SAFE_UP, SAFE_DOWN = 0.92, 0.70, 0.56
+
+-- Centre and bounding-sphere radius of everything visible on the model (helper carriers like Base/hidden spots don't count).
+function RestorationView.VisualBounds(model: Model): (Vector3, number)
+	local lo, hi
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") and p.Name ~= "Base" and p.Transparency < 0.95 then
+			local half = p.Size / 2
+			for _, sx in { -1, 1 } do
+				for _, sy in { -1, 1 } do
+					for _, sz in { -1, 1 } do
+						local c = (p.CFrame * CFrame.new(half.X * sx, half.Y * sy, half.Z * sz)).Position
+						lo = if lo then Vector3.new(math.min(lo.X, c.X), math.min(lo.Y, c.Y), math.min(lo.Z, c.Z)) else c
+						hi = if hi then Vector3.new(math.max(hi.X, c.X), math.max(hi.Y, c.Y), math.max(hi.Z, c.Z)) else c
+					end
+				end
+			end
+		end
+	end
+	if lo == nil or hi == nil then
+		local cf, size = model:GetBoundingBox()
+		return cf.Position, size.Magnitude / 2
+	end
+	return (lo + hi) / 2, (hi - lo).Magnitude / 2
+end
+
+-- flat = horizontal unit vector from the item toward the player's side of the bench.
+function RestorationView.FitCamera(model: Model, flat: Vector3, fov: number, aspect: number): CFrame
+	local center, radius = RestorationView.VisualBounds(model)
+	local tanV = math.tan(math.rad(fov) / 2)
+	local tanH = tanV * math.max(aspect, 0.3)
+	-- every corner of every visible part (the tray with the loose parts counts)
+	local corners: { Vector3 } = {}
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") and p.Name ~= "Base" and p.Transparency < 0.95 then
+			local half = p.Size / 2
+			for _, sx in { -1, 1 } do
+				for _, sy in { -1, 1 } do
+					for _, sz in { -1, 1 } do
+						table.insert(corners, (p.CFrame * CFrame.new(half.X * sx, half.Y * sy, half.Z * sz)).Position)
+					end
+				end
+			end
+		end
+	end
+	local pitch = math.rad(FIT_PITCH)
+	local direction = flat * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
+	local distance = (radius * 0.84) / (tanV * SAFE_HEIGHT) * FIT_MARGIN -- a first guess from the size
+	local look = CFrame.lookAt(center + direction * distance, center)
+	-- Then pull back until EVERY corner is inside the part of the screen the player can really work in (the hint and chips
+	-- take the top, the progress bar the bottom). A tall item with parts on a tray (the Plush Bunny's ears) is not round, so a
+	-- bounding sphere left the tray under the progress bar and its parts could not be tapped.
+	for _ = 1, 6 do
+		look = CFrame.lookAt(center + direction * distance, center)
+		local worst = 0
+		for _, c in corners do
+			local v = look:PointToObjectSpace(c)
+			if v.Z >= -0.05 then
+				worst = math.max(worst, 4)
+			else
+				local nx, ny = v.X / -v.Z / tanH, v.Y / -v.Z / tanV
+				worst = math.max(worst, math.abs(nx) / SAFE_X, if ny > 0 then ny / SAFE_UP else -ny / SAFE_DOWN)
+			end
+		end
+		if worst <= 1 then
+			break
+		end
+		distance *= math.min(worst * 1.02, 2)
+	end
+	return look
+end
 
 -- ===== Step state (Ace, 2026-11-20) =====
 -- The item must show everything already done in earlier steps (wiped dirt, scraped rust, parts back in their sockets,
@@ -102,6 +183,28 @@ function RestorationView.ApplyStepState(model: Model, recipe: { any }, stepIndex
 	-- helpers: ghosts and decoys only for the current repair step; fitted parts stay solid and unclickable
 	local current = recipe[stepIndex]
 	local repairing = current and (current.type == "Reassemble" or current.type == "Replace")
+	-- While repairing, the item's own body must not catch the pointer: a socket often sits INSIDE the body (the Lava Lamp's bulb is
+	-- inside its glass and foot), so every tap hit the glass first and the part could never be placed (found in a real session,
+	-- 2026-11-25). Other steps get the body's original CanQuery back (Wipe/Scrape spots and Polish surfaces need it).
+	local KEEP = { Sockets = true, LooseParts = true, DirtSpots = true, RustSpots = true }
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			local helper, node = false, p.Parent
+			while node and node ~= model do
+				if KEEP[node.Name] then
+					helper = true
+					break
+				end
+				node = node.Parent
+			end
+			if not helper then
+				if p:GetAttribute("BaseCanQuery") == nil then
+					p:SetAttribute("BaseCanQuery", p.CanQuery)
+				end
+				p.CanQuery = if repairing then false else (p:GetAttribute("BaseCanQuery") :: boolean)
+			end
+		end
+	end
 	if sockets then
 		for _, socket in sockets:GetChildren() do
 			local active = repairing and not filled[socket.Name] and matchesParts(socket.Name, stepParts(current))
@@ -133,11 +236,22 @@ function RestorationView.Provider(ctx, onCancel)
 	local function attachPointer(minigame)
 		assert(not disposed, "Cannot attach input to a disposed restoration view")
 		if detachCurrent then detachCurrent() end
-		local pointer = PointerInput.new(view.model, minigame, RestorationView.IsPointerBlocked)
+		-- the tool hears the same presses as the minigame (so the cloth rubs while you hold), without changing the minigame
+		local tool = view.tool
+		local proxy = minigame
+		if tool then
+			proxy = {
+				OnPointerDown = function(_, hit) tool:Press(); return minigame:OnPointerDown(hit) end,
+				OnDrag = function(_, hit, delta, dt) return minigame:OnDrag(hit, delta, dt) end,
+				OnPointerUp = function(_) tool:Release(); return minigame:OnPointerUp() end,
+			}
+		end
+		local pointer = PointerInput.new(view.model, proxy, RestorationView.IsPointerBlocked)
 		local detached = false
 		local function detach()
 			if detached then return end
 			detached = true
+			if tool then tool:Release() end
 			pointer:Destroy()
 		end
 		detachCurrent = detach
@@ -145,6 +259,7 @@ function RestorationView.Provider(ctx, onCancel)
 	end
 	return {
 		model = view.model,
+		tool = view.tool, -- exposed for dev tests
 		attachPointer = attachPointer,
 		-- the runner keeps ONE view for the whole session and calls this before each next step
 		prepare = function(nextCtx)
@@ -154,6 +269,12 @@ function RestorationView.Provider(ctx, onCancel)
 			local def = item and Items[item.itemId]
 			if def then
 				RestorationView.ApplyStepState(view.model, def.recipe, nextCtx.stepIndex)
+				if view.refit then
+					view.refit() -- the visible parts changed: frame the item again
+				end
+				if view.tool and nextCtx.step then
+					view.tool:SetStep(nextCtx.step.type) -- the right tool for the next step
+				end
 			end
 		end,
 		cleanup = function()
@@ -227,13 +348,22 @@ function RestorationView.new(ctx, onCancel)
 		ContextActionService:BindActionAtPriority(self.binding, function() return Enum.ContextActionResult.Sink end, false, 3000, table.unpack(Enum.PlayerActions:GetEnumItems()))
 		-- First-person view (Ace, 2026-11-20): the camera sits where the player's eyes are when standing at the bench (on the
 		-- CameraPoint side, closer and lower), looking down at the item; the player's own character is hidden meanwhile.
+		local toPoint = point.Position - anchor.Position
+		local flatDir = Vector3.new(toPoint.X, 0, toPoint.Z)
+		flatDir = if flatDir.Magnitude > 0.01 then flatDir.Unit else anchor.CFrame.LookVector
+		local fitted: CFrame? = nil
+		local fittedAspect = 0
+		function self.refit() -- after a step change (loose parts appear / disappear) or a window resize
+			fitted = nil
+		end
 		local function firstPersonCFrame(): CFrame
-			local toPoint = point.Position - anchor.Position
-			local flat = Vector3.new(toPoint.X, 0, toPoint.Z)
-			flat = if flat.Magnitude > 0.01 then flat.Unit else anchor.CFrame.LookVector
-			local itemCentre = anchor.Position + Vector3.new(0, anchor.Size.Y / 2 + 0.9 * plotScale, 0)
-			local eye = anchor.Position + flat * FP_DISTANCE * plotScale + Vector3.new(0, FP_HEIGHT * plotScale, 0)
-			return CFrame.lookAt(eye, itemCentre)
+			local vs = camera.ViewportSize
+			local aspect = if vs.Y > 0 then vs.X / vs.Y else 1.78
+			if fitted == nil or math.abs(aspect - fittedAspect) > 0.01 then
+				fitted = RestorationView.FitCamera(self.model, flatDir, FP_FOV, aspect)
+				fittedAspect = aspect
+			end
+			return fitted :: CFrame
 		end
 		self.hidden = {}
 		local character = Players.LocalPlayer.Character
@@ -258,6 +388,13 @@ function RestorationView.new(ctx, onCancel)
 				end
 			end
 		end)
+		-- the tool you work with (visual only): a failure here must never stop the restoration
+		local toolOk, tool = pcall(ToolRig.new, { model = self.model, stepType = ctx.step and ctx.step.type })
+		if toolOk then
+			self.tool = tool
+		else
+			warn("[RestorationView] tool rig failed (restoring continues without it): " .. tostring(tool))
+		end
 		local function cancel()
 			if not self.destroyed then onCancel() end
 		end
@@ -307,6 +444,7 @@ function RestorationView:Destroy()
 		RunService:UnbindFromRenderStep(self.binding)
 		ContextActionService:UnbindAction(self.binding)
 	end
+	if self.tool then self.tool:Destroy() end
 	if self.model then self.model:Destroy() end
 	for part, value in self.hidden or {} do
 		if part.Parent then part.LocalTransparencyModifier = value end

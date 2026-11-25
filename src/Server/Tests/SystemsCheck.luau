@@ -184,10 +184,13 @@ function SystemsCheck.run()
 		check("Economy: rewards for both levels (150 + 200)", cash(q) == 200 + 150 + 200, cash(q))
 		check("Economy: AddXp rejects bad amounts", Economy.AddXp(q, -1) == false and Economy.AddXp(q, 2.5) == false and Economy.AddXp(q, 0 / 0) == false)
 		local r = newPlayer()
-		Economy.AddXp(r, 1000000)
-		check("Economy: huge XP stops at the cap (level 15, xp 0)", fakeDS.GetValue(r, "level") == 15 and fakeDS.GetValue(r, "xp") == 0)
-		check("Economy: all rewards paid (100 + 50 x (2+...+15) = 6050)", cash(r) == 6050, cash(r))
-		check("Economy: XP at the cap changes nothing", select(2, Economy.AddXp(r, 500)) == 0 and fakeDS.GetValue(r, "level") == 15 and fakeDS.GetValue(r, "xp") == 0)
+		-- the cap and the level-up reward come from the config (MaxLevel was 15, now 50), so these checks follow it
+		local maxLevel = EconomyConfig.MaxLevel
+		local allRewards = 100 + EconomyConfig.LevelUpRewardPerLevel * (maxLevel * (maxLevel + 1) / 2 - 1)
+		Economy.AddXp(r, 1e12) -- far more than every level together
+		check(`Economy: huge XP stops at the cap (level {maxLevel}, xp 0)`, fakeDS.GetValue(r, "level") == maxLevel and fakeDS.GetValue(r, "xp") == 0)
+		check(`Economy: all rewards paid (100 + {EconomyConfig.LevelUpRewardPerLevel} x (2+...+{maxLevel}) = {allRewards})`, cash(r) == allRewards, cash(r))
+		check("Economy: XP at the cap changes nothing", select(2, Economy.AddXp(r, 500)) == 0 and fakeDS.GetValue(r, "level") == maxLevel and fakeDS.GetValue(r, "xp") == 0)
 
 		-- ===== InventoryService =====
 		local i = newPlayer()
@@ -472,12 +475,13 @@ function SystemsCheck.run()
 		local b = newPlayer()
 		fakeDS.Set(b, "cash", 1000)
 		local okBuy, _, boughtUids = Shipment.BuyCrate(b, "Starter")
-		check("Shipment: Starter crate costs $50 and adds 3 Unopened items", okBuy and #boughtUids == 3 and cash(b) == 950)
-		check("Shipment: the 3 items share one box and are Unopened", (function()
+		local starterItems = Crates.Starter.itemCount -- 5 now (was 3)
+		check(`Shipment: Starter crate costs $50 and adds {starterItems} Unopened items`, okBuy and #boughtUids == starterItems and cash(b) == 950)
+		check(`Shipment: the {starterItems} items share one box and are Unopened`, (function()
 			local first = Inventory.Get(b, boughtUids[1])
 			local boxCount = Inventory.CountWaitingBoxes(b)
 			return first.state == "Unopened" and first.crateId == "Starter" and boxCount == 1
-				and Inventory.Get(b, boughtUids[3]).boxId == first.boxId
+				and Inventory.Get(b, boughtUids[starterItems]).boxId == first.boxId
 		end)())
 		check("Shipment: Flea Market needs level 5", select(2, Shipment.BuyCrate(b, "FleaMarket")) == "level" and cash(b) == 950)
 		check("Shipment: Free Delivery can't be bought", select(2, Shipment.BuyCrate(b, "FreeDelivery")) == "free")
@@ -536,8 +540,31 @@ function SystemsCheck.run()
 		local fullBox = Inventory.Add(fullPlayer, "Teacup")
 		check("Open: refused when the inventory is full, box stays closed, no bonus", select(2, Shipment.OpenBox(fullPlayer, fullBox)) == "full" and Inventory.Get(fullPlayer, fullBox).state == "Unopened" and cash(fullPlayer) == 100)
 
+		-- ===== Auto sell (2026-11-25): switched-on rarities are sold at the Dispose price when the box opens =====
+		local teacupRarity = Items.Teacup.rarity
+		fakeDS.Set(fullPlayer, "settings.autoSell" .. teacupRarity, true)
+		local cashBefore = cash(fullPlayer)
+		local sold, _, soldInfo = Shipment.OpenBox(fullPlayer, fullBox)
+		local expected = require(ReplicatedStorage.Shared.Formulas).disposePrice("Teacup", false)
+		check("AutoSell: a full inventory still opens a switched-on rarity, item gone, paid the Dispose price",
+			sold and Inventory.Get(fullPlayer, fullBox) == nil and soldInfo.autoSold == expected and cash(fullPlayer) >= cashBefore + expected, soldInfo and soldInfo.autoSold)
+		check("AutoSell: the find is still recorded in the collection", fakeDS.GetValue(fullPlayer, "collection.Teacup.found") == true)
+		fakeDS.Set(fullPlayer, "settings.autoSell" .. teacupRarity, false)
+		local keptBox = Inventory.Add(fullPlayer, "Teacup")
+		check("AutoSell: switched off again -> the full inventory refuses as before", select(2, Shipment.OpenBox(fullPlayer, keptBox)) == "full")
+		local juke = newPlayer()
+		fakeDS.Set(juke, "settings.autoSellLegendary", true) -- not a real setting: must never sell a Legendary
+		local jukeUid = Inventory.Add(juke, "Jukebox")
+		local _, _, jukeInfo = Shipment.OpenBox(juke, jukeUid)
+		check("AutoSell: Legendary is never auto-sold", jukeInfo.autoSold == 0 and Inventory.Get(juke, jukeUid).state == "Dirty")
+		local goldPlayer = newPlayer()
+		fakeDS.Set(goldPlayer, "settings.autoSell" .. teacupRarity, true)
+		local goldUid = Inventory.Add(goldPlayer, "Teacup", { golden = true })
+		local _, _, goldInfo = Shipment.OpenBox(goldPlayer, goldUid)
+		check("AutoSell: Golden items are never auto-sold", goldInfo.autoSold == 0 and Inventory.Get(goldPlayer, goldUid).state == "Dirty")
+
 		-- Crate data sanity: every crate item count matches Config
-		check("Config: Starter crate gives 3 items", Crates.Starter.itemCount == 3)
+		check("Config: Starter crate gives 5 items (was 3, raised 2026-11-20)", Crates.Starter.itemCount == 5)
 	end)
 	EconomyConfig.ClosedUpgradeTabs = savedClosedTabs
 
