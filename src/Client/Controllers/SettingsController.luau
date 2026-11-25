@@ -14,17 +14,20 @@ local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
+local Skin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
+local TweenService = game:GetService("TweenService")
 
 local SettingsController = {}
 local DEBUG = true
 
 -- Keys must match what SettingsService accepts (and the data template). Order = order on screen.
 local TOGGLES = {
-	{ key = "announcements", label = "🔔 Show announcements" },
-	{ key = "music", label = "🎵 Music" },
-	{ key = "sfx", label = "🔊 Sound effects" },
-	{ key = "reduceEffects", label = "✨ Reduce effects" },
+	{ key = "music", icon = "🎵", title = "Music", desc = "Background tunes in the shop and town", color = Color3.fromRGB(145, 104, 255), section = "SOUND" },
+	{ key = "sfx", icon = "🔊", title = "Sound effects", desc = "Clicks, coins and restoring sounds", color = Color3.fromRGB(63, 167, 255), section = "SOUND" },
+	{ key = "reduceEffects", icon = "✨", title = "Reduce effects", desc = "Calmer visuals, fewer sparkles", color = Color3.fromRGB(255, 138, 61), section = "COMFORT" },
+	{ key = "announcements", icon = "🔔", title = "Announcements", desc = "Pop-ups for new stock and events", color = Color3.fromRGB(255, 107, 142), section = "COMFORT" },
 }
+local ROW_HEIGHT, SECTION_HEIGHT, ROW_GAP = 58, 24, 6
 -- Auto sell (Sean, Ace OK 2026-11-25): one chip per rarity in Economy.AutoSellRarities, key "autoSell<Rarity>", all OFF
 -- until the player taps one. The server does the selling (ShipmentService) and reads the saved value, not this screen.
 local AUTO_SELL_ROW_HEIGHT = 84
@@ -86,8 +89,15 @@ local function drawSwitch(key: string)
 		switch.BackgroundColor3 = if on then UiTheme.rarityColor(rarity) else UiTheme.Disabled
 		return
 	end
-	switch.Text = if on then "ON" else "OFF"
+	-- a sliding pill: a teal track with the knob on the right when ON, a grey one with the knob on the left when OFF
+	switch.Text = ""
 	switch.BackgroundColor3 = if on then UiTheme.Teal else UiTheme.Disabled
+	local knob = switch:FindFirstChild("Knob") :: Frame?
+	if knob then
+		TweenService:Create(knob, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = if on then UDim2.new(1, -29, 0.5, 0) else UDim2.new(0, 3, 0.5, 0),
+		}):Play()
+	end
 end
 
 local function drawAll()
@@ -115,6 +125,95 @@ local function onSwitchTapped(key: string)
 	end)
 end
 
+-- A section title ("SOUND", "COMFORT", ...) in gold above its rows.
+local function buildSection(parent: Instance, order: number, title: string)
+	local label = Instance.new("TextLabel")
+	label.Name = "Section_" .. title
+	label.LayoutOrder = order
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 0, SECTION_HEIGHT)
+	label.FontFace = Skin.FONT_TITLE
+	label.TextSize = 15
+	label.TextColor3 = Skin.COLORS.accent
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = title
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 4)
+	pad.PaddingTop = UDim.new(0, 6)
+	pad.Parent = label
+	local line = Instance.new("Frame")
+	line.Name = "Line"
+	line.AnchorPoint = Vector2.new(0, 1)
+	line.Position = UDim2.new(0, 0, 1, 0)
+	line.Size = UDim2.new(1, 0, 0, 1)
+	line.BackgroundColor3 = Skin.COLORS.accentDim
+	line.BackgroundTransparency = 0.55
+	line.BorderSizePixel = 0
+	line.Parent = label
+	label.Parent = parent
+end
+
+-- One setting: a coloured icon badge, the name, a one-line explanation and a sliding switch.
+local function buildToggleRow(template: Instance, parent: Instance, order: number, toggle)
+	local row = template:Clone() :: Frame
+	row.Name = toggle.key
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+	row.Visible = true
+	local label = row:FindFirstChild("Label") :: TextLabel
+	label.Text = toggle.title
+	label.TextScaled = false
+	label.TextSize = 18
+	label.AnchorPoint = Vector2.new(0, 0)
+	label.Position = UDim2.fromOffset(58, 8)
+	label.Size = UDim2.new(1, -150, 0, 22)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	local desc = Instance.new("TextLabel")
+	desc.Name = "Desc"
+	desc.BackgroundTransparency = 1
+	desc.Position = UDim2.fromOffset(58, 31)
+	desc.Size = UDim2.new(1, -150, 0, 18)
+	desc.FontFace = Skin.FONT_BODY
+	desc.TextSize = 13
+	desc.TextColor3 = Skin.COLORS.textDim
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.TextTruncate = Enum.TextTruncate.AtEnd
+	desc.Text = toggle.desc
+	desc.Parent = row
+	local badge = Instance.new("TextLabel")
+	badge.Name = "Badge"
+	badge.Position = UDim2.fromOffset(12, (ROW_HEIGHT - 36) / 2)
+	badge.Size = UDim2.fromOffset(36, 36)
+	badge.BackgroundColor3 = toggle.color
+	badge.TextSize = 19
+	badge.Text = toggle.icon
+	badge.Parent = row
+	Instance.new("UICorner", badge).CornerRadius = UDim.new(1, 0)
+	local badgeStroke = Instance.new("UIStroke")
+	badgeStroke.Color = Skin.COLORS.ink
+	badgeStroke.Thickness = 2
+	badgeStroke.Parent = badge
+	local switch = row:FindFirstChild("Switch") :: TextButton
+	switch.Size = UDim2.fromOffset(62, 32)
+	switch.Position = UDim2.new(1, -12, 0.5, 0)
+	switch.Text = ""
+	local switchCorner = switch:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	switchCorner.CornerRadius = UDim.new(1, 0)
+	switchCorner.Parent = switch
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.AnchorPoint = Vector2.new(0, 0.5)
+	knob.Position = UDim2.new(0, 3, 0.5, 0)
+	knob.Size = UDim2.fromOffset(26, 26)
+	knob.BackgroundColor3 = Skin.COLORS.cream
+	knob.BorderSizePixel = 0
+	knob.ZIndex = switch.ZIndex + 2
+	knob.Parent = switch
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+	row.Parent = parent
+	return row
+end
+
 -- The "💰 Auto sell new finds" row: a label on top and one chip per rarity under it (chips are copies of the skinned switch).
 local function buildAutoSellRow(template: Instance, parent: Instance, order: number)
 	local row = template:Clone() :: Frame
@@ -123,7 +222,9 @@ local function buildAutoSellRow(template: Instance, parent: Instance, order: num
 	row.Size = UDim2.new(1, 0, 0, AUTO_SELL_ROW_HEIGHT)
 	row.Visible = true
 	local label = row:FindFirstChild("Label") :: TextLabel
-	label.Text = "💰 Auto sell new finds (pays ~40%)"
+	label.Text = "💰 Auto sell finds (~40%)"
+	label.TextScaled = false -- a long label shrank to fit; the same 20 px as the other rows
+	label.TextSize = 20
 	label.AnchorPoint = Vector2.new(0, 0)
 	label.Position = UDim2.fromOffset(12, 6)
 	label.Size = UDim2.new(1, -24, 0, 30)
@@ -238,23 +339,35 @@ function SettingsController.Start()
 		end
 		local window = settingsGui.Window
 		local template = settingsGui:FindFirstChild("ToggleTemplate")
-		for index, toggle in TOGGLES do
-			local row = template:Clone()
-			row.Name = toggle.key
-			row.LayoutOrder = index
-			row.Label.Text = toggle.label
-			row.Visible = true
-			row.Parent = window.Toggles
-			switches[toggle.key] = row.Switch
-			row.Switch.Activated:Connect(function()
-				onSwitchTapped(toggle.key)
-			end)
-		end
-		buildAutoSellRow(template, window.Toggles, #TOGGLES + 1)
-		-- room for the taller row (+ the list's padding), then shrink to fit short screens
-		local listLayout = window.Toggles:FindFirstChildOfClass("UIListLayout")
-		local gap = if listLayout then listLayout.Padding.Offset else 6
-		window.Size = window.Size + UDim2.fromOffset(0, AUTO_SELL_ROW_HEIGHT + gap)
+			-- SOUND / COMFORT sections of switches, then the auto sell chips (a titled section of its own)
+			local order, lastSection = 0, nil
+			local contentHeight = 0
+			for _, toggle in TOGGLES do
+				if toggle.section ~= lastSection then
+					lastSection = toggle.section
+					order += 1
+					buildSection(window.Toggles, order, toggle.section)
+					contentHeight += SECTION_HEIGHT + ROW_GAP
+				end
+				order += 1
+				local row = buildToggleRow(template, window.Toggles, order, toggle)
+				contentHeight += ROW_HEIGHT + ROW_GAP
+				switches[toggle.key] = row.Switch
+				row.Switch.Activated:Connect(function()
+					onSwitchTapped(toggle.key)
+				end)
+			end
+			order += 1
+			buildSection(window.Toggles, order, "AUTO-SELL NEW FINDS")
+			order += 1
+			buildAutoSellRow(template, window.Toggles, order)
+			contentHeight += SECTION_HEIGHT + ROW_GAP + AUTO_SELL_ROW_HEIGHT
+			local listLayout = window.Toggles:FindFirstChildOfClass("UIListLayout")
+			if listLayout then
+				listLayout.Padding = UDim.new(0, ROW_GAP)
+			end
+			-- the window is exactly as tall as its content (title bar 58 + content + a little air), then shrinks on short screens
+			window.Size = UDim2.fromOffset(420, 58 + contentHeight + 22)
 		fitWindow(window)
 		local camera = workspace.CurrentCamera
 		if camera then
