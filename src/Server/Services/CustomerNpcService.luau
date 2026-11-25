@@ -529,6 +529,7 @@ local function runVisit(npc: Npc, plot: Instance)
 	-- At the counter: face the till and WAIT for the owner (no auto-pay any more). Hellos while waiting; after the patience
 	-- limit the customer leaves without buying and the item goes back on the shelf.
 	npc.atCounter = true
+	npc.model:SetAttribute("AtCounter", true) -- lets the tests (and anything else) see who is waiting at the till
 	local counter = plot:FindFirstChild("Counter")
 	if counter and counter:IsA("BasePart") then
 		faceToward(npc, counter.Position)
