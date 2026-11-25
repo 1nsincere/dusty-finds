@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Skins = require(ReplicatedStorage.Shared.Config.Skins)
 local StockConfig = require(ReplicatedStorage.Shared.Config.Stock)
@@ -243,13 +244,15 @@ function SkinService.Buy(player: Player, skinId: any, now: number?): (boolean, s
 	if not (counter and Validate.withinDistance(player, counter, StockConfig.BuyMaxStuds)) then
 		return false, "far"
 	end
-	if not EconomyService.Spend(player, skin.price) then
+	if not EconomyService.Spend(player, skin.price, "Shop", skinId) then
 		return false, "cash"
 	end
 	if not DataService.Set(player, "skins.owned." .. skinId, true) then
 		EconomyService.AddCash(player, skin.price, "Refund")
 		return false, "saveFailed"
 	end
+	Analytics.Step(player, Analytics.STEP.BoughtSkin)
+	Analytics.Event(player, "SkinBought", 1, skin.kind, skin.rarity, skinId)
 	log.info(`{player.Name} bought {skinId} for ${skin.price}`)
 	return true, nil
 end

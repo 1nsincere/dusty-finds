@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
@@ -286,6 +287,7 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 	EconomyService.AddCash(player, total, "Sale")
 	local sold = DataService.GetValue(player, "stats.sold") or 0
 	DataService.Set(player, "stats.sold", sold + 1)
+	Analytics.Step(player, Analytics.STEP.FirstSale)
 	if Validate.isPlayer(player) then
 		Remotes.SaleMade:FireClient(player, total, wishMatched, tip)
 	end

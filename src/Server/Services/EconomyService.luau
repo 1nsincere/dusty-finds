@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Formulas = require(ReplicatedStorage.Shared.Formulas)
@@ -55,11 +56,13 @@ function EconomyService.AddCash(player: Player, amount: number, reason: string?)
 		local earned = DataService.GetValue(player, "stats.earned") or 0
 		DataService.Set(player, "stats.earned", earned + amount)
 	end
+	Analytics.CashIn(player, amount, cash + amount, reason)
 	return true
 end
 
 -- Takes the cash only if the player has enough. No yielding between the check and the write, so it can't double-spend.
-function EconomyService.Spend(player: Player, amount: number): boolean
+-- reason / sku (optional) only label the analytics event ("Shop", the crate / skin / upgrade id); they change nothing else.
+function EconomyService.Spend(player: Player, amount: number, reason: string?, sku: string?): boolean
 	if not Validate.isInteger(amount, 0) then
 		log.warn("Spend refused: bad amount", tostring(amount))
 		return false
@@ -68,7 +71,11 @@ function EconomyService.Spend(player: Player, amount: number): boolean
 	if type(cash) ~= "number" or cash < amount then
 		return false
 	end
-	return DataService.Set(player, "cash", cash - amount)
+	local ok = DataService.Set(player, "cash", cash - amount)
+	if ok then
+		Analytics.CashOut(player, amount, cash - amount, reason, sku)
+	end
+	return ok
 end
 
 -- Adds XP, levels up as often as needed (up to Economy.MaxLevel) and pays $50 x new level for each level.
@@ -128,6 +135,7 @@ function EconomyService.Start()
 	-- publish the shop level as a player attribute once the save has loaded (the player list reads it; not saved data)
 	if DataService.OnPlayerLoaded then
 		DataService.OnPlayerLoaded(function(player)
+			Analytics.Step(player, Analytics.STEP.Joined)
 			local level = DataService.GetValue(player, "level")
 			if typeof(player) == "Instance" and type(level) == "number" then
 				player:SetAttribute("DF_Level", level)

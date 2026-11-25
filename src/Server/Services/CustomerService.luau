@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local CustomerTypes = require(ReplicatedStorage.Shared.Config.Customers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
@@ -77,6 +78,8 @@ local function removeCustomer(player: any, customerId: string, reason: string)
 		DisplayService.Release(player, customer.uid, customer.id)
 	end
 	mine[customerId] = nil
+	-- how every customer visit ended (paid / left / impatient / nothing / timeout / ...), by customer type
+	Analytics.Event(player, "CustomerOutcome", 1, customer.typeId, reason)
 	local handler = removedHandler
 	if handler then
 		task.spawn(function()

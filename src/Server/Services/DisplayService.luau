@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 
@@ -129,6 +130,7 @@ local function place(player: any, kind: string, uid: any, slotIndex: any): (bool
 	end
 	log.info(`{kind} slot {slotIndex} <- {item.itemId}`)
 	DisplayService.SyncSlots(player)
+	Analytics.Step(player, Analytics.STEP.DisplayedItem)
 	return true, nil
 end
 

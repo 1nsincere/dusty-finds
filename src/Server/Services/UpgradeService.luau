@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Upgrades = require(ReplicatedStorage.Shared.Config.Upgrades)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
@@ -60,13 +61,14 @@ function UpgradeService.BuyUpgrade(player: Player, upgradeId: string): (boolean,
 
 	-- 5. afford + pay (Spend checks again and can't be raced), then save the new level; refund if saving fails
 	local cost = def.costs[nextLevel]
-	if not EconomyService.Spend(player, cost) then
+	if not EconomyService.Spend(player, cost, "Shop", upgradeId) then
 		return false, "cash", nil
 	end
 	if not DataService.Set(player, "upgrades." .. upgradeId, nextLevel) then
 		EconomyService.AddCash(player, cost, "Refund")
 		return false, "saveFailed", nil
 	end
+	Analytics.Step(player, Analytics.STEP.BoughtUpgrade)
 
 	PlotService.RefreshSlots(player) -- shelves / showroom change which slots are enabled
 	CollectionBookService.RefreshRating(player)

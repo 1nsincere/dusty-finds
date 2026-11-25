@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
@@ -244,6 +245,8 @@ function RestorationService.ReportStepComplete(player: Player, uid: string, step
 		log.warn(`{player.Name}: stats.restored not saved`)
 	end
 
+	Analytics.Step(player, Analytics.STEP.RestoredItem)
+	Analytics.Event(player, "RestoreFinished", stars, item.itemId)
 	if Validate.isPlayer(player) then
 		Remotes.ItemRestored:FireClient(player, uid, stars, value)
 	end

@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
@@ -219,7 +220,7 @@ function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, st
 	if boxes >= Economy.MaxWaitingBoxes then
 		return false, "tooManyBoxes", nil
 	end
-	if not EconomyService.Spend(player, crate.price) then
+	if not EconomyService.Spend(player, crate.price, "Shop", crateId) then
 		return false, "cash", nil
 	end
 	local uids, reason = addBox(player, crateId)
@@ -322,6 +323,7 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 		end
 	end
 
+	Analytics.Step(player, Analytics.STEP.OpenedBox)
 	local isNew = CollectionBookService.RecordFound(player, item.itemId, item.golden) == true
 	local bonus = 0
 	if isNew then
