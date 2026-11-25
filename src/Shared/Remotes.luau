@@ -35,6 +35,9 @@ local CLIENT_TO_SERVER = {
 	"RequestBuyPaint", -- paint bar: (paintId) buy a wall / floor paint (always in stock; server checks owned, cash, distance to Workspace.PaintCounter)
 	"RequestApplyPaint", -- paints: (kind "Wall"|"Floor", paintId or "" for the original look) use an owned paint in your shop
 	"RequestSetWishlist", -- skins stall: (skinId, on) pin or unpin a skin you want; you get a toast when it is in stock (notify only, never changes the odds)
+	"RequestPurchasePass", -- Collector's Corner: (passKey) open Roblox's purchase window for a pass (the server checks the key, owned, comingSoon; saves only after Roblox confirms ownership)
+	"RequestPurchaseProduct", -- Collector's Corner tip jar: (productKey) open Roblox's purchase window for a tip
+	"RequestSetVip", -- VIP: (field "title"|"pet"|"petColor"|"auraStyle", value) cosmetic choice; server checks VIP, the choice list, and filters a custom title
 	"RequestSaveLayout", -- edit mode: ({ [pieceId] = { x, z, rot, floor } }) the whole moved-pieces layout; server validates all-or-nothing (LayoutService)
 	"RequestDisposeItems", -- inventory: ({ uid, ... }) throw away Dirty items for DisposeFraction of their est. value (server re-checks each)
 }

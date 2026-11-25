@@ -112,6 +112,9 @@ function PaintService.Buy(player: Player, paintId: any): (boolean, string?)
 	if paint == nil then
 		return false, "unknown"
 	end
+	if paint.pass ~= nil then
+		return false, "passOnly" -- theme paints come with a Robux pass (MonetizationService), never for cash
+	end
 	local data = DataService.Get(player)
 	if data == nil or type(data.paints) ~= "table" or type(data.paints.owned) ~= "table" then
 		return false, "noData"
@@ -190,6 +193,7 @@ function PaintService.Grant(player: Player, paintId: string, use: boolean?): (bo
 end
 
 local REASON_TEXT = {
+	passOnly = "That paint comes with a theme pass at the Collector's Corner.",
 	owned = "You already own that paint.",
 	far = "Buy paints at the Paint Bar upstairs in the market.",
 	cash = "Not enough cash for that paint.",

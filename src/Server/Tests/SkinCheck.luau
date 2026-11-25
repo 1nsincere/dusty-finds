@@ -137,11 +137,18 @@ function SkinCheck.run()
 	check("stock: a common shelf skin is always in stock", commons == runs, commons)
 	local everySkin = true
 	for _, skin in Skins.LIST do
-		if not seen[skin.id] then
+		if not seen[skin.id] and skin.pass == nil then -- pass-only theme skins are never in stock
 			everySkin = false
 		end
 	end
-	check("stock: every skin shows up sometimes (4000 restocks)", everySkin)
+	check("stock: every skin that is sold shows up sometimes (4000 restocks); pass-only theme skins never do", everySkin and (function()
+		for _, skin in Skins.LIST do
+			if skin.pass and seen[skin.id] then
+				return false
+			end
+		end
+		return true
+	end)())
 	-- 2 kinds x 1.5% = ~3% of restocks have a Mythic: about 120 in 4000
 	check("stock: Mythic is rare (~3% of restocks)", mythics > 40 and mythics < 250, mythics)
 

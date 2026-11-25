@@ -291,7 +291,7 @@ local function render()
 		end
 		local todo = {}
 		for _, skin in Skins.LIST do
-			if not owned(skin.id) then
+			if not owned(skin.id) and skin.pass == nil then -- pass themes can't be pinned: they are not in stock
 				table.insert(todo, skin)
 			end
 		end

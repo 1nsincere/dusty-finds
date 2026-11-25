@@ -34,6 +34,13 @@ Paints.LIST = {
 	{ id = "FloorTerracotta", name = "Terracotta Tile", kind = "Floor", price = 350, color = rgb(196, 104, 72), material = M.Concrete },
 	{ id = "FloorCapiz", name = "Capiz Cream", kind = "Floor", price = 600, color = rgb(240, 232, 214), material = M.Marble },
 	{ id = "FloorMachuca", name = "Machuca Teal", kind = "Floor", price = 600, color = rgb(54, 124, 130), material = M.Concrete },
+
+	-- ===== Theme paints (Robux passes, docs/12 Stage 5): `pass` = the pass id in Config.Monetization that grants them. Never sold
+	-- for cash and never shown in the Paint Bar shop; they appear in the Owned tab once the pass is owned. =====
+	{ id = "WallArcade", name = "Arcade Midnight", kind = "Wall", price = 1, color = rgb(36, 30, 70), pass = "ThemeArcade" },
+	{ id = "FloorArcade", name = "Arcade Carpet", kind = "Floor", price = 1, color = rgb(72, 42, 112), material = M.Concrete, pass = "ThemeArcade" },
+	{ id = "WallCabin", name = "Cabin Honey", kind = "Wall", price = 1, color = rgb(184, 134, 88), pass = "ThemeCabin" },
+	{ id = "FloorCabin", name = "Cabin Planks", kind = "Floor", price = 1, color = rgb(122, 80, 50), material = M.WoodPlanks, pass = "ThemeCabin" },
 }
 
 Paints.BY_ID = {}

@@ -184,6 +184,37 @@ for _, fam in FAMILIES do
 	end
 end
 
+-- ===== Theme skins (Robux passes, docs/12 Stage 5) =====
+-- `pass` = the pass id in Config.Monetization that grants the skin. They are NEVER in the stock roll (Shared.Stock skips them) and
+-- never sold for cash: owning the pass puts them in your Owned tab. The price field is unused (kept so every skin has one).
+local THEME_SKINS = {
+	{ pass = "ThemeArcade", name = "Retro Arcade", shelf = { color = rgb(30, 26, 56), material = M.SmoothPlastic, reflectance = 0.1,
+			trim = rgb(255, 70, 160), trimMaterial = M.Neon, light = rgb(255, 90, 170) },
+		frame = rgb(54, 40, 96), id = "Arcade" },
+	{ pass = "ThemeCabin", name = "Cozy Cabin", shelf = { color = rgb(150, 100, 62), material = M.Wood,
+			trim = rgb(86, 54, 32), trimMaterial = M.Wood, light = rgb(255, 214, 150) },
+		frame = rgb(112, 72, 44), id = "Cabin" },
+}
+for _, theme in THEME_SKINS do
+	for _, kind in { "Shelf", "Pedestal", "Cashier" } do
+		local look = copyLook(theme.shelf)
+		if kind == "Cashier" then
+			look.model = "CashierClassic"
+			look.frame = theme.frame
+			look.top = theme.shelf.trim
+		end
+		table.insert(Skins.LIST, {
+			id = kind .. theme.id,
+			name = theme.name,
+			kind = kind,
+			rarity = "Epic",
+			price = 1,
+			pass = theme.pass,
+			look = look,
+		})
+	end
+end
+
 Skins.BY_ID = {}
 for _, skin in Skins.LIST do
 	Skins.BY_ID[skin.id] = skin

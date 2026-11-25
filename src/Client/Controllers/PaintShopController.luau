@@ -203,7 +203,7 @@ local function render()
 	local order = 0
 	if tab ~= "Owned" then
 		for _, paint in Paints.LIST do
-			if paint.kind == tab then
+			if paint.kind == tab and paint.pass == nil then -- theme paints (Robux passes) never show in the shop; they are in Owned
 				order += 1
 				card(paint, tab, order)
 			end
