@@ -1,4 +1,16 @@
-# CATCH-UP for Dwayne and Sean (latest, 2026-11-16: read this first)
+# CATCH-UP for Dwayne and Sean (latest, 2026-11-25: read this first)
+
+## 2026-11-25 update from Ace's Claude session (branch `ace/canal-town`, everything committed, not pushed yet)
+- **Pull `ace/canal-town` BEFORE you edit or press Play.** Six commits landed: restoration UI/camera, Collection + Settings redesign, customer behaviour, edit-mode layout saving, warehouse tools + `docs/12_Solo_Roadmap.md`, and one commit of earlier UI/crate work (HUD layout, inventory, player list, shop, notification dock, WindowKit, Yard Sale crate, unboxing art; commit `1ca00cf`).
+- **Sean:** your files in `1ca00cf` were committed as found; tell Ace if anything was unfinished.
+- **Customers:** hesitation, come-back, queue + manual checkout (no auto-pay), haggling, personalities, shop rating as a gentle factor. Config in `Economy.luau`, `Customers.luau`, `CustomerLines.luau`.
+- **Restoration:** left-column HUD + guide, no start wait, wall-safe camera, Test LED meter, missing-part markers.
+- **Edit mode:** `LayoutService` saves shop layouts on the server (data template v2, `layout = {}`).
+- **Warehouse Market (Studio only, not in Git):** new two-floor modern/vintage warehouse at `Workspace.CanalTownWow.BlenderBuildings.Warehouse`, generated from `tools/blender/warehouse_market.py` (asset 99200784514192). Invisible walk collision is in its `WalkCollision` folder, lights in `Lights`. **Do not edit it in Studio; change the generator.** The Supply desk and Skins stall now stand inside it (same objects, same prompts). Dwayne's old warehouse is at `ServerStorage.Warehouse_Dwayne_Backup`.
+- **Plan:** `docs/12_Solo_Roadmap.md` (stock shop, skins and paints, collector auras, gentle Robux). Trading is off for now. Nothing Robux-related is built.
+- **Sean (if free):** market stall buy screens and the Style picker (docs/12 Stage 3). **Dwayne (if free):** shop-piece families (Rattan, Narra, Capiz, Machuca, Banig, Inabel) with 3 colourways for the rarest tiers, following `docs/Blender_Pipeline.md`. Subtle Filipino touches in materials, patterns and names; no flags.
+
+# Older catch-up (2026-11-16)
 
 Written by Ace's Claude session. The older report further down is from an earlier session; it is kept below.
 
