@@ -191,11 +191,15 @@ local function hookButton(inst: Instance)
 	end
 end
 
+-- No music behind the loading screen and the title menu (Ace, 2026-11-25): the playlist keeps running silently and
+-- fades in when the menu closes.
+local introQuiet = false -- false on purpose: the first Heartbeat then flips it and applies the volume (Init starts the group loud)
+
 local function applySettings()
 	local settings = ClientState.Get("settings")
 	musicOn = not (type(settings) == "table" and settings.music == false)
 	sfxOn = not (type(settings) == "table" and settings.sfx == false)
-	groups.music.Volume = if musicOn then Config.MIX.music else 0
+	groups.music.Volume = if musicOn and not introQuiet then Config.MIX.music else 0
 	groups.ambience.Volume = if musicOn then Config.MIX.ambience else 0 -- ambience follows the music switch
 	groups.sfx.Volume = if sfxOn then Config.MIX.sfx else 0
 end
@@ -332,7 +336,14 @@ function SoundController.Start()
 	playMusic(wanted(night, indoors))
 	local sinceMood = 0
 	local lastAmbience = { night, indoors }
+	local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 	RunService.Heartbeat:Connect(function(dt)
+		local quiet = playerGui:FindFirstChild("LoadingScreen") ~= nil or playerGui:FindFirstChild("MainMenu") ~= nil
+			or game:GetService("Players").LocalPlayer:GetAttribute("DF_ClientReady") ~= true -- before the game is ready too
+		if quiet ~= introQuiet then
+			introQuiet = quiet
+			applySettings()
+		end
 		local now = os.clock()
 		for stepType, s in workSounds do
 			if s.IsPlaying and now - (lastWork[stepType] or 0) > 0.25 then
