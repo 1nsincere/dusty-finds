@@ -24,18 +24,24 @@
 - Re-run DevTools `testAll`; fix anything red.
 - **Exit:** a 15-minute play session with no bug you would be embarrassed by. This is the base everything else sits on.
 
-## Stage 2: Foundations and measurement (about 1 week)
-- **Data template (ask Ace):** `furniture`/`skins` (owned + applied), `paints`, `wishlist`, `entitlements`.
-- **Config:** `Stock.luau`, `Fixtures.luau`, `Paints.luau` (data, not code).
-- **StockService:** one shared 5-minute clock, per-player roll with `Random.new()`, pity counter, validated buy remote.
-- **Analytics (rbx-instrument-analytics skill):** funnel (join, first restore, first sale, first stock buy), economy events, store views. No Robux yet, but the numbers start collecting.
-- **Exit:** a stock roll and a buy work in `testAll`; rejoin keeps what you bought.
+## What already exists (found 2026-11-25, built by Sean; do NOT rebuild)
+- `Shared/Config/Skins.luau` (shelf, pedestal and cashier skins, Common to Mythic, colour/material looks AND model skins with auras), `Shared/Config/Stock.luau` (restock every 300 s, chance per rarity), `Shared/Stock.luau` (the roll: a pure function of the restock number, so server and every client get the same list with no network traffic), `SkinService` (buy, apply, draw), `SkinShopController` + `SkinModelController` (window, model skins), data field `skins = { owned, shelf, pedestal, cashier }`, `SkinCheck` (29 tests).
+- **So the stock is currently SHARED: everyone sees the same stock at the same time.** That is the social version (friends talk about "the Cosmic shelf is in!"). The earlier decision "per-player rolls" is therefore changed to a recommendation: KEEP shared stock (see Decisions).
+
+## Stage 2: Extend, measure, and add the data we still need (about 1 week)
+- **Analytics (rbx-instrument-analytics skill):** funnel (join, first restore, first sale, first stock buy), economy events, store views. The numbers start collecting before any Robux exists.
+- **Colourway variants (config only):** `Skins.LIST` entries get `family` (e.g. "Machuca") and `colorway` ("Terracotta", "Teal", "Navy"). The roll already picks ONE skin per kind and rarity from a pool, so with 3 colourways in the Legendary pool only one is in stock at a time: the "wait for the colour you want" feeling comes for free.
+- **First Filipino families as `look` tables (no new models needed):** Rattan, Narra, Capiz, Machuca, Banig, Inabel, Jeepney, as colour + material + trim looks; model skins can follow later through the Blender pipeline.
+- **Data template (ask Ace first), small:** `paints = { owned = {}, wall = "", floor = "" }`, `wishlist = {}` (skin ids to notify about, max 5), `entitlements = {}` (passes, written only by the server after a Marketplace check), `vip = { title, pet, petColor, auraStyle }`. Collector score and aura tier are DERIVED from existing data, so nothing is saved for them.
+- **New remotes (docs/03 section 6):** `RequestBuyPaint`, `RequestApplyPaint`, `RequestSetWishlist`; the VIP and Robux ones wait for Stage 5.
+- **Tests:** extend `SkinCheck` for colourway pools and wishlist; new `PaintCheck`.
+- **Exit:** a colourway shows in stock, can be bought and applied; wishlist notifies; analytics events appear in `testAll`/Output.
 
 ## Stage 3: Market MVP, no Robux (about 2 weeks)
-- Edit Mode **Style** button + **Paints** + client-only **Preview** (60 s try-on).
-- Stall prompts and buy screens: Shelves & Pedestals, Paint Bar, decor rooms; restock countdown; wishlist notification (notify only, never changes odds).
-- **First content batch:** Paints (all the cheap Filipino-named colours), Rattan and Narra families (Common to Rare), a small decor set. Models via the Blender pipeline.
-- **Exit:** a new player can buy a skin with cash, apply it, and see it in their shop and a visitor's view. This is the "make them want to come back" stage.
+- **Paints:** Paint Bar buy/apply screen (wall and floor colours with the Filipino food names), client-only **Preview** (60 s try-on).
+- **Market stalls:** point the existing `SkinShopController` at the new Skins Booth counter (already moved) and add the Shelves & Pedestals and Paint Bar prompts; restock countdown on a sign; wishlist toast.
+- **Decor rooms (Cozy Living, Kitchen Nook, Gallery & Study):** only after paints work; needs edit-mode placement rules (docs/10 build step 4).
+- **Exit:** a new player can buy a skin or paint with cash, apply it, and see it in their shop and in a visitor's view.
 
 ## Stage 4: Collector score and auras (about 1 week)
 - Server computes the **collector score** (rarity points of unique items + Collection Book % + shop rating). No RAP; no trading.
@@ -69,7 +75,7 @@ Needs its own plan: anti-scam confirmation screens, no Robux-for-item, value dis
 - [x] Aura tier is earned; VIP picks only the style.
 - [x] Robux road: Collector's Corner fixed purchases, no skip-wait (Ace, 2026-11-25). "Restock now" stays an Amber idea for Stage 7 only.
 - [x] Secret tier: milestone-earned only (Ace, 2026-11-25).
-- [x] Stock: shared 5-minute clock, per-player rolls (Ace, 2026-11-25).
+- [~] Stock: shared 5-minute clock (Ace, 2026-11-25). "Per-player rolls" is REVISED: Sean's system already shares one stock for everyone, which is more social and already tested. Recommendation: keep shared, no pity counter. Ace to confirm.
 - [x] VIP perks (pet, filtered title, aura style, nameplate colour + chat tag, +1 saved layout, VIP market corner), starting price 399 R$ (Ace, 2026-11-25; price is a config value and can change).
 - [ ] Approve data-template change (needed before Stage 2) and the price ladder (needed before Stage 5).
 
