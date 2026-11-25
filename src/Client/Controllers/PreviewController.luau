@@ -1,7 +1,9 @@
 -- PreviewController.luau (StarterPlayerScripts.Client.Controllers.PreviewController)
--- Purpose: "Try it for 60 seconds" (docs/11 section 5, docs/12 Stage 3). Shows a paint or a shelf / pedestal skin on YOUR shop
--- for a minute, flying the camera over the shop so you can see it from the market, then puts everything back. CLIENT ONLY:
--- nothing is saved, nothing is sent to the server, nobody else sees it. A banner shows the time left and a Stop button.
+-- Purpose: "Try it for 60 seconds" (docs/11 section 5, docs/12 Stage 3). Shows a paint, a skin or a whole theme on YOUR shop for a
+-- minute and takes you INTO your shop (normal third-person camera, walk around and look): when the minute ends, or you press
+-- "Go back", everything is put back and you are taken to where you were (the market). CLIENT ONLY: nothing is saved, nothing is
+-- sent to the server, nobody else sees the look. A banner shows the time left.
+-- (Version 1 flew the camera over the shop; it failed on real shops, so it was replaced by this walk-in preview.)
 -- Owner: Dev 1 (Ace). Depends on: Shared.PlotTargets (same parts as the real paint / skin), Shared.Config (Paints, Skins),
 -- UiSkin. Called by: PaintShopController and SkinShopController (their "Try" buttons).
 -- Skins preview as colour + material only (no trim, glow or models), so the real thing looks a little richer than the preview.
@@ -10,7 +12,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local PlotTargets = require(Shared:WaitForChild("PlotTargets"))
@@ -26,10 +27,9 @@ local player = Players.LocalPlayer
 
 local active: {
 	saved: { [BasePart]: { color: Color3, material: Enum.Material, applied: Color3 } },
-	hidden: { [BasePart]: number },
 	endsAt: number,
 	label: string,
-	camera: { type: Enum.CameraType, cframe: CFrame }?,
+	returnTo: CFrame?, -- where you stood before the preview took you into your shop (nil = you were already in it)
 }? = nil
 local gui: ScreenGui? = nil
 local timeLabel: TextLabel? = nil
@@ -94,7 +94,7 @@ local function buildBanner()
 	stop.TextScaled = true
 	stop.FontFace = UiSkin.FONT_TITLE
 	stop.TextColor3 = Color3.fromRGB(30, 24, 20)
-	stop.Text = "Stop"
+	stop.Text = "Go back"
 	stop.Parent = frame
 	Instance.new("UICorner", stop).CornerRadius = UDim.new(0, 8)
 	stop.Activated:Connect(function()
@@ -129,56 +129,42 @@ function PreviewController.Stop()
 			PlotTargets.restorePart(part, original)
 		end
 	end
-	for part, transparency in state.hidden do
-		if part.Parent then
-			part.Transparency = transparency
-		end
-	end
-	local camera = workspace.CurrentCamera
-	if camera and state.camera then
-		camera.CameraType = state.camera.type
-	end
 	if gui then
 		gui.Enabled = false
+	end
+	-- take you back to where you were (the market)
+	local character = player.Character
+	if state.returnTo and character and character.Parent then
+		character:PivotTo(state.returnTo)
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if hrp and hrp:IsA("BasePart") then
+			hrp.AssemblyLinearVelocity = Vector3.zero
+		end
 	end
 	log("stopped")
 end
 
--- Flies the camera over the shop (roof hidden for the minute) so the change can be seen from the market.
-local function lookAtShop(state: any, plot: Instance)
-	local camera = workspace.CurrentCamera
-	if camera == nil then
-		return
-	end
-	-- Frame the main shop floor (not the whole plot: the Back Room / Showroom would pull the camera away from it).
+-- Takes you into your shop (unless you are already standing in it) and remembers where you were, so Stop can take you back.
+-- You keep the normal third-person camera and can walk around while the look is on.
+local function goToShop(state: any, plot: Instance)
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
 	local floor = plot:FindFirstChild("Floor")
-	if not (floor and floor:IsA("BasePart")) then
+	if not (character and hrp and hrp:IsA("BasePart") and floor and floor:IsA("BasePart")) then
 		return
 	end
-	local floorTop = floor.Position.Y + floor.Size.Y / 2
-	-- Hide everything that stands above the ground floor's ceiling (roof, upper floor, the Showroom...) for the minute, so the
-	-- inside can be seen. A part counts as "above" when its bottom is more than 17 studs over the floor.
-	local limit = floorTop + 17
-	for _, d in plot:GetDescendants() do
-		if d:IsA("BasePart") and d.Transparency < 1 and d.Position.Y - d.Size.Y / 2 > limit then
-			state.hidden[d] = d.Transparency
-			d.Transparency = 1
-		end
+	local dx = math.abs(hrp.Position.X - floor.Position.X)
+	local dz = math.abs(hrp.Position.Z - floor.Position.Z)
+	local dy = math.abs(hrp.Position.Y - floor.Position.Y)
+	if dx < floor.Size.X / 2 and dz < floor.Size.Z / 2 and dy < 14 then
+		return -- already inside your shop: stay where you are, nothing to go back to
 	end
-	-- "front" = from the back wall towards the middle of the shop
-	local back = plot:FindFirstChild("Walls") and plot.Walls:FindFirstChild("BackWall")
-	local front = Vector3.new(0, 0, 1)
-	if back and back:IsA("BasePart") then
-		local flat = Vector3.new(floor.Position.X - back.Position.X, 0, floor.Position.Z - back.Position.Z)
-		if flat.Magnitude > 0.1 then
-			front = flat.Unit
-		end
-	end
-	local target = Vector3.new(floor.Position.X, floorTop + 2, floor.Position.Z)
-	local from = target + front * 26 + Vector3.new(0, 48, 0)
-	state.camera = { type = camera.CameraType, cframe = camera.CFrame }
-	camera.CameraType = Enum.CameraType.Scriptable
-	TweenService:Create(camera, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.lookAt(from, target) }):Play()
+	state.returnTo = hrp.CFrame
+	local spawn = plot:FindFirstChild("Spawn")
+	local spot = if spawn and spawn:IsA("BasePart") then spawn.Position else floor.Position
+	local at = Vector3.new(spot.X, floor.Position.Y + floor.Size.Y / 2 + 3.5, spot.Z)
+	character:PivotTo(CFrame.lookAt(at, Vector3.new(floor.Position.X, at.Y, floor.Position.Z)))
+	hrp.AssemblyLinearVelocity = Vector3.zero
 end
 
 -- What one thing looks like on the shop: the parts it covers + its colour / material. nil, reason if it can't be previewed.
@@ -219,8 +205,13 @@ local function start(label: string, items: { { string } }): (boolean, string?)
 	if #parts == 0 then
 		return false, "Nothing to preview on your shop."
 	end
-	PreviewController.Stop() -- one preview at a time (puts the last one back first)
-	local state = { saved = {}, hidden = {}, endsAt = os.clock() + PREVIEW_SECONDS, label = label, camera = nil }
+	-- one preview at a time: put the last one back first, but keep WHERE you came from (no trip back to the market in between)
+	local carry = if active then active.returnTo else nil
+	if active then
+		active.returnTo = nil
+	end
+	PreviewController.Stop()
+	local state = { saved = {}, endsAt = os.clock() + PREVIEW_SECONDS, label = label, returnTo = carry }
 	active = state
 	for _, what in parts do
 		for _, part in what.targets do
@@ -228,7 +219,7 @@ local function start(label: string, items: { { string } }): (boolean, string?)
 			PlotTargets.paintPart(part, what.color, what.material) -- textured parts are tinted (SurfaceAppearance), plain parts recoloured
 		end
 	end
-	lookAtShop(state, plot)
+	goToShop(state, plot)
 	if gui == nil then
 		buildBanner()
 	end
