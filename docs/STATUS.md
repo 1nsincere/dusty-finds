@@ -6,6 +6,14 @@
 **Current stage:** 1: Project setup
 **Last updated:** 2026-11-25 by Dev 3 (Sean, with Claude Code)
 
+## ▶ Resume here (Ace + Claude, 2026-11-25, end of session)
+1. Studio Play was stuck at the end: restart Studio, press Play, then run `require(game.Players.LocalPlayer.PlayerScripts.Client.Tests.RestorationSweep).Play()` (every item through every step; last run: 25/26 finished, Plush Bunny failed before the camera tray fix) and `game.ServerStorage.DevTools:Invoke("testAll", player)` (SystemsCheck: 5 of the 6 outdated checks fixed, the 6th unknown).
+2. Save the Studio place (model fixes for SlimeJar Jar.CanQuery and ToyCar Body/Cabin are Studio-only).
+3. Playtest by hand: Lava Lamp and Plush Bunny restore (Replace step), Dispose, unboxing, Discovery card, Players list.
+4. Decide the four approval items in docs/11_Monetization_Plan.md section 10 (nothing costing Robux is built before that).
+5. Warehouse market: read docs/10_Stock_Shop_And_Skins.md first, then plan.
+6. The unused crate renders (assets/vfx/crate_*.png, tools/blender/unbox_crate.py) are left untracked on purpose.
+
 ## 🔧 Windows v2 + lighting (Dev 1 working alone, 2026-11-25; code checked in a Play test: no errors, layout numbers OK; NOT yet looked at by eye)
 - **Windows:** new `src/Client/WindowKit.luau` restyles Inventory, Upgrades, Supply, Collection, Settings, Visit (Studio screens, restyled at runtime by `HudSkinController` -> `WindowKit.SkinScreen`): walnut shell + gold rim, title medallion + icon, coral close button, pill tabs, chunky buttons, rounded cards (templates are styled, controllers clone them). Controllers and their colours are untouched. `TravelController` rebuilt in the Figma look (2-column cards, coloured icon medallions). The Discovery card, boxes and Epic Find are deliberately NOT touched (the unboxing animation is Ace's next task).
 - **Theme:** `UiTheme` colours moved to the warm palette (Teal 1FC2A5, Coral FF6A4D, walnut panels, cream text, new rarity colours; Relic is now orange-red, was icy cyan). `UiSkin.ART` has 8 more icons (Home, Museum, Jeepney, Tricycle, Bell, Music, Speaker, Sparkles).
