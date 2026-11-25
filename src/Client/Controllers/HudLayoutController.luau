@@ -1,8 +1,10 @@
 -- HudLayoutController.luau
 -- Purpose: puts the HUD into the Figma "Main HUD — Final Proposal" layout and look, at runtime:
 --   * status plate (cash, level, stars, XP) replaces MoneyPill / RatingPill / XPBar (those stay, hidden, so nothing breaks)
---   * left rail: Inventory + Menu; right rail: Travel + Visit; top-right: Passes + Settings; Sprint on phones
---   * Menu flyout with exactly four actions: Auto Run (a real on/off switch), Upgrades, Edit Mode, Collection
+--   * left rail: Inventory + Menu; right side, under the player list (top-right corner, PlayerListController), a
+--     "reverse L": Passes + Travel in a row, Visit under Travel; Sprint on phones (layout by Sean, 2026-11-25)
+--   * Menu flyout (opens to the right of the Menu tile): Auto Run (a real on/off switch), Upgrades, Edit Mode, Collection,
+--     Settings
 --   * top-center chips: Day / time and Invite a Friend; green "AUTO RUN" pill while Auto Run is on
 --   * the notification dock (NotificationDock) in a second ScreenGui "HudTop"
 -- Existing HUD buttons keep their parent and their click handlers (other controllers connect to them); this controller
@@ -38,27 +40,40 @@ local others: { [string]: any } = {}
 
 -- ===== layout table (reference pixels; the HUD ScreenGui has a UIScale) =====
 -- Tiles: existing button name -> where it goes and how it looks. Positions are inside the full-screen button containers.
+-- Sean, 2026-11-25: the player list now sits in the top-right corner (always shown, like Roblox's), so the right-hand
+-- tiles (Passes, Travel, Visit) start just under it (placeRightRail), and Settings moved into the Menu.
 local TILES = {
 	Inventory = { art = "Inventory", label = "Inventory", tile = "Inventory", pos = UDim2.fromOffset(12, 84) },
 	Travel = { art = "Travel", label = "Travel", tile = "Travel", pos = UDim2.new(1, -74, 0, 76) },
 	Visit = { art = "Visit", label = "Visit Shops", tile = "Visit", pos = UDim2.new(1, -74, 0, 146) },
-	Players = { art = "Invite", label = "Players", tile = "Menu", pos = UDim2.new(1, -74, 0, 216) }, -- PlayerListController's tile (our own player list)
-	Settings = { art = "Settings", label = "Settings", tile = "Settings", pos = UDim2.new(1, -74, 0, 6) },
 	Sprint = { art = "Sprint", label = "Sprint", tile = "Sprint", pos = UDim2.new(1, -172, 1, -76) },
 }
+-- Right-hand tiles under the player list, in a "reverse L" (Sean, 2026-11-25): Passes + Travel side by side, Visit under
+-- Travel. col 0 = against the right edge, col 1 = one tile to its left; row 0 = the top row.
+local RIGHT_RAIL = {
+	{ name = "GamePasses", col = 1, row = 0 },
+	{ name = "Travel", col = 0, row = 0 },
+	{ name = "Visit", col = 0, row = 1 },
+}
+local RAIL_STEP = 70 -- tile height + gap (reference px)
+local RAIL_COL = 68 -- tile width + gap (reference px)
+local RAIL_GAP = 22 -- space between the player list and the first row ("a little bit lower")
 -- Menu flyout cells: button name -> grid slot (col, row), label, icon, medallion colour.
 local CELLS = {
 	AutoRun = { slot = Vector2.new(0, 0), label = "Auto Run", art = "AutoRun", color = Color3.fromRGB(63, 167, 255), toggle = true },
 	Upgrades = { slot = Vector2.new(1, 0), label = "Upgrades", art = "Upgrades", color = Color3.fromRGB(255, 138, 61) },
-	EditShop = { slot = Vector2.new(0, 1), label = "Edit Mode", art = "EditMode", color = Color3.fromRGB(145, 104, 255) },
-	Collection = { slot = Vector2.new(1, 1), label = "Collection", art = "Collection", color = Color3.fromRGB(31, 194, 165) },
+	EditShop = { slot = Vector2.new(2, 0), label = "Edit Mode", art = "EditMode", color = Color3.fromRGB(145, 104, 255) },
+	Collection = { slot = Vector2.new(0, 1), label = "Collection", art = "Collection", color = Color3.fromRGB(31, 194, 165) },
+	-- HUD.TopRight.Settings stays in TopRight (SettingsController hooks it there); it is only drawn as a Menu cell
+	Settings = { slot = Vector2.new(1, 1), label = "Settings", art = "Settings", color = Color3.fromRGB(134, 163, 181) },
 }
 -- Old buttons that now live elsewhere (Travel window: Warehouse + My Shop). Hidden, never destroyed.
 local HIDDEN = { Supply = true, MyShop = true }
 
-local PANEL_POS = Vector2.new(12, 154)
-local PANEL_SIZE = Vector2.new(194, 162)
+local PANEL_POS = Vector2.new(152, 84) -- opens to the RIGHT of the Menu tile (x 80, 64 wide), level with it (Sean 2026-11-25)
 local CELL_GAP = 6
+local PANEL_COLS, PANEL_ROWS = 3, 2 -- 5 actions in a 3 x 2 grid: as short as the old 2 x 2, so it fits phones
+local PANEL_SIZE = Vector2.new(20 + PANEL_COLS * HudKit.CELL_W + (PANEL_COLS - 1) * CELL_GAP, 28 + PANEL_ROWS * HudKit.CELL_H + (PANEL_ROWS - 1) * CELL_GAP + 10)
 
 local hud: ScreenGui? = nil
 local top: ScreenGui? = nil
@@ -70,6 +85,7 @@ local menuPanel: Frame? = nil
 local menuOpen = false
 local autoRunPill: GuiButton? = nil
 local chipsFrame: Frame? = nil
+local placeRightRail: () -> () -- defined with the screen-shape code below; placeButton calls it for Travel / Visit
 
 local function log(...)
 	if DEBUG then
@@ -187,6 +203,9 @@ local function placeButton(button: Instance)
 		button.LayoutOrder = 0
 		button.ZIndex = 3
 		button.Visible = if name == "Sprint" then isPhone() else true
+		if (name == "Travel" or name == "Visit") and placeRightRail then
+			placeRightRail()
+		end
 	elseif CELLS[name] then
 		skinned[button] = true
 		skinCellButton(button, name)
@@ -372,9 +391,49 @@ end
 
 -- ===== screen shape (dock position, scale sync) =====
 
--- Extra room under the top chips for a banner that stays up (InventoryController's "Inventory full", Sean 2026-11-25):
--- the notification dock moves down by this much so the two never overlap. 0 = no banner.
-local topBannerRoom = 0
+local function hudScale(): number
+	local scaleObject = hud and hud:FindFirstChildOfClass("UIScale")
+	return if scaleObject then scaleObject.Scale else 1
+end
+
+-- The player list panel while it is on screen (PlayerListController), else nil.
+local function playerListPanel(): GuiObject?
+	local list = others.PlayerListController
+	local panel = list and list.GetPanel and list.GetPanel()
+	if panel and panel:IsA("GuiObject") then
+		local screen = panel:FindFirstAncestorWhichIsA("ScreenGui")
+		if screen and screen.Enabled and panel.Visible then
+			return panel
+		end
+	end
+	return nil
+end
+
+-- Travel + Visit stack down the right edge, starting just under the player list (or at the top when it is hidden).
+placeRightRail = function()
+	local hudGui = hud
+	if hudGui == nil then
+		return
+	end
+	local y = 6
+	local panel = playerListPanel()
+	if panel then
+		-- AbsolutePosition is measured below the top bar in every ScreenGui (IgnoreGuiInset or not), so the list's bottom
+		-- edge is directly comparable; divide by the HUD's UIScale to get HUD reference px
+		local bottom = panel.AbsolutePosition.Y + panel.AbsoluteSize.Y
+		y = math.max(6, math.ceil(bottom / hudScale()) + RAIL_GAP)
+	end
+	-- Travel lives in LeftButtons (TravelController makes it there), Visit + Passes in TopRight: both containers fill the screen
+	for _, spot in RIGHT_RAIL do
+		for _, containerName in { "TopRight", "LeftButtons" } do
+			local container = hudGui:FindFirstChild(containerName)
+			local button = container and container:FindFirstChild(spot.name)
+			if button and button:IsA("GuiObject") then
+				button.Position = UDim2.new(1, -74 - spot.col * RAIL_COL, 0, y + spot.row * RAIL_STEP)
+			end
+		end
+	end
+end
 
 local function applyScreenShape()
 	local camera = workspace.CurrentCamera
@@ -383,26 +442,23 @@ local function applyScreenShape()
 	if camera == nil or hudGui == nil or topGui == nil then
 		return
 	end
-	local scaleObject = hudGui:FindFirstChildOfClass("UIScale")
-	local scale = if scaleObject then scaleObject.Scale else 1
+	local scale = hudScale()
 	local topScale = topGui:FindFirstChildOfClass("UIScale")
 	if topScale then
 		topScale.Scale = scale
 	end
 	local widthRef = camera.ViewportSize.X / scale
 	if widthRef < 800 then
-		-- phones: the dock sits between the status plate (ends x 312) and the top-right buttons
-		local width = math.clamp(widthRef - 318 - 150, 170, 262)
-		NotificationDock.SetLayout(UDim2.fromOffset(318, 56 + topBannerRoom), Vector2.new(0, 0), width, if width < 200 then 2 else 3)
+		-- phones: the dock sits between the status plate (ends x 312) and the player list in the top-right corner
+		local panel = playerListPanel()
+		local reserve = if panel then panel.AbsoluteSize.X / scale + 16 else 90
+		local width = math.clamp(widthRef - 318 - reserve, 170, 262)
+		NotificationDock.SetLayout(UDim2.fromOffset(318, 56), Vector2.new(0, 0), width, if width < 200 then 2 else 3)
 	else
-		NotificationDock.SetLayout(UDim2.new(0.5, 0, 0, 56 + topBannerRoom), Vector2.new(0.5, 0), 270, 3)
+		-- desktop: centred, toasts hug their text up to 380 px (Figma "Desktop · Notification dock"; >= 300 = Desktop variant)
+		NotificationDock.SetLayout(UDim2.new(0.5, 0, 0, 56), Vector2.new(0.5, 0), 380, 3)
 	end
-end
-
--- Called by InventoryController when its "Inventory full" banner shows (height in reference px) or hides (0).
-function HudLayoutController.SetTopBannerRoom(height: number)
-	topBannerRoom = math.max(0, tonumber(height) or 0)
-	applyScreenShape()
+	placeRightRail()
 end
 
 -- ===== window focus: a soft blur of the world while any window is open (off with Reduce effects) =====
@@ -513,11 +569,12 @@ function HudLayoutController.Start()
 			end)
 		end
 
-		-- Passes: new placeholder button (no Game Pass window exists yet)
+		-- Passes: new placeholder button (no Game Pass window exists yet). Right side, left of Travel (placeRightRail).
 		local passes = make("ImageButton", { Name = "GamePasses", ZIndex = 3 }, topRight)
 		local passColors = Skin.TILE.GamePasses
 		HudKit.SkinTile(passes, { label = "Passes", art = "GamePasses", face = passColors.face, lip = passColors.lip })
-		passes.Position = UDim2.new(1, -142, 0, 6)
+		passes.AnchorPoint = Vector2.zero
+		passes.Position = UDim2.new(1, -142, 0, 6) -- placeRightRail moves it under the player list
 		passes.Activated:Connect(function()
 			notify("Info", "Game Passes are coming soon!")
 		end)
@@ -547,6 +604,17 @@ function HudLayoutController.Start()
 			camera:GetPropertyChangedSignal("ViewportSize"):Connect(applyScreenShape)
 		end
 		applyScreenShape()
+		-- the player list grows / shrinks as players join and leave, and Tab hides it: keep the right rail under it
+		local list = others.PlayerListController
+		local panel = list and list.GetPanel and list.GetPanel()
+		if panel then
+			panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyScreenShape)
+			panel:GetPropertyChangedSignal("Visible"):Connect(applyScreenShape)
+			local screen = panel:FindFirstAncestorWhichIsA("ScreenGui")
+			if screen then
+				screen:GetPropertyChangedSignal("Enabled"):Connect(applyScreenShape)
+			end
+		end
 		setupWindowFocus(playerGui)
 		log("layout applied")
 	end)

@@ -7,6 +7,8 @@
 -- the controllers clone them, so every card inherits the look. The Discovery card is intentionally NOT touched (the unboxing
 -- animation is being designed separately).
 -- Owner: Dev 1 (Ace). Depends on: Shared.Config.UiSkin, HudKit (make). Called by HudSkinController.Start and TravelController.
+-- Figma pieces (Fit, Chunky, Badge, BUTTON; Sean 2026-11-25) are used by the Inventory, Upgrades and Visit controllers,
+-- which mark their Window with the DfFigma attribute so this module only draws their shell.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -150,6 +152,142 @@ function WindowKit.Pill(label: GuiObject)
 	setFont(label, Skin.FONT_NUMBER)
 end
 
+-- ===== Figma "Main HUD — Windows" pieces (Sean, 2026-11-25) =====
+-- The design is drawn at 560 x 325 (phone) and 1.4x that on desktop. Windows that use these pieces set the attribute
+-- DfFigma on their Window; WindowKit then only draws the shell for them and leaves the content to the controller.
+
+local GuiService = game:GetService("GuiService")
+
+-- Scales a window to the screen like the design: about 1x on a phone, up to 1.4x on a 720 px tall desktop.
+function WindowKit.Fit(window: GuiObject, designHeight: number)
+	local scale = window:FindFirstChild("DfFit") :: UIScale?
+	if scale == nil then
+		scale = make("UIScale", { Name = "DfFit" }, window) :: UIScale
+	end
+	local function apply()
+		local camera = workspace.CurrentCamera
+		if camera == nil then
+			return
+		end
+		local usable = camera.ViewportSize.Y - GuiService:GetGuiInset().Y - 24
+		;(scale :: UIScale).Scale = math.clamp(usable / designHeight, 0.7, 1.4)
+	end
+	apply()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(apply)
+	end
+end
+
+-- Design button colours (face, lip, text). Primary = teal, Danger = coral, Gold = special / MAX, Disabled = locked,
+-- Walnut = an inactive tab, GoldTab = the active tab.
+WindowKit.BUTTON = {
+	Primary = { face = Color3.fromRGB(31, 194, 165), lip = Color3.fromRGB(11, 127, 108), text = C.cream },
+	Danger = { face = Color3.fromRGB(255, 106, 77), lip = Color3.fromRGB(184, 52, 31), text = C.cream },
+	Gold = { face = Color3.fromRGB(255, 200, 58), lip = Color3.fromRGB(217, 138, 0), text = C.ink },
+	Disabled = { face = Color3.fromRGB(122, 107, 98), lip = Color3.fromRGB(78, 66, 59), text = Color3.fromRGB(200, 188, 176) },
+	Violet = { face = Color3.fromRGB(145, 104, 255), lip = Color3.fromRGB(90, 58, 196), text = C.cream },
+	Walnut = { face = Color3.fromRGB(90, 59, 40), lip = Color3.fromRGB(43, 27, 20), text = C.cream },
+}
+
+local function darker(color: Color3): Color3
+	return color:Lerp(Color3.new(0, 0, 0), 0.38)
+end
+
+local function lightFace(color: Color3): boolean
+	return (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) > 0.68
+end
+
+-- The design's chunky button: a face with an ink outline sitting on a darker "lip" (3 px), Oswald text. The button itself
+-- turns transparent and keeps its clicks; its Text and BackgroundColor3 are mirrored onto the face, so a controller that
+-- sets `button.BackgroundColor3 = UiTheme.Disabled` or changes the text keeps working. style = a WindowKit.BUTTON entry.
+function WindowKit.Chunky(button: GuiButton, style: { [string]: any }, textSize: number?, radius: number?)
+	local r = radius or 12
+	local existing = button:FindFirstChild("DfFace")
+	if existing == nil then
+		button:SetAttribute("DfBtn", true) -- WindowKit.Button / HudSkinController leave it alone
+		for _, c in button:GetChildren() do
+			if c:IsA("UICorner") or c:IsA("UIStroke") or c:IsA("UIGradient") or c.Name == "DfShade" or c:IsA("UITextSizeConstraint") then
+				c:Destroy()
+			end
+		end
+		local z = button.ZIndex
+		local lip = make("Frame", { Name = "DfLip", BorderSizePixel = 0, Position = UDim2.fromOffset(0, 3), Size = UDim2.fromScale(1, 1), ZIndex = z, Active = false }, button)
+		corner(lip, r)
+		local face = make("Frame", { Name = "DfFace", BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = z + 1, Active = false }, button)
+		corner(face, r)
+		make("UIStroke", { Color = C.ink, Thickness = 2.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, face)
+		make("UIGradient", {
+			Rotation = 90,
+			Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(215, 215, 215)),
+		}, face)
+		local label = make("TextLabel", {
+			Name = "DfText", BackgroundTransparency = 1, Size = UDim2.new(1, -8, 1, 0), Position = UDim2.fromOffset(4, 0), ZIndex = z + 2,
+			FontFace = Skin.FONT_TITLE, TextWrapped = true, Active = false,
+		}, button)
+		make("UITextSizeConstraint", { MaxTextSize = textSize or 16, MinTextSize = 8 }, label)
+		label.TextScaled = true
+		button.BackgroundTransparency = 1
+		button.TextTransparency = 1
+		button.AutoButtonColor = false
+		local busy = false
+		local function sync()
+			if busy then
+				return
+			end
+			busy = true
+			local faceColor = button.BackgroundColor3
+			face.BackgroundColor3 = faceColor
+			lip.BackgroundColor3 = button:GetAttribute("DfLipColor") or darker(faceColor)
+			label.TextColor3 = if lightFace(faceColor) then C.ink else C.cream
+			label.Text = button.Text
+			busy = false
+		end
+		button:GetPropertyChangedSignal("Text"):Connect(sync)
+		button:GetPropertyChangedSignal("BackgroundColor3"):Connect(sync)
+		button:GetAttributeChangedSignal("DfLipColor"):Connect(sync)
+		-- pressed: the face drops onto the lip
+		button.MouseButton1Down:Connect(function()
+			face.Position = UDim2.fromOffset(0, 2)
+		end)
+		local function release()
+			face.Position = UDim2.fromOffset(0, 0)
+		end
+		button.MouseButton1Up:Connect(release)
+		button.MouseLeave:Connect(release)
+	end
+	button:SetAttribute("DfLipColor", style.lip)
+	button.BackgroundColor3 = style.face
+	local label = button:FindFirstChild("DfText") :: TextLabel?
+	if label and textSize then
+		local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
+		if constraint then
+			constraint.MaxTextSize = textSize
+		end
+	end
+end
+
+-- Pill chip on a TextLabel (rarity badge): coloured fill, ink outline, ink text, sized to the text.
+function WindowKit.Badge(label: TextLabel, color: Color3, textSize: number?)
+	if not label:GetAttribute("DfBadge") then
+		label:SetAttribute("DfBadge", true)
+		for _, c in label:GetChildren() do
+			if c:IsA("UITextSizeConstraint") or c:IsA("UIStroke") or c:IsA("UICorner") or c:IsA("UIPadding") then
+				c:Destroy()
+			end
+		end
+		corner(label, 10)
+		make("UIStroke", { Color = C.ink, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, label)
+		make("UIPadding", { PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9) }, label)
+		label.AutomaticSize = Enum.AutomaticSize.X
+		label.TextScaled = false
+		label.FontFace = Skin.FONT_TEXT
+	end
+	label.TextSize = textSize or 11
+	label.BackgroundTransparency = 0
+	label.BackgroundColor3 = color
+	label.TextColor3 = C.ink -- the design uses ink text on every rarity colour
+end
+
 -- Gold scrollbars.
 local function scrollbars(root: Instance)
 	for _, d in root:GetDescendants() do
@@ -282,6 +420,9 @@ local function inventory(gui: ScreenGui)
 		return
 	end
 	WindowKit.Shell(window, { art = "Inventory", color = Color3.fromRGB(31, 194, 165) })
+	if window:GetAttribute("DfFigma") then
+		return -- InventoryController draws the Figma layout itself (tabs, cards, details)
+	end
 	styleTabs(window)
 	try("inventory details", function()
 		local details = child(window, "Details")
@@ -316,6 +457,9 @@ local function upgrades(gui: ScreenGui)
 		return
 	end
 	WindowKit.Shell(window, { art = "Upgrades", color = Color3.fromRGB(255, 138, 61) })
+	if window:GetAttribute("DfFigma") then
+		return -- ShopController draws the Figma upgrade cards itself
+	end
 	styleTabs(window)
 	local cash = child(window, "Cash")
 	if cash and cash:IsA("GuiObject") then
@@ -422,6 +566,9 @@ local function visit(gui: ScreenGui)
 		return
 	end
 	WindowKit.Shell(window, { art = "Visit", color = Color3.fromRGB(255, 107, 142) })
+	if window:GetAttribute("DfFigma") then
+		return -- VisitController draws the Figma rows itself
+	end
 	local invite = child(window, "InviteButton")
 	if invite and invite:IsA("GuiButton") then
 		WindowKit.Button(invite)

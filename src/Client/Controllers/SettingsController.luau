@@ -123,7 +123,9 @@ local function buildAutoSellRow(template: Instance, parent: Instance, order: num
 	row.Size = UDim2.new(1, 0, 0, AUTO_SELL_ROW_HEIGHT)
 	row.Visible = true
 	local label = row:FindFirstChild("Label") :: TextLabel
-	label.Text = "💰 Auto sell new finds (pays ~40%)"
+	label.Text = "💰 Auto sell finds (~40%)"
+	label.TextScaled = false -- a long label shrank to fit; the same 20 px as the other rows
+	label.TextSize = 20
 	label.AnchorPoint = Vector2.new(0, 0)
 	label.Position = UDim2.fromOffset(12, 6)
 	label.Size = UDim2.new(1, -24, 0, 30)

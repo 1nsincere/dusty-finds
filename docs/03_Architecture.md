@@ -99,6 +99,7 @@ StarterGui                        -- built by hand in Studio by Dev 3 (UI contra
 src/Shared/                                  (ReplicatedStorage.Shared)
 ├── Config/
 │   ├── Items.luau          -- item definitions (§10.1)
+│   ├── ItemIcons.luau      -- [Dev 3] item id -> flat cartoon icon image for the Inventory cards (2026-11-25; tools/blender/clean_icons.py)
 │   ├── Rarities.luau       -- colors, XP, bonuses
 │   ├── Crates.luau         -- price, unlock, odds, pool
 │   ├── Upgrades.luau       -- tools, shop, decor, expansions (§10.3)
@@ -309,12 +310,15 @@ HUD.UIScale  -- HudController sets Scale by screen size
 -- HUD v2 (2026-11-25, Figma "Main HUD — Final Proposal"; HudLayoutController, HudKit, NotificationDock, AutoRunController):
 --   HUD.LeftButtons / HUD.TopRight are now FULL-SCREEN transparent containers; every button inside is placed by
 --   absolute Position (no UIListLayout). Button names + parents are unchanged, so controllers keep finding them.
---   Visible tiles: LeftButtons.{Inventory, Menu(new), Travel, Sprint(phones only)}, TopRight.{Visit, Settings, GamePasses(new, placeholder)}
---   Menu flyout: LeftButtons.MenuPanel + exactly four cells: LeftButtons.{AutoRun(new), Upgrades, EditShop, Collection}
+--   Visible tiles: LeftButtons.{Inventory, Menu(new), Travel, Sprint(phones only)}, TopRight.{Visit, GamePasses(new, placeholder)}.
+--   Under the player list (PlayerGui.PlayerList, always shown top-right, 3 rows then it scrolls; no Players tile since
+--   2026-11-25; PlayerListController.GetPanel) the right-hand tiles form a reverse L: GamePasses + Travel in a row, Visit under Travel
+--   Menu flyout (opens to the right of the Menu tile): LeftButtons.MenuPanel (3 x 2) + five cells: LeftButtons.{AutoRun(new), Upgrades, EditShop, Collection} and
+--   TopRight.Settings (stays in TopRight, drawn as a cell; 2026-11-25)
 --   Hidden (not deleted): LeftButtons.{Supply, MyShop}: reached from the Travel window (Warehouse / My Shop)
 --   HUD.StatusPlate (new: cash, level, stars, XP) replaces MoneyPill / RatingPill / XPBar, which stay but are hidden
 --   Button look = Df* child layers (DfFace, DfLip, DfIcon...), built by HudKit.SkinTile; do not name your own children "Df*"
---   PlayerGui.HudTop (new ScreenGui, IgnoreGuiInset): TopChips.{DayChip, InviteChip}, AutoRunPill, NotificationDock, PriorityBanner
+--   PlayerGui.HudTop (new ScreenGui, IgnoreGuiInset): TopChips.{DayChip, InviteChip, InventoryFullChip (InventoryController)}, AutoRunPill, NotificationDock, PriorityBanner
 --   Notify / Announcement remotes now show in NotificationDock (max 3 toasts, 4 s, merge); old Toasts screen = fallback only
 --   Auto Run is client only (no remote): AutoRunController.{Toggle, Set, IsOn, OnChanged}; key R; stops on manual input
 StarterGui.ScreenOrientation = LandscapeSensor  -- landscape only (decision 2026-11-16): windows are ~600 px wide

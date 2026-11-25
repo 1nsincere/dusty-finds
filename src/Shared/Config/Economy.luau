@@ -56,13 +56,14 @@ local Economy = {
 	-- Special pulls (docs/02 §3b): two surprises on top of the normal odds.
 	-- 1) LOST MASTERPIECE: chance per rolled item (by crate id) that the item is a Relic instead. Free Delivery never rolls one.
 	--    About 1 in 500 Flea Market items (the Starter tier has no Relic); Relics are never Golden.
-	RelicChance = { FleaMarket = 0.002 },
+	-- Antique Dealer + Estate Sale (2026-11-25): about 1 in 200 and 1 in 67 items are Relics.
+	RelicChance = { FleaMarket = 0.002, AntiqueDealer = 0.005, EstateSale = 0.015 },
 	-- 1b) MYTHIC and SECRET (2026-11-20): rarer still, checked before the Relic pull. Never Golden.
 	--     About 1 in 1,250 (Mythic) and 1 in 5,000 (Secret) Flea Market items.
-	MythicChance = { FleaMarket = 0.0008 },
-	SecretChance = { FleaMarket = 0.0002 },
+	MythicChance = { FleaMarket = 0.0008, AntiqueDealer = 0.0015, EstateSale = 0.004 },
+	SecretChance = { FleaMarket = 0.0002, AntiqueDealer = 0.0004, EstateSale = 0.001 },
 	-- 2) TIME CAPSULE: chance per BOUGHT crate that it holds a sealed capsule: extra bonus items with better odds.
-	TimeCapsuleChance = { FleaMarket = 0.03, Starter = 0.015 },
+	TimeCapsuleChance = { FleaMarket = 0.03, Starter = 0.015, YardSale = 0.02, AntiqueDealer = 0.04, EstateSale = 0.06 },
 	TimeCapsuleBonusItems = 2,
 	TimeCapsuleOdds = { Rare = 60, Epic = 35, Legendary = 5 }, -- percentages, add up to 100
 

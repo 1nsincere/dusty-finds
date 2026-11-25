@@ -3,19 +3,26 @@
 -- item. Restored items sell ONLY on a display shelf (Quick Sell is off, Sean + Ace 2026-11-25: the old button now says so).
 -- "Sell unrestored…" (Ace's Dispose, RequestDisposeItems) sells many Dirty items at once. The server checks state and
 -- price; this screen only shows and requests. Opens from HUD 🎒 (the counter's QuickSellPrompt is switched off, 2026-11-25).
--- Also the "Inventory full" banner at the top of the screen while every slot is used (InventoryFull, code-built).
+-- Also the "INVENTORY FULL" chip in the HUD's top chip row while every slot is used (code-built, HudKit.Chip).
 -- Picker mode (OpenPicker, called by DisplayController from an empty slot): choose a Restored item and send
 -- RequestPlaceDisplay / RequestPlaceExhibit for that slot.
 -- Restore (Dirty/InProgress) calls Dev 2's RestorationController.RequestStartRestore(uid); greyed until that exists.
--- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, Shared.Remotes, Shared.Formulas,
--- Shared.Config (Items, Rarities, Economy), StarterGui.Inventory, ReplicatedStorage.Assets.UI.ItemCard,
+-- Look (Sean, 2026-11-25): the Figma "Window · Inventory" (applyFigmaLayout + buildCard): capacity pill, gold tabs with counts,
+-- cards with the item's cartoon icon (Config/ItemIcons) and a DIRTY tag / stars / progress bar, a details panel with a
+-- rarity-glow art plaque showing the real 3D model.
+-- Owner: Dev 3 (Sean). Depends on: ClientState, UiTheme, WindowKit, UnboxingKit (ItemViewport), Shared.Remotes, Shared.Formulas,
+-- Shared.Config (Items, Rarities, Economy, UiSkin), StarterGui.Inventory,
 -- Workspace.Plots (OwnerUserId attribute, Counter).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
+local HudKit = require(script.Parent.Parent:WaitForChild("HudKit")) -- the inventory-full chip (same look as the Day chip)
+local WindowKit = require(script.Parent.Parent:WaitForChild("WindowKit")) -- Figma pieces: Fit, Chunky buttons, Badge
+local Unboxing = require(script.Parent.Parent:WaitForChild("UnboxingKit")) -- ItemViewport: the item's real model, lit
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -23,25 +30,35 @@ local Formulas = require(Shared:WaitForChild("Formulas"))
 local Items = require(Config:WaitForChild("Items"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Economy = require(Config:WaitForChild("Economy"))
+local UiSkin = require(Config:WaitForChild("UiSkin"))
+local ItemIcons = require(Config:WaitForChild("ItemIcons")) -- flat cartoon icons for the cards
 
 local InventoryController = {}
 local DEBUG = true
 
+-- Figma "Window · Inventory" (92:6180 phone 560 x 325, 92:7247 desktop = 1.4x), Sean 2026-11-25. Numbers below are the
+-- 560 x 325 design in px; WindowKit.Fit scales the whole window up on bigger screens.
+local DESIGN = Vector2.new(560, 325)
+local CARD = Vector2.new(74, 82) -- card surface; +4 px for the lip under it
+local INK = Color3.fromRGB(43, 27, 20)
+local WALNUT_LIGHT = Color3.fromRGB(90, 59, 40)
+local CREAM = Color3.fromRGB(255, 241, 214)
+local GOLD = Color3.fromRGB(255, 200, 58)
+local DIRT = Color3.fromRGB(107, 74, 42)
+local TAG_BROWN = Color3.fromRGB(138, 90, 42)
+local PROGRESS = Color3.fromRGB(46, 230, 196)
+local GLOW_IMAGE = "rbxassetid://93831669035461" -- the soft glow the Discovery card uses behind the item
+local FONT_TITLE = Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
+local FONT_BOLD = Font.new("rbxasset://fonts/families/TitilliumWeb.json", Enum.FontWeight.Bold)
+local FONT_BODY = Font.new("rbxasset://fonts/families/TitilliumWeb.json", Enum.FontWeight.Regular)
+local TAB_LABELS = { All = "All", NeedsRestoring = "Needs Restoring", Restored = "Restored" }
+
 local ESTIMATE_STARS = 2 -- value shown for items not restored yet ("~$X" at 2★, same as the Discovery card)
 local NEAR_CHECK_SECONDS = 0.5 -- how often the details panel refreshes while the window is open
-local BANNER_HEIGHT = 40 -- the "Inventory full" banner (reference px); the notification dock moves down by this + a gap
-local BANNER_GAP = 6
 local SOLD_MESSAGE_SECONDS = 2
 
 -- States that don't use inventory space. Mirrors InventoryService (docs/08 §2).
 local NOT_COUNTED = { Unopened = true, Displayed = true, Exhibited = true }
-local STATE_ICONS = {
-	Dirty = "🧽",
-	InProgress = "🔧",
-	Restored = "✨",
-	Displayed = "🏷️",
-	Exhibited = "🏆",
-}
 local STATE_TEXT = {
 	Dirty = "Needs restoring",
 	InProgress = "Being restored",
@@ -106,6 +123,205 @@ local function rarityOf(item): string
 	return def and def.rarity or "Common"
 end
 
+-- ===== Figma layout (built once; the Studio objects keep their names, so the rest of this file works unchanged) =====
+
+local cards: { [string]: GuiButton } = {} -- uid -> card in the grid (for selection / pick marks without a rebuild)
+local artPlaque: Frame? = nil -- details panel: rarity glow + the item's model
+local artUid: string? = nil -- which item the plaque shows
+
+local function new(class: string, props: { [string]: any }, parent: Instance?): any
+	local inst = Instance.new(class)
+	for k, v in props do
+		(inst :: any)[k] = v
+	end
+	inst.Parent = parent
+	return inst
+end
+
+local function round(parent: Instance, radius: number)
+	new("UICorner", { CornerRadius = UDim.new(0, radius) }, parent)
+end
+
+local function outline(parent: Instance, color: Color3, thickness: number): UIStroke
+	return new("UIStroke", { Color = color, Thickness = thickness, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, parent)
+end
+
+-- A plain label in the design's type (no scaling: sizes are design px, the window's DfFit scale does the rest).
+local function text(parent: Instance, props: { [string]: any }): TextLabel
+	local label = new("TextLabel", {
+		BackgroundTransparency = 1, TextColor3 = CREAM, FontFace = FONT_BOLD, TextSize = 12, TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
+	}, parent)
+	for k, v in props do
+		(label :: any)[k] = v
+	end
+	return label
+end
+
+-- Re-skins an existing Studio label to the design (drops its old size constraint so TextSize is exact).
+local function restyle(label: TextLabel, props: { [string]: any })
+	for _, c in label:GetChildren() do
+		if c:IsA("UITextSizeConstraint") then
+			c:Destroy()
+		end
+	end
+	label.TextScaled = false
+	label.BackgroundTransparency = 1
+	for k, v in props do
+		(label :: any)[k] = v
+	end
+end
+
+-- The item's real model in `holder` (UnboxingKit.ItemViewport), drawn at the holder's ZIndex.
+local function itemArt(holder: GuiObject, itemId: string)
+	local viewport = Unboxing.ItemViewport(holder, itemId)
+	if viewport then
+		viewport.ZIndex = holder.ZIndex
+	else
+		-- no model yet: its cartoon icon, or the "?" icon
+		new("ImageLabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.85, 0.85), ScaleType = Enum.ScaleType.Fit,
+			BackgroundTransparency = 1, Image = ItemIcons[itemId] or ItemIcons.Unknown, ZIndex = holder.ZIndex,
+		}, holder)
+	end
+end
+
+-- The flat cartoon icon on a card (Config/ItemIcons, like the Figma cards); the 3D model if an item has no icon yet.
+-- Icons are images, so a full grid stays cheap on phones; the detail panel shows the real model.
+local function cardArt(holder: GuiObject, itemId: string)
+	local icon = ItemIcons[itemId]
+	if icon then
+		new("ImageLabel", {
+			Name = "Icon", BackgroundTransparency = 1, Image = icon, ScaleType = Enum.ScaleType.Fit,
+			Size = UDim2.fromScale(1, 1), ZIndex = holder.ZIndex,
+		}, holder)
+	else
+		itemArt(holder, itemId)
+	end
+end
+
+-- Three brown smudges over the art of an item that still needs restoring (the design's "Dirt").
+local function dirt(holder: GuiObject)
+	for _, spot in { { 0.14, 0.16, 0.32, 0.2 }, { 0.55, 0.45, 0.26, 0.18 }, { 0.26, 0.64, 0.22, 0.15 } } do
+		local blob = new("Frame", {
+			Name = "Dirt", BackgroundColor3 = DIRT, BackgroundTransparency = 0.5, BorderSizePixel = 0,
+			Position = UDim2.fromScale(spot[1], spot[2]), Size = UDim2.fromScale(spot[3], spot[4]), ZIndex = holder.ZIndex + 1,
+		}, holder)
+		round(blob, 99)
+	end
+end
+
+local function applyFigmaLayout(window: Frame)
+	window:SetAttribute("DfFigma", true) -- WindowKit: draw only the shell, this controller does the rest
+	window.Size = UDim2.fromOffset(DESIGN.X, DESIGN.Y)
+	window.AnchorPoint = Vector2.new(0.5, 0.5)
+	WindowKit.Fit(window, DESIGN.Y)
+
+	-- close button: the design's 38 px square in the corner (Figma x 506, y 4); the Studio one was 44 px and reached
+	-- down into the tab row, over "Sell unrestored…"
+	local close = window.CloseButton :: GuiButton
+	close.AnchorPoint = Vector2.new(1, 0)
+	close.Position = UDim2.new(1, -10, 0, 5)
+	close.Size = UDim2.fromOffset(38, 38)
+
+	-- capacity pill: dark, inventory glyph + "12 / 24"
+	local capacity = window.Capacity :: TextLabel
+	restyle(capacity, {
+		Position = UDim2.fromOffset(386, 7), Size = UDim2.fromOffset(108, 30), BackgroundTransparency = 0, BackgroundColor3 = INK,
+		FontFace = FONT_TITLE, TextSize = 16, TextColor3 = CREAM, TextXAlignment = Enum.TextXAlignment.Right,
+	})
+	round(capacity, 16)
+	outline(capacity, WALNUT_LIGHT, 2.5)
+	new("UIPadding", { PaddingRight = UDim.new(0, 12) }, capacity)
+	new("ImageLabel", {
+		Name = "Icon", BackgroundTransparency = 1, Image = UiSkin.Art("Inventory"), Position = UDim2.fromOffset(8, 4), Size = UDim2.fromOffset(22, 22),
+		ZIndex = capacity.ZIndex + 1,
+	}, capacity)
+
+	-- tab row: chunky tabs that hug their text (gold = active)
+	local tabs = window.Tabs :: Frame
+	tabs.Position = UDim2.fromOffset(12, 48)
+	tabs.Size = UDim2.fromOffset(330, 34)
+	local list = tabs:FindFirstChildOfClass("UIListLayout")
+	if list then
+		list.Padding = UDim.new(0, 6)
+		list.VerticalAlignment = Enum.VerticalAlignment.Top
+	end
+	for _, tab in tabs:GetChildren() do
+		if tab:IsA("TextButton") then
+			tab.AutomaticSize = Enum.AutomaticSize.None
+			tab.Size = UDim2.fromOffset(80, 30) -- refreshTabs sizes each tab to its text
+			WindowKit.Chunky(tab, WindowKit.BUTTON.Walnut, 14, 12)
+		end
+	end
+
+	-- grid: 4 cards a row, scrolls
+	local grid = window.Grid :: ScrollingFrame
+	grid.Position = UDim2.fromOffset(8, 87)
+	grid.Size = UDim2.fromOffset(332, 224)
+	grid.ScrollBarThickness = 5
+	grid.ScrollBarImageColor3 = GOLD
+	local layout = grid:FindFirstChildOfClass("UIGridLayout")
+	if layout then
+		layout.CellSize = UDim2.fromOffset(CARD.X, CARD.Y + 4)
+		layout.CellPadding = UDim2.fromOffset(6, 6)
+	end
+	local pad = grid:FindFirstChildOfClass("UIPadding")
+	if pad then
+		pad.PaddingLeft, pad.PaddingTop, pad.PaddingRight, pad.PaddingBottom = UDim.new(0, 5), UDim.new(0, 5), UDim.new(0, 0), UDim.new(0, 8)
+	end
+	restyle(window.Empty :: TextLabel, { FontFace = FONT_BODY, TextSize = 14, TextColor3 = CREAM, TextTransparency = 0.2, Position = UDim2.fromOffset(20, 110), Size = UDim2.fromOffset(300, 40) })
+
+	-- details panel
+	local details = window.Details :: Frame
+	details.Position = UDim2.fromOffset(345, 86)
+	details.Size = UDim2.fromOffset(198, 226)
+	details.BackgroundColor3 = INK
+	details.BackgroundTransparency = 0.1
+	for _, c in details:GetChildren() do
+		if c:IsA("UIStroke") or c:IsA("UIGradient") then
+			c:Destroy()
+		end
+	end
+	local corner = details:FindFirstChildOfClass("UICorner")
+	if corner then
+		corner.CornerRadius = UDim.new(0, 16)
+	end
+	outline(details, WALNUT_LIGHT, 2.5)
+	artPlaque = new("Frame", {
+		Name = "ArtPlaque", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6),
+		Size = UDim2.fromOffset(78, 78), Visible = false, ZIndex = details.ZIndex + 1,
+	}, details)
+	new("ImageLabel", {
+		Name = "Glow", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.6, 1.6),
+		BackgroundTransparency = 1, Image = GLOW_IMAGE, ImageTransparency = 0, ZIndex = details.ZIndex + 1,
+	}, artPlaque)
+	new("Frame", {
+		Name = "Art", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(64, 64),
+		BackgroundTransparency = 1, ZIndex = details.ZIndex + 2,
+	}, artPlaque)
+	restyle(details.Hint, { Position = UDim2.fromOffset(12, 12), Size = UDim2.new(1, -24, 0, 60), FontFace = FONT_BODY, TextSize = 14, TextColor3 = CREAM, TextTransparency = 0.15 })
+	restyle(details.ItemName, { Position = UDim2.fromOffset(6, 86), Size = UDim2.new(1, -12, 0, 22), FontFace = FONT_TITLE, TextSize = 16, TextColor3 = CREAM, TextTruncate = Enum.TextTruncate.AtEnd })
+	local rarity = details.Rarity :: TextLabel
+	restyle(rarity, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 111), Size = UDim2.fromOffset(0, 19) })
+	WindowKit.Badge(rarity, Color3.fromRGB(176, 112, 255), 11)
+	restyle(details.Info, { Position = UDim2.fromOffset(6, 134), Size = UDim2.new(1, -12, 0, 16), FontFace = FONT_BODY, TextSize = 11, TextColor3 = CREAM, TextTransparency = 0.15 })
+	restyle(details.Value, { Position = UDim2.fromOffset(6, 151), Size = UDim2.new(1, -12, 0, 20), FontFace = FONT_TITLE, TextSize = 14, TextColor3 = GOLD })
+
+	-- buttons: big teal Restore / Put on shelf on the left, a smaller coral Sell on the right
+	local restore, place, quickSell = details.RestoreButton :: TextButton, details.PlaceButton :: TextButton, details.QuickSellButton :: TextButton
+	for _, b in { restore, place } do
+		b.AnchorPoint = Vector2.zero
+		b.Position = UDim2.fromOffset(8, 176)
+		b.Size = UDim2.fromOffset(104, 36)
+		WindowKit.Chunky(b, WindowKit.BUTTON.Primary, 16, 13)
+	end
+	quickSell.AnchorPoint = Vector2.zero
+	quickSell.Position = UDim2.fromOffset(8, 176)
+	quickSell.Size = UDim2.new(1, -16, 0, 36)
+	WindowKit.Chunky(quickSell, WindowKit.BUTTON.Disabled, 13, 13)
+end
+
 -- ===== Details panel =====
 
 -- True once Dev 2's RestorationController offers RequestStartRestore(uid) (docs/Restoration_Contract.md §4).
@@ -118,6 +334,9 @@ local function setDetailsVisible(details: Frame, showItem: boolean)
 	details.Hint.Visible = not showItem
 	for _, name in { "ItemName", "Rarity", "Info", "Value" } do
 		details[name].Visible = showItem
+	end
+	if artPlaque then
+		artPlaque.Visible = showItem
 	end
 	if not showItem then
 		details.QuickSellButton.Visible = false
@@ -154,11 +373,10 @@ local function updateDisposePanel(details: Frame)
 		.. "\n⚠ Restored items can't be sold here: put them on a display shelf."
 	ui.selCommon.Visible = true
 	ui.selCommon.Text = "Select all Common"
-	ui.selCommon.BackgroundColor3 = UiTheme.Teal
 	ui.confirm.Visible = true
 	local sure = os.clock() < confirmUntil
 	ui.confirm.Text = if n == 0 then "Pick items first" elseif sure then "Tap again to confirm" else `Sell {n} · +${total}`
-	ui.confirm.BackgroundColor3 = if n == 0 then UiTheme.Disabled else UiTheme.Coral
+	WindowKit.Chunky(ui.confirm, if n == 0 then WindowKit.BUTTON.Disabled elseif sure then WindowKit.BUTTON.Gold else WindowKit.BUTTON.Danger, 16, 13)
 end
 
 local function updateDetails()
@@ -188,30 +406,49 @@ local function updateDetails()
 
 	local def = Items[item.itemId]
 	local rarity = rarityOf(item)
+	local color = UiTheme.rarityColor(rarity)
 	setDetailsVisible(details, true)
+	-- the art plaque: the item's model on a glow in its rarity colour (rebuilt only when the selection changes)
+	local plaque = artPlaque
+	if plaque and artUid ~= selectedUid then
+		artUid = selectedUid
+		local art = plaque:FindFirstChild("Art") :: Frame
+		for _, c in art:GetChildren() do
+			c:Destroy()
+		end
+		itemArt(art, item.itemId)
+	end
+	if plaque then
+		(plaque:FindFirstChild("Glow") :: ImageLabel).ImageColor3 = color
+	end
 	details.ItemName.Text = (def and def.name or item.itemId) .. (if item.golden then " 🌟" else "")
 	details.Rarity.Text = string.upper(rarity) .. (if item.golden then " · GOLDEN" else "")
-	details.Rarity.TextColor3 = UiTheme.rarityColor(rarity)
-	local stateText = STATE_TEXT[item.state] or item.state
-	details.Info.Text = if type(item.stars) == "number" then `{stateText} · {starsText(item.stars)}` else stateText
+	WindowKit.Badge(details.Rarity, color, 11)
+	-- "Kitchen · needs 3 steps" (design); restored items show their stars instead
+	local category = def and def.category or "Item"
+	local steps = def and def.recipe and #def.recipe or 0
+	local stateLine = if item.state == "Dirty" then `needs {steps} steps`
+		elseif item.state == "InProgress" then `restoring · step {item.stepIndex or 1} of {steps}`
+		elseif type(item.stars) == "number" then `{STATE_TEXT[item.state] or item.state} {starsText(item.stars)}`
+		else (STATE_TEXT[item.state] or item.state)
+	details.Info.Text = `{category} · {stateLine}`
 	local value, estimate = itemValue(item)
-	details.Value.Text = if estimate then `Est. value ${value}` else `Value ${value}`
+	details.Value.Text = if estimate then `Worth about ${value}` else `Value ${value}`
 
 	-- Quick Sell is off (Sean + Ace 2026-11-25): restored items sell only on a display shelf. The button stays as a
 	-- greyed warning so players learn where to sell; tapping it explains (onQuickSell).
 	local quickSell = details.QuickSellButton :: TextButton
 	quickSell.Visible = item.state == "Restored" and type(item.stars) == "number"
 	if quickSell.Visible then
-		quickSell.Text = "⚠ Sell on a shelf"
-		quickSell.BackgroundColor3 = UiTheme.Disabled
+		quickSell.Text = "⚠ Sell it on a display shelf"
+		WindowKit.Chunky(quickSell, WindowKit.BUTTON.Disabled, 13, 13)
 	end
 	-- Restore hands over to Dev 2's RestorationController; greyed until that controller offers RequestStartRestore.
 	local restore = details.RestoreButton :: TextButton
 	restore.Visible = item.state == "Dirty" or item.state == "InProgress"
 	local canRestore = restorationReady()
 	restore.Text = if item.state == "InProgress" then "Continue" else "Restore"
-	restore.BackgroundColor3 = if canRestore then UiTheme.Coral else UiTheme.Disabled
-	restore.AutoButtonColor = canRestore
+	WindowKit.Chunky(restore, if canRestore then WindowKit.BUTTON.Primary else WindowKit.BUTTON.Disabled, 16, 13)
 
 	-- Dispose (one item): only Dirty items, two taps (the second confirms).
 	if disposeUi then
@@ -219,8 +456,8 @@ local function updateDetails()
 		single.Visible = item.state == "Dirty" and pickTarget == nil
 		if single.Visible then
 			local sure = os.clock() < confirmUntil
-			single.Text = if sure then "Tap again to confirm" else `Sell +${Formulas.disposePrice(item.itemId, item.golden)}`
-			single.BackgroundColor3 = if sure then UiTheme.Coral else UiTheme.Disabled
+			single.Text = if sure then "Sure?" else `Sell ${Formulas.disposePrice(item.itemId, item.golden)}`
+			WindowKit.Chunky(single, if sure then WindowKit.BUTTON.Gold else WindowKit.BUTTON.Danger, 13, 12)
 		end
 	end
 
@@ -277,95 +514,45 @@ local function usedSlots(): number
 	return used
 end
 
--- ===== "Inventory full" banner (top of the screen, stays while every slot is used) =====
--- Code-built, under the top chips in HudLayoutController's HudTop screen (so it scales with the HUD); its own screen
--- if HudTop isn't there. Hidden while the Inventory window is open (the player is already dealing with it).
+-- ===== "Inventory full" chip (top chip row, stays while every slot is used) =====
+-- A HUD chip like the Day / Invite chips (HudKit.Chip in HudLayoutController's HudTop.TopChips): "INVENTORY FULL"
+-- over "16/16 · Sell items"; tapping it opens Inventory. Hidden while the Inventory window is open (Sean, 2026-11-25:
+-- replaces the red banner so it matches the rest of the HUD).
 
-local banner: Frame? = nil
-local bannerShown = false
+local fullChip: { [string]: any }? = nil
+local chipShown = false
 
-local function buildBanner(playerGui: Instance)
+local function buildFullChip(playerGui: Instance)
 	local top = playerGui:FindFirstChild("HudTop")
-	local parent: Instance
-	if top and top:IsA("ScreenGui") then
-		parent = top
-	else
-		local own = Instance.new("ScreenGui")
-		own.Name = "InventoryFull"
-		own.IgnoreGuiInset = true
-		own.ResetOnSpawn = false
-		own.DisplayOrder = 1
-		own.Parent = playerGui
-		parent = own
+	local row = top and top:WaitForChild("TopChips", 10)
+	if row == nil then
+		warn("[InventoryController] HudTop.TopChips not found: no inventory-full chip")
+		return
 	end
-	local frame = Instance.new("Frame")
-	frame.Name = "InventoryFullBanner"
-	frame.AnchorPoint = Vector2.new(0.5, 0)
-	frame.Position = UDim2.new(0.5, 0, 0, 54) -- just under the top chips (they sit at y 8, 40 tall)
-	frame.Size = UDim2.fromOffset(400, BANNER_HEIGHT)
-	frame.BackgroundColor3 = UiTheme.Coral
+	local chip = HudKit.Chip(row, {
+		name = "InventoryFullChip", art = "Inventory", sub = "INVENTORY FULL", title = "Sell items", clickable = true,
+	})
+	local frame: any = chip.Frame
+	frame.LayoutOrder = 3
 	frame.Visible = false
-	frame.ZIndex = 5
-	Instance.new("UICorner", frame).CornerRadius = UDim.new(1, 0)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(43, 26, 18)
-	stroke.Thickness = 2.5
-	stroke.Parent = frame
-
-	local text = Instance.new("TextLabel")
-	text.Name = "Text"
-	text.BackgroundTransparency = 1
-	text.Position = UDim2.fromOffset(16, 0)
-	text.Size = UDim2.new(1, -128, 1, 0)
-	text.Font = Enum.Font.FredokaOne
-	text.TextScaled = true
-	text.TextColor3 = Color3.new(1, 1, 1)
-	text.TextXAlignment = Enum.TextXAlignment.Left
-	text.Text = "🎒 Inventory full! Go sell items to open more boxes"
-	text.ZIndex = 6
-	local textSize = Instance.new("UITextSizeConstraint")
-	textSize.MaxTextSize = 18
-	textSize.Parent = text
-	text.Parent = frame
-
-	local button = Instance.new("TextButton")
-	button.Name = "OpenButton"
-	button.AnchorPoint = Vector2.new(1, 0.5)
-	button.Position = UDim2.new(1, -6, 0.5, 0)
-	button.Size = UDim2.fromOffset(104, BANNER_HEIGHT - 10)
-	button.BackgroundColor3 = Color3.new(1, 1, 1)
-	button.Font = Enum.Font.FredokaOne
-	button.TextScaled = true
-	button.TextColor3 = UiTheme.Coral
-	button.Text = "Sell items"
-	button.ZIndex = 6
-	Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
-	local buttonSize = Instance.new("UITextSizeConstraint")
-	buttonSize.MaxTextSize = 16
-	buttonSize.Parent = button
-	button.Parent = frame
-	button.Activated:Connect(function()
+	frame.Activated:Connect(function()
 		InventoryController.Open() -- the "Sell unrestored…" button is right there
 	end)
-
-	frame.Parent = parent
-	banner = frame
+	fullChip = chip
 end
 
 local function updateBanner()
-	if banner == nil then
+	local chip = fullChip
+	if chip == nil then
 		return
 	end
-	local full = usedSlots() >= capacity()
-	local show = full and not (inventoryGui ~= nil and inventoryGui.Window.Visible)
-	banner.Visible = show
-	if show ~= bannerShown then
-		bannerShown = show
-		local layout = others and others.HudLayoutController
-		if layout and layout.SetTopBannerRoom then
-			layout.SetTopBannerRoom(if show then BANNER_HEIGHT + BANNER_GAP else 0)
-		end
-		log(if show then "inventory full: banner up" else "inventory has room: banner hidden")
+	local used, max = usedSlots(), capacity()
+	local show = used >= max and not (inventoryGui ~= nil and inventoryGui.Window.Visible)
+	chip.SetTexts("INVENTORY FULL", `{used}/{max} · Sell items`)
+	chip.Frame.Visible = show
+	if show ~= chipShown then
+		chipShown = show
+		log(if show then "inventory full: chip shown" else "inventory has room: chip hidden")
 	end
 end
 
@@ -377,8 +564,128 @@ local function updateCapacity()
 	local used = usedSlots()
 	local max = capacity()
 	local label = inventoryGui.Window.Capacity
-	label.Text = `{used}/{max}`
-	label.TextColor3 = if used >= max then UiTheme.Coral else UiTheme.Teal
+	label.Text = `{used} / {max}`
+	label.TextColor3 = if used >= max then UiTheme.Coral else CREAM
+end
+
+-- One Figma "Item Card" (91:6033): rarity-stroked walnut card on an ink lip, the item's model, name, one state line
+-- (DIRTY tag / stars / progress bar / shelf tag) and the price; golden items get a gold badge in the corner.
+local function buildCard(item, order: number): ImageButton
+	local def = Items[item.itemId]
+	local rarity = rarityOf(item)
+	local card = new("ImageButton", {
+		Name = "Card", LayoutOrder = order, BackgroundTransparency = 1, Image = "", AutoButtonColor = false,
+		Size = UDim2.fromOffset(CARD.X, CARD.Y + 4), ZIndex = 2,
+	})
+	local lip = new("Frame", { Name = "Lip", BackgroundColor3 = INK, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 3), Size = UDim2.fromOffset(CARD.X, CARD.Y), ZIndex = 2 }, card)
+	round(lip, 12)
+	local surface = new("Frame", { Name = "Surface", BackgroundColor3 = WALNUT_LIGHT, BorderSizePixel = 0, Size = UDim2.fromOffset(CARD.X, CARD.Y), ZIndex = 3 }, card)
+	round(surface, 12)
+	local stroke = outline(surface, if item.golden then GOLD else UiTheme.rarityColor(rarity), 3)
+	stroke.Name = "RarityStroke"
+	local art = new("Frame", { Name = "Art", BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 2), Size = UDim2.fromOffset(46, 44), ZIndex = 4 }, card)
+	cardArt(art, item.itemId)
+	if item.state == "Dirty" then
+		dirt(art)
+	end
+	text(card, {
+		Name = "ItemName", Text = def and def.name or item.itemId, Position = UDim2.fromOffset(2, 44), Size = UDim2.fromOffset(CARD.X - 4, 15),
+		TextSize = 10.5, TextWrapped = false, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5,
+	})
+	-- the state line
+	if item.state == "Dirty" or item.state == "Displayed" or item.state == "Exhibited" then
+		local tagText = if item.state == "Dirty" then "DIRTY" elseif item.state == "Displayed" then "ON SHELF" else "EXHIBIT"
+		local tagColor = if item.state == "Dirty" then TAG_BROWN elseif item.state == "Displayed" then Color3.fromRGB(11, 127, 108) else Color3.fromRGB(90, 58, 196)
+		local tag = text(card, {
+			Name = "StateTag", Text = tagText, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 60), Size = UDim2.fromOffset(46, 11),
+			BackgroundTransparency = 0, BackgroundColor3 = tagColor, TextSize = 8.5, ZIndex = 5,
+		})
+		round(tag, 6)
+		outline(tag, INK, 1.5)
+	elseif item.state == "InProgress" then
+		local recipe = def and def.recipe or {}
+		local done = math.clamp(((item.stepIndex or 1) - 1) / math.max(#recipe, 1), 0.08, 1)
+		local track = new("Frame", { Name = "Progress", BackgroundColor3 = INK, BorderSizePixel = 0, Position = UDim2.fromOffset(12, 62), Size = UDim2.fromOffset(50, 7), ZIndex = 5 }, card)
+		round(track, 4)
+		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = PROGRESS, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(done, -2, 1, -2), ZIndex = 6 }, track)
+		round(fill, 3)
+	elseif type(item.stars) == "number" then
+		for i = 1, 3 do
+			new("ImageLabel", {
+				Name = "Star" .. i, BackgroundTransparency = 1, Image = UiSkin.Art("Star"), ImageTransparency = if i <= item.stars then 0 else 0.7,
+				Position = UDim2.fromOffset(18 + (i - 1) * 13, 59), Size = UDim2.fromOffset(12, 12), ZIndex = 5,
+			}, card)
+		end
+	end
+	local value = itemValue(item)
+	text(card, { Name = "Value", Text = `${value}`, Position = UDim2.fromOffset(2, 70), Size = UDim2.fromOffset(CARD.X - 4, 12), FontFace = FONT_TITLE, TextSize = 11, TextColor3 = GOLD, ZIndex = 5 })
+	if item.golden then
+		local badge = new("Frame", { Name = "GoldenTag", BackgroundColor3 = GOLD, BorderSizePixel = 0, Position = UDim2.fromOffset(CARD.X - 18, -4), Size = UDim2.fromOffset(16, 16), ZIndex = 7 }, card)
+		round(badge, 8)
+		outline(badge, INK, 1.5)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = UiSkin.Art("Star"), Position = UDim2.fromOffset(2, 2), Size = UDim2.fromOffset(12, 12), ZIndex = 8 }, badge)
+	end
+	-- the white "selected" ring and the green "picked" tick (Sell unrestored mode); shown by refreshMarks
+	local ring = new("Frame", { Name = "Selected", BackgroundTransparency = 1, Position = UDim2.fromOffset(-3, -3), Size = UDim2.fromOffset(CARD.X + 6, CARD.Y + 6), Visible = false, ZIndex = 9 }, card)
+	round(ring, 15)
+	outline(ring, Color3.new(1, 1, 1), 3)
+	-- Sell unrestored: a gold "$" coin in the corner and a gold outline = this item is in the sale (refreshMarks)
+	local pickedRing = new("Frame", { Name = "Picked", BackgroundTransparency = 1, Position = UDim2.fromOffset(-3, -3), Size = UDim2.fromOffset(CARD.X + 6, CARD.Y + 6), Visible = false, ZIndex = 9 }, card)
+	round(pickedRing, 15)
+	outline(pickedRing, GOLD, 3.5)
+	local coin = new("Frame", {
+		Name = "Coin", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = GOLD, BorderSizePixel = 0, Position = UDim2.fromOffset(CARD.X - 6, 6),
+		Size = UDim2.fromOffset(24, 24), Visible = false, ZIndex = 10,
+	}, card)
+	round(coin, 12)
+	outline(coin, INK, 2)
+	new("ImageLabel", {
+		Name = "Icon", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = UiSkin.Art("Cash"), ScaleType = Enum.ScaleType.Fit,
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(20, 20), ZIndex = 11,
+	}, coin)
+	return card
+end
+
+-- Selection ring and pick ticks, without rebuilding the cards (and their 3D models).
+local function refreshMarks()
+	for uid, card in cards do
+		local ring = card:FindFirstChild("Selected")
+		local isPicked = disposeMode and picked[uid] == true
+		if ring then
+			(ring :: Frame).Visible = not disposeMode and uid == selectedUid
+		end
+		for _, name in { "Picked", "Coin" } do
+			local mark = card:FindFirstChild(name)
+			if mark then
+				(mark :: GuiObject).Visible = isPicked
+			end
+		end
+		-- the golden badge sits in the same corner: hide it while the coin is there
+		local golden = card:FindFirstChild("GoldenTag")
+		if golden then
+			(golden :: GuiObject).Visible = not isPicked
+		end
+	end
+end
+
+-- "All  12" / "Needs Restoring  5" / "Restored  7"; gold = the tab you are on (Figma "Win Tab").
+local function refreshTabs()
+	if inventoryGui == nil then
+		return
+	end
+	local counts = {}
+	for name in TAB_LABELS do
+		counts[name] = #sortedItems(name)
+	end
+	for _, tab in inventoryGui.Window.Tabs:GetChildren() do
+		if tab:IsA("TextButton") and TAB_LABELS[tab.Name] then
+			tab.Text = `{TAB_LABELS[tab.Name]}  {counts[tab.Name]}`
+			-- hug the text like the design (14 px Oswald + 14 px padding each side)
+			local width = TextService:GetTextSize(tab.Text, 14, Enum.Font.Oswald, Vector2.new(400, 30)).X
+			tab.Size = UDim2.fromOffset(math.ceil(width) + 28, 30)
+			WindowKit.Chunky(tab, if tab.Name == currentFilter then WindowKit.BUTTON.Gold else WindowKit.BUTTON.Walnut, 14, 12)
+		end
+	end
 end
 
 local function renderGrid()
@@ -386,19 +693,13 @@ local function renderGrid()
 		return
 	end
 	local grid = inventoryGui.Window.Grid
-	local template = ReplicatedStorage:FindFirstChild("Assets")
-		and ReplicatedStorage.Assets:FindFirstChild("UI")
-		and ReplicatedStorage.Assets.UI:FindFirstChild("ItemCard")
-	if template == nil then
-		warn("[InventoryController] ReplicatedStorage.Assets.UI.ItemCard is missing")
-		return
-	end
-	-- Simple and safe: rebuild all cards (at most 40 items).
+	-- Rebuild all cards (at most 40 items); selection changes only move the ring (refreshMarks).
 	for _, child in grid:GetChildren() do
 		if child.Name == "Card" then
 			child:Destroy()
 		end
 	end
+	table.clear(cards)
 	local list = sortedItems(if disposeMode then "DirtyOnly" else currentFilter)
 	for uid in picked do -- forget picks that are no longer Dirty (disposed, restored, gone)
 		local it = ClientState.Get("inventory." .. uid)
@@ -408,54 +709,26 @@ local function renderGrid()
 	end
 	inventoryGui.Window.Empty.Visible = #list == 0 -- lives on Window: the grid layout would squeeze it into a cell
 	for order, item in list do
-		local def = Items[item.itemId]
-		local rarity = rarityOf(item)
-		local card = template:Clone()
-		card.Name = "Card"
-		card.LayoutOrder = order
-		card.RarityStroke.Color = UiTheme.rarityColor(rarity)
-		card.RarityStroke.Thickness = if item.uid == selectedUid then 5 else 3
-		card.StateIcon.Text = STATE_ICONS[item.state] or ""
-		card.GoldenTag.Visible = item.golden == true
-		card.ItemName.Text = def and def.name or item.itemId
-		card.Stars.Text = if type(item.stars) == "number" then starsText(item.stars) else ""
-		local value, estimate = itemValue(item)
-		card.Value.Text = if estimate then `~${value}` else `${value}`
+		local card = buildCard(item, order)
 		local uid = item.uid
-		if disposeMode then
-			if picked[uid] then
-				card.RarityStroke.Thickness = 5
-				local tick = Instance.new("TextLabel")
-				tick.Name = "Tick"
-				tick.AnchorPoint = Vector2.new(1, 0)
-				tick.Position = UDim2.new(1, -3, 0, 3)
-				tick.Size = UDim2.fromOffset(24, 24)
-				tick.BackgroundColor3 = UiTheme.Teal
-				tick.TextColor3 = Color3.new(1, 1, 1)
-				tick.Text = "✔"
-				tick.TextSize = 16
-				tick.ZIndex = 20
-				Instance.new("UICorner", tick).CornerRadius = UDim.new(1, 0)
-				tick.Parent = card
-			end
-			if item.golden or Rarities[rarityOf(item)].index >= 3 then
-				card.StateIcon.Text = "⚠" -- rare or golden: think twice
-			end
-		end
+		cards[uid] = card
 		card.Activated:Connect(function()
 			if disposeMode then
 				picked[uid] = if picked[uid] then nil else true
 				confirmUntil = 0
-				renderGrid()
+				refreshMarks()
+				updateDetails()
 				return
 			end
 			selectedUid = uid
 			soldMessageUntil = 0
-			renderGrid() -- redraw the selection outline
+			refreshMarks()
 			updateDetails()
 		end)
 		card.Parent = grid
 	end
+	refreshMarks()
+	refreshTabs()
 	updateCapacity()
 	updateDetails()
 end
@@ -465,12 +738,7 @@ local function selectTab(name: string)
 		return
 	end
 	currentFilter = name
-	for _, tab in inventoryGui.Window.Tabs:GetChildren() do
-		if tab:IsA("TextButton") then
-			tab.BackgroundColor3 = if tab.Name == name then UiTheme.Teal else UiTheme.Disabled
-		end
-	end
-	renderGrid()
+	renderGrid() -- redraws the tabs too (gold = this one)
 end
 
 -- ===== Quick Sell =====
@@ -532,8 +800,9 @@ local function setDisposeMode(on: boolean)
 	window.Title.Text = if on then "Sell unrestored" else (savedTitle or window.Title.Text)
 	window.Tabs.Visible = not on and pickTarget == nil
 	window.Empty.Text = if on then "No unrestored items to sell." else "Nothing here yet. Open boxes at your door!"
-	window.Details.Hint.Size = if on then UDim2.new(1, -20, 0, 120) else UDim2.new(1, -20, 0, 40)
+	window.Details.Hint.Size = if on then UDim2.new(1, -24, 0, 118) else UDim2.new(1, -24, 0, 60)
 	disposeUi.mode.Text = if on then "Done" else "Sell unrestored…"
+	WindowKit.Chunky(disposeUi.mode, if on then WindowKit.BUTTON.Gold else WindowKit.BUTTON.Walnut, 14, 12)
 	renderGrid()
 end
 
@@ -566,25 +835,23 @@ local function buildDisposeUi()
 	end
 	local window = inventoryGui.Window
 	local details = window.Details
-	-- Cloned from existing (already skinned) buttons so they look like the rest of the window
-	local function clone(from: GuiButton, name: string, parent: Instance): TextButton
-		local b = from:Clone() :: TextButton
-		b.Name = name
-		b.Visible = false
-		b.Parent = parent
+	local function button(name: string, parent: Instance, props: { [string]: any }): TextButton
+		local b = new("TextButton", { Name = name, Text = "", Visible = false, AutoButtonColor = false, ZIndex = 4 }, parent)
+		for k, v in props do
+			(b :: any)[k] = v
+		end
 		return b
 	end
-	local tab = window.Tabs:FindFirstChildWhichIsA("TextButton")
-	local mode = clone(tab or details.QuickSellButton, "DisposeModeButton", window)
-	mode.AnchorPoint = Vector2.new(0, 0)
-	mode.Position = UDim2.fromOffset(300, 12)
-	mode.Size = UDim2.fromOffset(160, 30) -- ends at x 460, well before the close button
-	mode.Text = "Sell unrestored…"
-	mode.BackgroundColor3 = UiTheme.Disabled
+	-- "Sell unrestored…" sits in the tab row, right above the details panel
+	local mode = button("DisposeModeButton", window, { Position = UDim2.fromOffset(345, 48), Size = UDim2.fromOffset(198, 30), Text = "Sell unrestored…" })
+	WindowKit.Chunky(mode, WindowKit.BUTTON.Walnut, 14, 12)
 	mode.Visible = pickTarget == nil
-	local single = clone(details.QuickSellButton, "DisposeButton", details)
-	local selCommon = clone(details.QuickSellButton, "SelectCommonButton", details)
-	local confirm = clone(details.RestoreButton, "DisposeConfirmButton", details)
+	local single = button("DisposeButton", details, { Position = UDim2.fromOffset(118, 179), Size = UDim2.fromOffset(72, 30) })
+	WindowKit.Chunky(single, WindowKit.BUTTON.Danger, 13, 12)
+	local selCommon = button("SelectCommonButton", details, { Position = UDim2.fromOffset(8, 136), Size = UDim2.new(1, -16, 0, 30) })
+	WindowKit.Chunky(selCommon, WindowKit.BUTTON.Primary, 14, 12)
+	local confirm = button("DisposeConfirmButton", details, { Position = UDim2.fromOffset(8, 176), Size = UDim2.new(1, -16, 0, 36) })
+	WindowKit.Chunky(confirm, WindowKit.BUTTON.Danger, 16, 13)
 	disposeUi = { mode = mode, single = single, selCommon = selCommon, confirm = confirm }
 
 	mode.Activated:Connect(function()
@@ -608,7 +875,8 @@ local function buildDisposeUi()
 			picked[uid] = if allPicked then nil else true -- tap again to clear them
 		end
 		confirmUntil = 0
-		renderGrid()
+		refreshMarks()
+		updateDetails()
 	end)
 	confirm.Activated:Connect(function()
 		local uids = {}
@@ -777,6 +1045,17 @@ function InventoryController.Start()
 			return
 		end
 		local window = inventoryGui.Window
+		applyFigmaLayout(window)
+		-- load the card icons in the background now, so the first open doesn't show empty cards
+		task.spawn(function()
+			local ids = {}
+			for _, id in ItemIcons do
+				table.insert(ids, id)
+			end
+			pcall(function()
+				game:GetService("ContentProvider"):PreloadAsync(ids)
+			end)
+		end)
 		window.CloseButton.Activated:Connect(InventoryController.Close)
 		for _, tab in window.Tabs:GetChildren() do
 			if tab:IsA("TextButton") then
@@ -808,7 +1087,7 @@ function InventoryController.Start()
 		-- HudTop is made by HudLayoutController, which starts after this controller: wait a little for it
 		task.spawn(function()
 			playerGui:WaitForChild("HudTop", 10)
-			buildBanner(playerGui)
+			buildFullChip(playerGui)
 			updateBanner()
 		end)
 
