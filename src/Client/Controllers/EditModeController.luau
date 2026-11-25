@@ -481,9 +481,38 @@ local function done()
 	local remote = remotes and remotes:FindFirstChild("RequestSaveLayout")
 	local layout = layoutToSend()
 	if remote and remote:IsA("RemoteEvent") then
+		-- Remember where everything stood before this edit: if the server refuses the layout (LayoutService sets the plot
+		-- attributes LayoutOk / LayoutMsg / LayoutRev), our local preview must snap back, because the server's pieces never moved.
+		local snapshot = {}
+		for _, piece in pieces do
+			table.insert(snapshot, { part = piece.part, cf = piece.startCFrame, followers = piece.followers })
+		end
+		local shopPlot = plot
+		local revBefore = if shopPlot then shopPlot:GetAttribute("LayoutRev") else nil
 		remote:FireServer(layout)
 		log("sent layout", layout)
-		exitEdit(false) -- the server moves the real pieces; ours snap to its answer when it replicates
+		exitEdit(false) -- the server moves the real pieces; ours match its answer when it accepts
+		if shopPlot then
+			task.spawn(function()
+				local waited = 0
+				while waited < 5 and shopPlot:GetAttribute("LayoutRev") == revBefore do
+					waited += task.wait(0.1)
+				end
+				if shopPlot:GetAttribute("LayoutOk") == false then
+					for _, s in snapshot do
+						if s.part.Parent then
+							s.part.CFrame = s.cf
+						end
+						for _, f in s.followers do
+							if f.part.Parent then
+								f.part.CFrame = f.start
+							end
+						end
+					end
+					log("layout refused, put back:", shopPlot:GetAttribute("LayoutMsg"))
+				end
+			end)
+		end
 	else
 		local n = 0
 		for _ in layout do
@@ -755,19 +784,8 @@ function EditModeController.Start()
 			warn("[EditModeController] no HUD button: edit mode can't be opened")
 			return
 		end
-		-- a small EDIT tag so it doesn't look like the Upgrades button
-		local tag = Instance.new("TextLabel")
-		tag.Name = "EditTag"
-		tag.AnchorPoint = Vector2.new(0.5, 1)
-		tag.Position = UDim2.fromScale(0.5, 1)
-		tag.Size = UDim2.fromScale(1, 0.3)
-		tag.BackgroundTransparency = 1
-		tag.Text = "EDIT"
-		tag.TextScaled = true
-		tag.FontFace = UiSkin.FONT_TITLE
-		tag.TextColor3 = UiSkin.COLORS.accent
-		tag.ZIndex = button.ZIndex + 2
-		tag.Parent = button
+		-- (the old "EDIT" tag is gone, 2026-11-25: HudLayoutController draws this as the Menu's "Edit Mode" cell with its own
+		-- pencil icon and label, and the tag sat on top of that label)
 		button.Activated:Connect(EditModeController.Enter)
 		log("ready: Edit button added")
 	end)

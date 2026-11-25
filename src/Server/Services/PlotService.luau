@@ -296,6 +296,8 @@ local function freePlot(): Model?
 	return nil
 end
 
+local refreshHook: ((Player) -> ())? = nil
+
 -- Gives the player the first free plot (does nothing if they already have one). Returns the plot or nil if full.
 local function assignPlot(player: Player): Model?
 	if plotOf[player] then
@@ -362,7 +364,15 @@ function PlotService.RefreshSlots(player: Player)
 	local plot = plotOf[player]
 	if plot then
 		applySlots(plot, DataService.GetValue(player, "upgrades"))
+		if refreshHook then
+			refreshHook(player) -- LayoutService puts the saved shelf layout back on top of the default spots
+		end
 	end
+end
+
+-- LayoutService registers here so a purchase never undoes a player's shop layout.
+function PlotService.SetRefreshHook(hook: ((Player) -> ())?)
+	refreshHook = hook
 end
 
 function PlotService.Init(services)

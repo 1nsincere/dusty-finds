@@ -27,7 +27,7 @@ local MAX_VALUE_DEPTH = 8 -- deepest table we accept in Set (also stops circular
 -- Docs/03 §10.5 (same shape as Types.PlayerData). Changing a field changes saved data: ask the team first
 -- (CLAUDE.md §6.6). Adding a field later is safe: Reconcile() fills it in for existing players.
 local TEMPLATE = {
-	version = 1,
+	version = 2, -- 2 (2026-11-25): added `layout`
 	cash = 100,
 	xp = 0,
 	level = 1,
@@ -46,6 +46,8 @@ local TEMPLATE = {
 	-- shelf / pedestal skins (Sean, Ace OK 2026-11-24; SkinService): owned = { [skinId] = true }; shelf / pedestal =
 	-- the skin id in use, "" = the classic look. Old saves get this from Reconcile().
 	-- cashier = the cash counter's skin (Sean, Ace OK 2026-11-24); Reconcile adds it to saves that already have skins.
+	-- edit mode (LayoutService): layout[pieceId] = { x, z, rot, floor } in plot-local studs for MOVED shelves / pedestals only; empty = default shop.
+	layout = {},
 	skins = { owned = {}, shelf = "", pedestal = "", cashier = "" },
 }
 

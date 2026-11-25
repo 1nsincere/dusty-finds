@@ -168,6 +168,12 @@ function DisplayService.RemoveFromSlot(player: any, kind: any, slotIndex: any): 
 	return true, nil, uid
 end
 
+-- Is the item on display slot `slotIndex` reserved by a customer? (LayoutService: that shelf may not be moved now.)
+function DisplayService.IsReservedAt(player: any, slotIndex: number): boolean
+	local uid = occupant(player, "Display", slotIndex)
+	return uid ~= nil and isReserved(player, uid)
+end
+
 -- For CustomerService: everything for sale right now that no customer has reserved, sorted by slot.
 -- Each entry: { uid, slot, itemId, stars, golden }.
 function DisplayService.GetAvailable(player: any): { { [string]: any } }

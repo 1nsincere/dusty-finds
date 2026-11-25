@@ -26,6 +26,7 @@ local ORDER = {
 	"CustomerService",
 	"CustomerNpcService", -- Sean: customer models/walking/checkout prompt; reacts to CustomerService
 	"UpgradeService",
+	"LayoutService", -- Dev 1: edit mode server side: validates + saves the shop layout, moves shelves / pedestals (after Plot, Display, Upgrade)
 	"ShopSocialService",
 	"SettingsService",
 	"TutorialService", -- Sean: saves tutorial.step/done (RequestTutorialStep), checked against Shared.Tutorial
