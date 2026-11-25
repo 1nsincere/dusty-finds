@@ -53,6 +53,7 @@ local ORDER = {
 	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
 	"StorageShelfController", -- Sean: draws unrestored items on every shop's storage room shelves (StorageShelfService)
 	"EditModeController", -- Sean: shop edit mode, move / turn shelves and pedestals (Shared.Layout; docs/09); after HudSkinController
+	"AuraController", -- Dev 1: collector auras (sparkles + glow by collector tier, DF_CollectorTier); Reduce effects turns them off
 	"PreviewController", -- Dev 1: "Try it for 60 seconds" on your own shop (paints and shelf / pedestal skins), client only
 	"PaintShopController", -- Dev 1: Paint Bar window (wall / floor paints, always in stock; Workspace.PaintCounter prompt)
 	"SkinShopController", -- Sean: skins stall window (stock, restock timer, buy) + your skins (apply); sparkles off with Reduce effects

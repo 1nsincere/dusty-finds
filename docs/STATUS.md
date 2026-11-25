@@ -285,3 +285,9 @@ Changed from the earlier proposal: `Wheels` -> `Wheel`, `Limbs` -> `Leg`, `ArmL`
 - **Restock sign:** a floating "Fresh stock in m:ss" over the Skins Booth counter (client, `SkinShopController`).
 - **Skins Booth vs "Shelves & Pedestals" stall:** Sean's skins stall (shelf / pedestal / cashier skins) is the Skins Booth. The centre "Shelves & Pedestals" stall has no function yet; it is meant for decor (Stage 3 part 2, needs edit-mode placement rules, docs/10 step 4).
 - Tests: `testAll` unchanged (the same 2 pre-existing failures).
+
+## 2026-11-25 (Ace + Claude): Stage 4, collector score + auras
+- **Score (derived, nothing saved, nothing buyable):** `Shared/Collector.luau` + `Config/Collector.luau`: sum of Collection Book entries (rarity points x (1 + 0.5 x best stars), Golden x1.5) + 20 per shop rating star. Tiers: Dusty 0, Polished 40, Brass 160, Gilded 420, Radiant 800 (tune in the config; the 30 current items top out near 1,100).
+- **`CollectorService`** (new, no remote): every 5 s publishes `DF_CollectorScore` / `DF_CollectorTier` as Player attributes and sends "You are now a ... Collector!" on a tier-up. **`AuraController`** (client): sparkles + soft glow by tier on every avatar (Dusty has none), within 80 studs of you, off with Settings "Reduce effects".
+- `CollectorCheck` 17 passed. Play: the test profile scored 302 = Brass, the aura exists with the right rate and glow. NOT yet looked at by a person or on a phone; the aura is subtle by design (tune `rate` / `light` in the config).
+- Not built: showing the tier name on the player list / a Collection window line, VIP aura STYLE (Stage 5).

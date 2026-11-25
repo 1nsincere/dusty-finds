@@ -32,6 +32,7 @@ local ORDER = {
 	"TutorialService", -- Sean: saves tutorial.step/done (RequestTutorialStep), checked against Shared.Tutorial
 	"StorageShelfService", -- Sean: storage room shelves show each owner's unrestored items (slot attributes, no remotes)
 	"SkinService", -- Sean: shelf / pedestal skins: buy at the stall (RequestBuySkin), use (RequestApplySkin), draw on every shop
+	"CollectorService", -- Dev 1: collector score + tier (DF_CollectorScore / DF_CollectorTier player attributes), tier-up message; nothing saved
 	"PaintService", -- Dev 1: wall / floor paints: buy at the Paint Bar (RequestBuyPaint), use (RequestApplyPaint), draw on every shop
 	"CashierService", -- Dev 1: the till at the counter (count out the change; RequestGiveChange / CashierUpdate)
 	"TravelService", -- Dev 1: Travel menu teleports (RequestTravel; places in Config.Travel)
