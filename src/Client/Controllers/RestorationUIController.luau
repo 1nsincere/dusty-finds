@@ -24,16 +24,22 @@ local DEBUG = true
 local LOCAL_PLAYER = Players.LocalPlayer
 
 -- Presentation only: the step types themselves come from each item's Config recipe.
-local STEP_ICONS = { Wipe = "🧽", Scrape = "🔧", Reassemble = "🧩", Replace = "🔩", Polish = "✨", Test = "🔔" }
 local STEP_HINTS = {
 	Wipe = "Wipe away the dirt",
 	Scrape = "Scrape off the rust",
-	Reassemble = "Put the parts back where they belong",
-	Replace = "Pick the right part and fit it",
-	Polish = "Polish it until it shines",
-	Test = "Test it! Stop in the green",
+	Reassemble = "Fit the loose parts",
+	Replace = "Fit the matching part",
+	Polish = "Polish until it shines",
+	Test = "Stop in the green",
 }
-local QUALITY_NAMES = { "Fair", "Good", "Mint" } -- index = stars (docs/01 B8)
+local QUALITY_NAMES = { "FAIR", "GOOD", "MINT" } -- index = stars (docs/01 B8)
+local TICKET_PAPER = Color3.fromHex("F8E9D1")
+local TICKET_EDGE = Color3.fromHex("DDC398")
+local TICKET_INK = Color3.fromHex("28251F")
+local TICKET_STAMP = Color3.fromHex("A03B28")
+local TICKET_BRASS = "#835609"
+local OSWALD_BOLD = Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
+local TITILLIUM_BOLD = Font.new("rbxasset://fonts/families/TitilliumWeb.json", Enum.FontWeight.Bold)
 
 local others = nil
 local gui: ScreenGui? = nil
@@ -91,6 +97,7 @@ local function drawChips(screen, recipe, stepIndex, docked)
 		chip.Text = if isCurrent then `{index}/{#recipe} · {stepType}` elseif done then "✓" else tostring(index)
 		chip.Size = UDim2.new(0, if isCurrent then currentWidth else otherWidth, 1, 0)
 		chip.BackgroundColor3 = if done then UiTheme.Teal elseif isCurrent then UiTheme.Coral else UiTheme.Disabled
+		chip.TextColor3 = if isCurrent then Color3.new(0, 0, 0) else UiTheme.Ink
 		chip.Visible = true
 		chip.Parent = chips
 	end
@@ -155,6 +162,8 @@ function RestorationUIController.DrawStep(screen, recipe, stepIndex)
 	local stackShift = if stepType == "Replace" then -30 else 0
 	local exitOffset = if stepType == "Replace" then -38 else 4
 	local template = StarterGui.Restoration
+	screen.ExitButton.BackgroundColor3 = UiTheme.Cream
+	screen.ExitButton.TextColor3 = UiTheme.Ink
 	screen.ExitButton.Position = if docked then UDim2.new(1, -12, 0.5, exitOffset) else template.ExitButton.Position
 	for name, offset in { Hint = -74, Progress = -44, StepChips = -36 } do
 		local control = screen[name]
@@ -166,7 +175,7 @@ function RestorationUIController.DrawStep(screen, recipe, stepIndex)
 			control.Position = template[name].Position
 		end
 	end
-	screen.Hint.Text = `{STEP_ICONS[stepType] or "🛠️"} {STEP_HINTS[stepType] or "Restore the item"}`
+	screen.Hint.Text = STEP_HINTS[stepType] or "Restore the item"
 	drawChips(screen, recipe, stepIndex, docked)
 end
 
@@ -205,6 +214,53 @@ local function onInventoryChanged()
 	end
 end
 
+local function drawFinishCard(card, name: string, starCount: number, value: number)
+	-- The centered card needs a shorter footprint to clear the HUD in landscape.
+	local compact = card.Parent.AbsoluteSize.Y < 400
+	card.Size = if compact then UDim2.fromOffset(300, 174) else UDim2.fromOffset(320, 230)
+	card.BackgroundColor3 = TICKET_PAPER
+	card.BackgroundTransparency = 0
+	card.UICorner.CornerRadius = UDim.new(0, 8)
+	card.UIStroke.Color = TICKET_EDGE
+	card.UIGradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromHex("F5F0E7"))
+
+	card.Title.Text = "RESTORED!"
+	card.Title.FontFace = OSWALD_BOLD
+	card.Title.TextColor3 = TICKET_STAMP
+	card.Title.Position = UDim2.fromOffset(16, if compact then 8 else 12)
+	card.Title.Size = UDim2.new(1, -32, 0, if compact then 23 else 36)
+
+	local nameLabel = card.ItemName
+	nameLabel.Text = name
+	nameLabel.FontFace = TITILLIUM_BOLD
+	nameLabel.TextColor3 = TICKET_INK
+	nameLabel.TextWrapped = true
+	nameLabel.TextScaled = true
+	nameLabel.Position = UDim2.fromOffset(16, if compact then 32 else 50)
+	nameLabel.Size = UDim2.new(1, -32, 0, if compact then 34 else 44)
+	local nameSize = nameLabel:FindFirstChildOfClass("UITextSizeConstraint")
+	if nameSize then
+		nameSize.MaxTextSize = 26
+		nameSize.MinTextSize = 16
+	end
+
+	local stars = card.Stars
+	local symbols = string.rep("★", starCount) .. string.rep("☆", 3 - starCount)
+	stars.Position = UDim2.fromOffset(16, if compact then 67 else 96)
+	stars.Size = UDim2.new(1, -32, 0, if compact then 21 else 28)
+	stars.FontFace = TITILLIUM_BOLD
+	stars.TextColor3 = TICKET_INK
+	stars.RichText = true
+	stars.Text = `<font color="{TICKET_BRASS}">{symbols}</font>  <b>{QUALITY_NAMES[starCount]}</b>`
+
+	card.Value.FontFace = OSWALD_BOLD
+	card.Value.TextColor3 = TICKET_INK
+	card.Value.Text = `EST. VALUE  {UiTheme.formatCash(value)}`
+	card.Value.Position = UDim2.fromOffset(16, if compact then 90 else 126)
+	card.Value.Size = UDim2.new(1, -32, 0, if compact then 20 else 24)
+	card.DoneButton.FontFace = TITILLIUM_BOLD
+end
+
 local function onRestored(uid: any, stars: any, value: any)
 	local screen = gui
 	if screen == nil or type(uid) ~= "string" then
@@ -216,9 +272,8 @@ local function onRestored(uid: any, stars: any, value: any)
 	setPlayingVisible(false)
 	local starCount = math.clamp(tonumber(stars) or 1, 1, 3)
 	local card = screen.FinishCard
-	card.ItemName.Text = itemNameOf(uid)
-	card.Stars.Text = string.rep("★", starCount) .. string.rep("☆", 3 - starCount) .. `  {QUALITY_NAMES[starCount]}`
-	card.Value.Text = `Worth about {UiTheme.formatCash(tonumber(value) or 0)}`
+	-- The ScreenGui already centers the ticket inside CoreUISafeInsets.
+	drawFinishCard(card, itemNameOf(uid), starCount, tonumber(value) or 0)
 	card.Visible = true
 	local scale = card:FindFirstChildOfClass("UIScale")
 	if scale then

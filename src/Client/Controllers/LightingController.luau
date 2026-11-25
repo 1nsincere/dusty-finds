@@ -125,6 +125,11 @@ local function applyLamp(part: BasePart, saved: Saved, on: boolean)
 	local dayMaterial = if saved.material == Enum.Material.Neon then Enum.Material.SmoothPlastic else saved.material
 	part.Material = if on and cfg.glow then Enum.Material.Neon else dayMaterial
 	part.Color = if on then rgb(cfg.color) else saved.color
+	-- StreetLamp/WallLamp lanterns carry a real PointLight named "LampLight": switch it with the same night window
+	local lampLight = part:FindFirstChild("LampLight")
+	if lampLight and lampLight:IsA("PointLight") then
+		lampLight.Enabled = on
+	end
 end
 
 local function applyWindow(part: BasePart, saved: Saved, on: boolean)

@@ -13,6 +13,7 @@ local TweenService = game:GetService("TweenService")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
+local NotificationDock = require(script.Parent.Parent:WaitForChild("NotificationDock"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Formulas = require(Shared:WaitForChild("Formulas"))
@@ -214,6 +215,12 @@ local function onNotify(kind: any, text: any)
 	if DEBUG then
 		print(`[HudController] Notify {tostring(kind)}: {message}`)
 	end
+	-- Since 2026-11-25 every message goes to the notification dock (HudLayoutController builds it). The old Toasts /
+	-- Banner path below stays as a fallback for the first moments of a session and for an old place without the dock.
+	if NotificationDock.IsReady() then
+		NotificationDock.Notify(if icon then kind else "Info", message)
+		return
+	end
 	if icon then
 		queueBanner(`{icon} {message}`)
 	else
@@ -228,6 +235,10 @@ local function onAnnouncement(text: any, _rarity: any)
 	end
 	-- Settings → "Show announcements" (saved in my data). Missing/not loaded counts as on.
 	if ClientState.Get("settings.announcements") == false then
+		return
+	end
+	if NotificationDock.IsReady() then
+		NotificationDock.Priority(message) -- the one full-width banner
 		return
 	end
 	queueBanner(`{ANNOUNCEMENT_ICON} {message}`)

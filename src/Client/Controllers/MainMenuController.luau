@@ -16,6 +16,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MenuConfig = require(Shared:WaitForChild("Config"):WaitForChild("MainMenu"))
@@ -52,7 +53,7 @@ local RED = Color3.fromRGB(232, 85, 62)
 local DESIGN = Vector2.new(1280, 720)
 local IMG = {
 	emblem = "rbxassetid://100622808127569", -- magnifier logo emblem (Figma)
-	news = "rbxassetid://100173721907720", -- newspaper icon (Figma "Icon / News", re-exported 2026-11-25: the first upload never loaded)
+	news = "rbxassetid://132825925023293", -- newspaper icon (Figma)
 	heart = "rbxassetid://71092970737679", -- heart icon (Figma)
 }
 local SKIP_SCREENS = { MainMenu = true, LoadingScreen = true, Freecam = true }
@@ -135,35 +136,55 @@ end
 
 -- grow + tilt + brighten (a soft gold glow ring) with a tick; squash while pressed
 local function hoverable(button: GuiButton, tilt: number?, glow: UIStroke?)
-	local scale = button:FindFirstChildOfClass("UIScale") or new("UIScale", {}, button)
+	-- its own UIScale ("Hover"): the entrance animation uses the other one and used to fight with this
+	local scale = button:FindFirstChild("Hover") or new("UIScale", { Name = "Hover" }, button)
 	local hovered = false
+	local lastTick = 0
 	local function settle()
-		tween(scale, 0.18, { Scale = if hovered then 1.07 else 1 }, Enum.EasingStyle.Back)
-		tween(button, 0.18, { Rotation = if hovered then (tilt or -2) else 0 })
+		-- no overshoot: growing past the edge of the button under a still cursor made it flicker in and out
+		tween(scale, 0.14, { Scale = if hovered then 1.06 else 1 })
+		tween(button, 0.14, { Rotation = if hovered then (tilt or -2) else 0 })
 		if glow then
-			tween(glow, 0.18, { Transparency = if hovered then 0.15 else 1 })
+			tween(glow, 0.14, { Transparency = if hovered then 0.15 else 1 })
 		end
+	end
+	local function pointerInside(): boolean
+		local p = UserInputService:GetMouseLocation() -- includes the top-bar inset, like an IgnoreGuiInset screen
+		local a, s = button.AbsolutePosition, button.AbsoluteSize
+		return p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y and p.Y <= a.Y + s.Y
 	end
 	local function enter()
-		if not hovered then
-			hovered = true
-			sfx("pick")
-			settle()
+		if hovered then
+			return
 		end
+		hovered = true
+		if os.clock() - lastTick > 0.2 then -- one tick per real hover, not per flicker
+			lastTick = os.clock()
+			sfx("hover")
+		end
+		settle()
 	end
 	local function leave()
-		hovered = false
-		settle()
+		-- the button moves and tilts under the cursor, which fires a false "leave": check the cursor again a moment later
+		task.delay(0.05, function()
+			if hovered and not pointerInside() then
+				hovered = false
+				settle()
+			end
+		end)
 	end
 	button.MouseEnter:Connect(enter)
 	button.MouseLeave:Connect(leave)
 	button.SelectionGained:Connect(enter) -- gamepad
-	button.SelectionLost:Connect(leave)
+	button.SelectionLost:Connect(function()
+		hovered = false
+		settle()
+	end)
 	button.MouseButton1Down:Connect(function()
-		tween(scale, 0.08, { Scale = 0.94 })
+		tween(scale, 0.08, { Scale = 0.95 })
 	end)
 	button.MouseButton1Up:Connect(function()
-		tween(scale, 0.16, { Scale = if hovered then 1.07 else 1 }, Enum.EasingStyle.Back)
+		tween(scale, 0.12, { Scale = if hovered then 1.06 else 1 })
 	end)
 end
 
@@ -180,7 +201,7 @@ end
 -- ===== state =====
 
 local gui: ScreenGui? = nil
-local root: CanvasGroup? = nil
+local root: Frame? = nil
 local center: Frame? = nil -- the 1280 x 720 design group (title, PLAY)
 local windowLayer: Frame? = nil -- the windows (What's New, Credits), above everything else
 local hidden: { [ScreenGui]: boolean } = {} -- screens we switched off, to switch back on at PLAY
@@ -309,21 +330,10 @@ end
 
 -- ===== windows (What's New, Credits): dark wood panel, gold title, red close =====
 
--- while a window is open only the window shows over the town (Figma window frames): title, PLAY, tiles and card hide
-local behindGroups: { GuiObject } = {}
-local function behindWindow(windowOpen: boolean)
-	for _, g in behindGroups do
-		if g:GetAttribute("FitVisible") ~= false then
-			g.Visible = not windowOpen
-		end
-	end
-end
-
 local function closeWindows()
 	for _, w in windows do
 		w.Visible = false
 	end
-	behindWindow(false)
 end
 
 local function makeWindow(name: string, title: string, icon: string): (Frame, ScrollingFrame)
@@ -360,7 +370,6 @@ local function makeWindow(name: string, title: string, icon: string): (Frame, Sc
 	close.Activated:Connect(function()
 		sfx("click")
 		w.Visible = false
-		behindWindow(false)
 	end)
 	local list = new("ScrollingFrame", {
 		Name = "List",
@@ -418,41 +427,20 @@ end
 local function buildCredits()
 	local _, list = makeWindow("Credits", "CREDITS", IMG.heart)
 	for i, c in MenuConfig.CREDITS do
-		local r = rowCard(list, i, 80)
+		local r = rowCard(list, i, 64)
 		local colour = BADGE_COLORS[(i - 1) % #BADGE_COLORS + 1]
-		local badge = box(r, "Badge", 12, 10, 60, 60, colour, { ZIndex = 32 })
+		local badge = box(r, "Badge", 12, 10, 44, 44, colour, { ZIndex = 32 })
 		corner(badge, 999)
 		stroke(badge, 3, INK)
-		local letter = text(badge, string.upper(string.sub(c.name, 1, 1)), 0, 10, 60, 38, {
+		local letter = text(badge, string.upper(string.sub(c.name, 1, 1)), 0, 6, 44, 30, {
 			FontFace = FONT_TITLE,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			ZIndex = 33,
 		})
 		new("UIStroke", { Color = INK, Thickness = 2 }, letter)
-		-- their Roblox avatar headshot inside the coloured ring (the letter shows until it loads, or if it can't)
-		local face = new("ImageLabel", {
-			Name = "Avatar",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1, -6, 1, -6),
-			BackgroundTransparency = 1,
-			ImageTransparency = 1,
-			ZIndex = 34,
-		}, badge)
-		corner(face, 999)
-		task.spawn(function()
-			local ok, img = pcall(function()
-				return Players:GetUserThumbnailAsync(c.userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-			end)
-			if ok and type(img) == "string" then
-				face.Image = img
-				face.ImageTransparency = 0
-				letter.Visible = false
-			end
-		end)
-		local nameLabel = text(r, c.name, 86, 8, 500, 30, { FontFace = FONT_TITLE, ZIndex = 32 })
-		local pill = box(r, "Role", 84, 42, 0, 26, colour, { AutomaticSize = Enum.AutomaticSize.X, ZIndex = 32 })
+		local nameLabel = text(r, c.name, 70, 4, 500, 28, { FontFace = FONT_TITLE, ZIndex = 32 })
+		local pill = box(r, "Role", 68, 34, 0, 26, colour, { AutomaticSize = Enum.AutomaticSize.X, ZIndex = 32 })
 		corner(pill, 8)
 		stroke(pill, 2, INK)
 		new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }, pill)
@@ -496,6 +484,9 @@ local function buildCredits()
 end
 
 local function openWindow(name: string)
+	if not open then -- PLAY was pressed: the menu is on its way out
+		return
+	end
 	closeWindows()
 	local w = windows[name]
 	if not w then
@@ -503,7 +494,6 @@ local function openWindow(name: string)
 	end
 	sfx("reveal")
 	w.Visible = true
-	behindWindow(true)
 	local scale = w:FindFirstChildOfClass("UIScale") or new("UIScale", {}, w)
 	scale.Scale = 0.85
 	tween(scale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
@@ -511,6 +501,9 @@ end
 
 -- Settings: the game's own Settings window, lifted above the menu while it is open
 local function openSettings()
+	if not open then
+		return
+	end
 	closeWindows()
 	local settings = others.SettingsController
 	local screen = player.PlayerGui:FindFirstChild("Settings")
@@ -518,10 +511,12 @@ local function openSettings()
 		return
 	end
 	local wasOrder = screen.DisplayOrder
+	local wasInsets = screen.ScreenInsets
 	local wasHidden = hidden[screen] == true -- the menu switched it off: switch it off again when Settings closes
 	hidden[screen] = nil
 	settingsUp = screen
-	screen.Enabled, screen.DisplayOrder = true, 950
+	-- same full-screen area as the menu, so it is not inset on notch phones (put back when it closes)
+	screen.Enabled, screen.DisplayOrder, screen.ScreenInsets = true, 950, Enum.ScreenInsets.None
 	sfx("reveal")
 	settings.Open()
 	local window = screen:FindFirstChild("Window")
@@ -532,6 +527,7 @@ local function openSettings()
 				conn:Disconnect()
 				settingsUp = nil
 				screen.DisplayOrder = wasOrder
+				screen.ScreenInsets = wasInsets
 				if open and wasHidden then
 					screen.Enabled = false
 					hidden[screen] = true
@@ -568,11 +564,14 @@ local function build()
 	local screen = new("ScreenGui", {
 		Name = "MainMenu",
 		IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.None, -- on phones the default safe-area inset cropped the golden wash to a box (Ace, 2026-11-25)
 		ResetOnSpawn = false,
 		DisplayOrder = 900, -- under the loading screen (1000), over everything else
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}, player:WaitForChild("PlayerGui"))
-	local canvas = new("CanvasGroup", { Name = "Root", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, screen)
+	-- a plain Frame, not a CanvasGroup: a CanvasGroup draws everything into one texture first, which made the whole menu
+	-- (text, icons, edges) look soft/blurry (Ace, 2026-11-25). PLAY fades the pieces one by one instead.
+	local canvas = new("Frame", { Name = "Root", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, screen)
 	root = canvas
 
 	-- golden-hour wash over the live town: warm at the top, dark brown at the bottom, sun rays, drifting bokeh
@@ -644,24 +643,14 @@ local function build()
 	-- the windows get their own top layer, so the tiles and the card never draw over them
 	local windowsGroup = designGroup(canvas, "Windows", Vector2.new(0.5, 0.5), DESIGN, 20)
 	windowLayer = windowsGroup
-	behindGroups = { mid, bottomLeft, cardGroup }
 	local function fit()
 		local view = canvas.AbsoluteSize
 		local s = math.min(view.X / DESIGN.X, view.Y / DESIGN.Y)
 		for _, g in { mid, topLeft, topRight, bottomLeft, cardGroup, windowsGroup } do
 			(g:FindFirstChild("Fit") :: UIScale).Scale = s
 		end
-		-- phones: the What's New card is too small to read there (the phone design leaves it out); on a computer it
-		-- always shows, even in a small window (Studio's game view is only ~870 x 392)
-		local UIS = game:GetService("UserInputService")
-		local phone = UIS.TouchEnabled and not UIS.KeyboardEnabled
-		local show = not phone or view.Y >= 470
-		cardGroup:SetAttribute("FitVisible", show)
-		local windowOpen = false
-		for _, w in windows do
-			windowOpen = windowOpen or w.Visible
-		end
-		cardGroup.Visible = show and not windowOpen
+		-- phones: the What's New card is too small to read there (the phone design leaves it out)
+		cardGroup.Visible = view.Y >= 470
 	end
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 
@@ -816,7 +805,7 @@ local function build()
 		Name = "WhatsNew",
 		Position = UDim2.fromOffset(16, 40),
 		Size = UDim2.fromOffset(300, 240),
-		Rotation = 3,
+		Rotation = 0, -- was 3: Roblox draws rotated text without proper smoothing, so the card read as blurry (Ace, 2026-11-25)
 		BackgroundColor3 = PAPER,
 		Text = "",
 		AutoButtonColor = false,
@@ -836,7 +825,7 @@ local function build()
 		text(card, newest.date, 22, 88, 120, 14, { TextColor3 = Color3.fromRGB(140, 110, 90), ZIndex = 7 })
 		for k, line in newest.lines do
 			if k <= 3 then
-				text(card, "• " .. line, 22, 104 + (k - 1) * 34, 262, 32, { TextSize = 14, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = INK, ZIndex = 7 })
+				text(card, "• " .. line, 22, 106 + (k - 1) * 34, 262, 17, { TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = INK, ZIndex = 7 })
 			end
 		end
 	end
@@ -845,7 +834,7 @@ local function build()
 		corner(dot, 999)
 	end
 	text(card, "See all updates ›", 168, 208, 120, 16, { TextColor3 = PLUM, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 7 })
-	hoverable(card, 1, cardGlow)
+	hoverable(card, 0, cardGlow)
 	buttons.Card = card
 
 	-- the windows sit in the centre group
@@ -859,33 +848,46 @@ end
 
 -- ===== show / play =====
 
+-- The start poses are set the moment the menu is built (prepareEntrance), not when the entrance plays: the menu sits
+-- under the fading loading screen, and setting them late made the title and tiles visibly jump (found in the sweep).
+local homes: { [GuiObject]: UDim2 } = {}
+
+local function prepareEntrance(parts: { [string]: GuiObject })
+	for _, key in { "title", "titleShadow" } do
+		local o = parts[key]
+		homes[o] = o.Position
+		o.Position = o.Position - UDim2.fromOffset(0, 220)
+	end
+	for _, key in { "emblem", "plaque", "playWrap", "cont" } do
+		local o = parts[key]
+		local s = o:FindFirstChild("Entrance") or new("UIScale", { Name = "Entrance" }, o)
+		s.Scale = 0
+	end
+	homes[parts.tiles] = parts.tiles.Position
+	parts.tiles.Position = parts.tiles.Position + UDim2.fromOffset(0, 160)
+	parts.card.Rotation = 18
+end
+
 local function entrance(parts: { [string]: GuiObject })
 	-- the title drops in, the emblem pops, PLAY bounces up, the tiles rise, the card swings in
 	for _, key in { "title", "titleShadow" } do
 		local o = parts[key]
-		local home = o.Position
-		o.Position = home - UDim2.fromOffset(0, 220)
-		tween(o, 0.75, { Position = home }, Enum.EasingStyle.Bounce)
+		tween(o, 0.75, { Position = homes[o] }, Enum.EasingStyle.Bounce)
 	end
 	local pops = { { "emblem", 0.35 }, { "plaque", 0.25 }, { "playWrap", 0.45 }, { "cont", 0.55 } }
 	for _, p in pops do
-		local o = parts[p[1]]
-		local s = o:FindFirstChildOfClass("UIScale") or new("UIScale", {}, o)
-		s.Scale = 0
+		local s = (parts[p[1]] :: GuiObject):FindFirstChild("Entrance") :: UIScale
 		task.delay(p[2], function()
 			tween(s, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
 		end)
 	end
 	local tiles = parts.tiles
-	local tilesHome = tiles.Position
-	tiles.Position = tilesHome + UDim2.fromOffset(0, 160)
 	task.delay(0.5, function()
-		tween(tiles, 0.45, { Position = tilesHome }, Enum.EasingStyle.Back)
+		tween(tiles, 0.45, { Position = homes[tiles] }, Enum.EasingStyle.Back)
 	end)
 	local card = parts.card
-	card.Rotation = 18
 	task.delay(0.6, function()
-		tween(card, 0.6, { Rotation = 3 }, Enum.EasingStyle.Elastic)
+		tween(card, 0.6, { Rotation = 0 }, Enum.EasingStyle.Elastic)
 	end)
 	task.delay(0.3, sfx, "snap")
 end
@@ -896,9 +898,19 @@ local function play()
 	end
 	open = false
 	closeWindows()
-	sfx("levelUp")
-	local canvas = root :: CanvasGroup
-	tween(canvas, 0.45, { GroupTransparency = 1 })
+	sfx("reveal") -- a rising whoosh for PLAY; was "levelUp" (a church-bell chime, Ace 2026-11-25)
+	local canvas = root :: Frame
+	for _, o in canvas:GetDescendants() do
+		if o:IsA("TextLabel") or o:IsA("TextButton") then
+			tween(o, 0.45, { TextTransparency = 1, BackgroundTransparency = 1 })
+		elseif o:IsA("ImageLabel") or o:IsA("ImageButton") then
+			tween(o, 0.45, { ImageTransparency = 1, BackgroundTransparency = 1 })
+		elseif o:IsA("Frame") then
+			tween(o, 0.45, { BackgroundTransparency = 1 })
+		elseif o:IsA("UIStroke") then
+			tween(o, 0.45, { Transparency = 1 })
+		end
+	end
 	task.spawn(function()
 		endFlyover(function()
 			restoreScreens()
@@ -930,6 +942,7 @@ function MainMenuController.Start()
 	setControls(false)
 	startFlyover()
 	local buttons, parts = build()
+	prepareEntrance(parts)
 	buttons.Play.Activated:Connect(function()
 		sfx("click")
 		play()

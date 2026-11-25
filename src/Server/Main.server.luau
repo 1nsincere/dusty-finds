@@ -34,6 +34,8 @@ local ORDER = {
 	"CashierService", -- Dev 1: the till at the counter (count out the change; RequestGiveChange / CashierUpdate)
 	"TravelService", -- Dev 1: Travel menu teleports (RequestTravel; places in Config.Travel)
 	"AdminService", -- Dev 1: live admin chat commands (/admin), only for Config.Admins user ids
+	"LeaderboardService", -- Dev 1: keeps the two Park boards (top earners / most valuable item) updated with avatar headshots
+	"LeaderboardService", -- Dev 1: park monument leaderboard (top cash / most valuable item), avatars beside each entry
 	"JeepneyService", -- Dev 1: ambient jeepneys on the entrance-level loop (TownT2.Transit), Sakay prompt
 	"TricycleService", -- Dev 1: ambient tricycles (TownT2.Transit.TrikeRoutes, TODA stand), shares Lib/TrafficRules with the jeepneys
 	"DevTools", -- Studio only: does nothing on live servers

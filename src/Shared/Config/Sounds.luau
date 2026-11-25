@@ -7,7 +7,7 @@
 local Sounds = {}
 
 -- Mix levels (multiplied with each sound's own volume). The Settings switches turn music / sfx fully off.
-Sounds.MIX = { music = 0.32, ambience = 0.22, sfx = 0.6 }
+Sounds.MIX = { music = 0.18, ambience = 0.22, sfx = 0.6 }
 
 -- Music: a cozy shop playlist by day, a calmer one at night (follows the LightingController clock). Shuffled, crossfaded.
 Sounds.MUSIC = {
@@ -44,14 +44,28 @@ Sounds.SFX = {
 	click = { id = 9125654847, volume = 0.35, pitch = { 1.35, 1.5 } }, -- every UI button
 	coins = { id = 9113849583, volume = 0.7, pitch = { 1.0, 1.1 } }, -- a sale
 	purchase = { id = 9113849583, volume = 0.55, pitch = { 0.85, 0.9 } }, -- bought an upgrade / crate
-	levelUp = { id = 9044739323, volume = 0.6 }, -- short happy sting
-	restored = { id = 9044739323, volume = 0.5, pitch = { 1.05, 1.05 } }, -- item fully restored
+	levelUp = { id = 9113849583, volume = 0.6, pitch = { 1.3, 1.35 } }, -- short happy "cha-ching" (the game's coin sound, higher); was the church-bell id 9044739323
+	-- item fully restored. Was 9044739323 (sounded like a church bell, Ace 2026-11-25); now a soft magical UI shimmer.
+	-- Not yet heard by Claude: if it is too loud or wrong, swap the id (the old bell id is above).
+	restored = { id = 77566342592571, volume = 0.5, pitch = { 1.0, 1.1 } },
 	reveal = { id = 9120217544, volume = 0.45, pitch = { 1.1, 1.2 } }, -- box opened / rare find
 	stepDone = { id = 9120217544, volume = 0.35, pitch = { 1.5, 1.6 } }, -- one restoration step finished
 	boxOpen = { id = 9114054266, volume = 0.7 },
 	delivery = { id = 9113578876, volume = 0.6 },
 	doorbell = { id = 9125935023, volume = 0.55, rolloff = 60 }, -- 3D: a customer walks in
 	snap = { id = 9113591001, volume = 0.6, pitch = { 1.2, 1.3 } }, -- part fits its socket
+	-- unboxing (UnboxingKit): the crate thumps get higher and harder with every tap, then a big pop and a rising reveal.
+	-- Same library ids the game already uses (box wiggle / box open / reveal), only pitched differently.
+	unboxTap1 = { id = 9113591001, volume = 0.5, pitch = { 0.7, 0.75 } },
+	unboxTap2 = { id = 9113591001, volume = 0.6, pitch = { 0.85, 0.9 } },
+	unboxTap3 = { id = 9113591001, volume = 0.7, pitch = { 1.0, 1.05 } },
+	unboxTap4 = { id = 9113591001, volume = 0.8, pitch = { 1.15, 1.2 } },
+	unboxLand = { id = 9113591001, volume = 0.7, pitch = { 0.45, 0.5 } }, -- the crate lands: a deep thud
+	unboxCrack = { id = 9113591001, volume = 0.9, pitch = { 0.55, 0.6 } }, -- wood cracking open (deep snap)
+	unboxShimmer = { id = 77566342592571, volume = 0.5, pitch = { 1.25, 1.35 } }, -- magical shimmer as the light pours out
+	unboxBurst = { id = 9114054266, volume = 0.9, pitch = { 0.9, 0.95 } },
+	unboxReveal = { id = 9120217544, volume = 0.6, pitch = { 0.95, 1.0 } },
+	hover = { id = 9113591001, volume = 0.18, pitch = { 1.7, 1.9 } }, -- menu hover: a soft high wooden tick (own sound, so it differs from click)
 	pick = { id = 9125654847, volume = 0.45, pitch = { 1.0, 1.1 } }, -- picked up a loose part
 	wrong = { id = 9125654847, volume = 0.6, pitch = { 0.6, 0.65 } }, -- wrong socket
 }

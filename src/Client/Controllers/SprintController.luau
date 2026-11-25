@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Skin = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("UiSkin"))
+local HudKit = require(script.Parent.Parent:WaitForChild("HudKit"))
 
 local SprintController = {}
 local DEBUG = true
@@ -49,11 +50,7 @@ local function setRunning(on: boolean)
 		TweenService:Create(camera, TweenInfo.new(0.25, Enum.EasingStyle.Sine), { FieldOfView = baseFov + (if on then FOV_KICK else 0) }):Play()
 	end
 	if button then
-		local stroke = button:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if on then Skin.COLORS.accent else Skin.COLORS.edge
-			stroke.Transparency = if on then 0.1 else Skin.COLORS.edgeTransparency
-		end
+		HudKit.SetActive(button, on) -- gold outline on the tile while sprinting
 	end
 end
 
@@ -62,14 +59,16 @@ function SprintController.Init(controllers)
 end
 
 function SprintController.Start()
-	ContextActionService:BindAction("DF_Sprint", function(_, state)
+	-- High priority + Sink: Roblox's Shift Lock also listens to Left Shift, so without this every sprint toggled it.
+	-- (StarterPlayer.EnableMouseLockOption is also off; this keeps it off even if that setting is reset.)
+	ContextActionService:BindActionAtPriority("DF_Sprint", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			held = true
 		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
 			held = false
 		end
-		return Enum.ContextActionResult.Pass
-	end, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
 	task.spawn(function()
 		local skin = others.HudSkinController
 		button = skin and skin.HudButton("Sprint", Skin.ICONS.Sprint)

@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
+local Unboxing = require(script.Parent.Parent:WaitForChild("UnboxingKit")) -- the tap-to-open show (before the card)
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -20,6 +21,9 @@ local Items = require(Config:WaitForChild("Items"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Crates = require(Config:WaitForChild("Crates"))
 local Economy = require(Config:WaitForChild("Economy"))
+local UiSkin = require(Config:WaitForChild("UiSkin"))
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local DiscoveryController = {}
 local DEBUG = true
@@ -93,15 +97,216 @@ function DiscoveryController.IsOpen(): boolean
 	return discovery ~= nil and discovery.Card.Visible
 end
 
+-- ----- the card's look (2026-11-25, from the Figma workshop style): walnut panel, rarity ribbon, a lit showcase with the item's
+-- real model turning slowly, gold value line, chunky buttons. The Studio-authored card keeps its names; this only restyles it.
+local WHITE_COLOR = Color3.new(1, 1, 1)
+local FONT_TITLE = UiSkin.FONT_TITLE
+local FONT_TEXT = UiSkin.FONT_TEXT
+local C = UiSkin.COLORS
+local cardSkinned = false
+local spinConn: RBXScriptConnection? = nil
+local showcaseParts = nil
+
+local function decorate(parent: Instance, class: string, props: { [string]: any }): any
+	local o = Instance.new(class)
+	for k, v in props do
+		(o :: any)[k] = v
+	end
+	o.Parent = parent
+	return o
+end
+
+local function skinCard(card: Frame)
+	if cardSkinned then
+		return
+	end
+	cardSkinned = true
+	card.Size = UDim2.fromOffset(340, 496)
+	card.BackgroundColor3 = WHITE_COLOR
+	card.BackgroundTransparency = 0
+	for _, c in card:GetChildren() do
+		if c:IsA("UICorner") or c:IsA("UIStroke") or c:IsA("UIGradient") then
+			c:Destroy()
+		end
+	end
+	decorate(card, "UICorner", { CornerRadius = UDim.new(0, 24) })
+	decorate(card, "UIGradient", { Color = ColorSequence.new(C.panelTop, C.panelBottom), Rotation = 90 })
+	decorate(card, "UIStroke", { Color = C.ink, Thickness = 5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+	local rim = decorate(card, "Frame", { Name = "Rim", Position = UDim2.fromOffset(7, 7), Size = UDim2.new(1, -14, 1, -14), BackgroundTransparency = 1, ZIndex = 1 })
+	decorate(rim, "UICorner", { CornerRadius = UDim.new(0, 19) })
+	decorate(rim, "UIStroke", { Color = C.edge, Thickness = 1.5, Transparency = 0.65 })
+
+	-- ribbon: the rarity colour (set per item), glossy, with the counter on the right
+	local banner = card.RarityBanner
+	banner.Position = UDim2.fromOffset(16, 14)
+	banner.Size = UDim2.new(1, -32, 0, 36)
+	banner.BackgroundColor3 = WHITE_COLOR
+	for _, c in banner:GetChildren() do
+		if c:IsA("UICorner") or c:IsA("UIStroke") or c:IsA("UIGradient") then
+			c:Destroy()
+		end
+	end
+	decorate(banner, "UICorner", { CornerRadius = UDim.new(1, 0) })
+	decorate(banner, "UIGradient", { Color = ColorSequence.new(WHITE_COLOR, Color3.fromRGB(190, 190, 190)), Rotation = 90 })
+	decorate(banner, "UIStroke", { Color = C.ink, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+	local bt = banner.Text
+	bt.Position = UDim2.fromOffset(18, 0)
+	bt.Size = UDim2.new(1, -90, 1, 0)
+	bt.FontFace = FONT_TITLE
+	bt.TextSize = 22
+	bt.TextScaled = false
+	bt.TextColor3 = C.cream
+	bt.TextXAlignment = Enum.TextXAlignment.Left
+	decorate(bt, "UIStroke", { Color = C.ink, Thickness = 2.5 })
+	card.Counter.Position = UDim2.new(1, -86, 0, 20) -- sits on the right end of the ribbon
+	card.Counter.Size = UDim2.fromOffset(60, 24)
+	card.Counter.FontFace = FONT_TEXT
+	card.Counter.TextSize = 16
+	card.Counter.TextColor3 = C.cream
+	card.Counter.TextXAlignment = Enum.TextXAlignment.Right
+	card.Counter.ZIndex = banner.ZIndex + 3
+
+	-- showcase: dark lit window with a glow, slow god rays and the item
+	local show = decorate(card, "Frame", {
+		Name = "Showcase", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 60), Size = UDim2.fromOffset(212, 200),
+		BackgroundColor3 = Color3.fromRGB(26, 15, 10), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 2,
+	})
+	decorate(show, "UICorner", { CornerRadius = UDim.new(0, 20) })
+	local showStroke = decorate(show, "UIStroke", { Color = C.accent, Thickness = 3, Transparency = 0.15 })
+	local rays = decorate(show, "ImageLabel", { Name = "Rays", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.7, 1.7), BackgroundTransparency = 1, Image = "rbxassetid://135275527744049", ImageTransparency = 0.55, ZIndex = 3 })
+	local glow = decorate(show, "ImageLabel", { Name = "Glow", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.15, 1.15), BackgroundTransparency = 1, Image = "rbxassetid://93831669035461", ImageTransparency = 0.25, ZIndex = 4 })
+	local floor = decorate(show, "ImageLabel", { Name = "Floor", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.88), Size = UDim2.fromScale(0.7, 0.16), BackgroundTransparency = 1, Image = "rbxassetid://93831669035461", ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.35, ZIndex = 5 })
+	local slot = decorate(show, "Frame", { Name = "Slot", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6 })
+	local shine = decorate(show, "ImageLabel", { Name = "Sparkle", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.8, 0.2), Size = UDim2.fromScale(0.2, 0.2), BackgroundTransparency = 1, Image = "rbxassetid://70480965980346", ImageTransparency = 0.2, ZIndex = 8 })
+	showcaseParts = { show = show, stroke = showStroke, rays = rays, glow = glow, slot = slot, shine = shine }
+
+	local name = card:FindFirstChild("Name") :: TextLabel
+	name.Position = UDim2.fromOffset(12, 268)
+	name.Size = UDim2.new(1, -24, 0, 40)
+	name.FontFace = FONT_TITLE
+	name.TextSize = 28
+	name.TextScaled = false
+	name.TextColor3 = C.cream
+	name.ZIndex = 3
+	decorate(name, "UIStroke", { Color = C.ink, Thickness = 2.5 })
+
+	local dots = card.Dots
+	dots.AnchorPoint = Vector2.new(0.5, 0)
+	dots.Position = UDim2.new(0.5, 0, 0, 314)
+	for _, d in dots:GetChildren() do
+		if d:IsA("Frame") then
+			for _, x in d:GetChildren() do
+				if x:IsA("UICorner") or x:IsA("UIStroke") then
+					x:Destroy()
+				end
+			end
+			decorate(d, "UICorner", { CornerRadius = UDim.new(1, 0) })
+			decorate(d, "UIStroke", { Color = C.ink, Thickness = 2 })
+		end
+	end
+	for _, tag in { card.NewTag, card.GoldenTag } do
+		for _, x in tag:GetChildren() do
+			if x:IsA("UICorner") or x:IsA("UIStroke") then
+				x:Destroy()
+			end
+		end
+		decorate(tag, "UICorner", { CornerRadius = UDim.new(1, 0) })
+		decorate(tag, "UIStroke", { Color = C.ink, Thickness = 2.5 })
+		tag.Text.FontFace = FONT_TITLE
+		tag.Text.TextSize = 15
+		tag.Text.TextScaled = false
+	end
+	local value = card.Value
+	value.Position = UDim2.fromOffset(12, 372)
+	value.Size = UDim2.new(1, -24, 0, 34)
+	value.FontFace = FONT_TITLE
+	value.TextSize = 26
+	value.TextScaled = false
+	value.TextColor3 = C.gold
+	decorate(value, "UIStroke", { Color = C.ink, Thickness = 2.5 })
+	local hint = card.Hint
+	hint.Position = UDim2.fromOffset(12, 410)
+	hint.FontFace = UiSkin.FONT_BODY
+	hint.TextSize = 13
+	hint.TextColor3 = C.textDim
+
+	for _, b in { card.StoreButton, card.RestoreButton } do
+		b.Size = UDim2.fromOffset(140, 50)
+		b.FontFace = FONT_TITLE
+		b.TextSize = 20
+		b.TextScaled = false
+		b.TextColor3 = C.cream
+		b.AutoButtonColor = true
+		for _, x in b:GetChildren() do
+			if x:IsA("UICorner") or x:IsA("UIStroke") or x:IsA("UIGradient") then
+				x:Destroy()
+			end
+		end
+		decorate(b, "UICorner", { CornerRadius = UDim.new(0, 16) })
+		decorate(b, "UIGradient", { Color = ColorSequence.new(WHITE_COLOR, Color3.fromRGB(190, 190, 190)), Rotation = 90 })
+		decorate(b, "UIStroke", { Color = C.ink, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+	end
+	card.StoreButton.Position = UDim2.new(0.5, 78, 1, -16)
+	card.RestoreButton.Position = UDim2.new(0.5, -78, 1, -16)
+	card.StoreButton.BackgroundColor3 = Color3.fromRGB(31, 194, 165)
+	card.RestoreButton.BackgroundColor3 = Color3.fromRGB(134, 163, 181)
+	decorate(card, "UIScale", { Name = "Pop" })
+end
+
+-- fills the showcase for this item: rarity-coloured glow and rays, and the real model turning slowly (a star badge if a model is missing)
+local function updateShowcase(card: Frame, info, color: Color3, rarityIndex: number)
+	local parts = showcaseParts
+	if parts == nil then
+		return
+	end
+	if spinConn then
+		spinConn:Disconnect()
+		spinConn = nil
+	end
+	for _, c in parts.slot:GetChildren() do
+		c:Destroy()
+	end
+	parts.stroke.Color = color
+	parts.glow.ImageColor3 = color
+	parts.rays.ImageColor3 = color
+	parts.rays.ImageTransparency = 0.7 - math.min(rarityIndex, 6) * 0.07
+	parts.shine.ImageColor3 = color:Lerp(WHITE_COLOR, 0.6)
+	local viewport, orbit = Unboxing.ItemViewport(parts.slot, info.itemId)
+	if viewport == nil then
+		decorate(parts.slot, "ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.55, 0.55), BackgroundTransparency = 1, Image = UiSkin.Art("Star"), ZIndex = 7 })
+	end
+	local started = os.clock()
+	spinConn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - started
+		if orbit then
+			orbit(0.5 + t * 0.9)
+		end
+		parts.rays.Rotation = t * 10
+		parts.shine.Size = UDim2.fromScale(0.16 + 0.05 * math.sin(t * 3), 0.16 + 0.05 * math.sin(t * 3))
+		parts.shine.Rotation = t * 25
+	end)
+	-- a quick pop-in so each new card feels alive
+	local pop = card:FindFirstChild("Pop") :: UIScale?
+	if pop then
+		-- the card is 496 px tall: shrink it to fit short (phone) screens, grow a little on big ones
+		local view = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
+		local fit = math.clamp(view.Y * 0.92 / 496, 0.55, 1.15)
+		pop.Scale = fit * 0.9
+		TweenService:Create(pop, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = fit }):Play()
+	end
+end
+
 local function showCard(info, index: number, total: number)
 	if discovery == nil then
 		return
 	end
 	local card = discovery.Card
+	skinCard(card)
 	local def = Items[info.itemId]
 	local rarity = def and def.rarity or "Common"
 	local rarityDef = Rarities[rarity]
 	local color = UiTheme.rarityColor(rarity)
+	updateShowcase(card, info, color, rarityDef and rarityDef.index or 1)
 
 	card.RarityBanner.BackgroundColor3 = color
 	card.RarityBanner.Text.Text = string.upper(rarity)
@@ -122,8 +327,8 @@ local function showCard(info, index: number, total: number)
 	card.NewTag.Visible = info.isNew
 	card.GoldenTag.Visible = info.golden
 	local both = info.isNew and info.golden
-	card.NewTag.Position = UDim2.new(0.5, if both then -46 else 0, 0, 116)
-	card.GoldenTag.Position = UDim2.new(0.5, if both then 46 else 0, 0, 116)
+	card.NewTag.Position = UDim2.new(0.5, if both then -46 else 0, 0, 338)
+	card.GoldenTag.Position = UDim2.new(0.5, if both then 46 else 0, 0, 338)
 
 	local estimate = if def then Formulas.sellPrice(info.itemId, ESTIMATE_STARS, info.golden) else 0
 	card.Value.Text = `Est. value ${estimate}`
@@ -131,9 +336,24 @@ local function showCard(info, index: number, total: number)
 end
 
 local function hideCard()
+	if spinConn then
+		spinConn:Disconnect()
+		spinConn = nil
+	end
 	if discovery then
 		discovery.Card.Visible = false
 	end
+end
+
+-- Dev helper: shows the discovery card for any item without opening a box (DiscoveryController.Preview("LavaLamp")).
+function DiscoveryController.Preview(itemId: string, golden: boolean?)
+	if discovery == nil or Items[itemId] == nil then
+		return
+	end
+	showCard({ itemId = itemId, golden = golden == true, isNew = true }, 1, 1)
+	storePressed.Event:Once(function()
+		hideCard()
+	end)
 end
 
 -- Opens every item in one box, one card at a time. The server checks everything (state, inventory room).
@@ -154,6 +374,7 @@ local function openBox(boxId: string)
 	end
 
 	local total = #box.uids
+	local skipShow = false
 	for index, uid in box.uids do
 		results[uid] = nil
 		Remotes.RequestOpenBox:FireServer(uid)
@@ -166,6 +387,24 @@ local function openBox(boxId: string)
 		if info == nil then
 			log("no BoxOpened for", uid, "- server refused (see toast)")
 			break
+		end
+		-- the tap-to-open show first (full for the first item, quick for the rest, none after "Skip all")
+		if not skipShow then
+			local def = Items[info.itemId]
+			local settings = ClientState.Get("settings")
+			local status = Unboxing.Play(
+				{ itemId = info.itemId, name = def and def.name, rarity = def and def.rarity, golden = info.golden },
+				{
+					quick = index > 1,
+					reduce = type(settings) == "table" and settings.reduceEffects == true,
+					sfx = function(name)
+						if others and others.SoundController and others.SoundController.Play then
+							others.SoundController.Play(name)
+						end
+					end,
+				}
+			)
+			skipShow = status == "skip"
 		end
 		showCard(info, index, total)
 		storePressed.Event:Wait()

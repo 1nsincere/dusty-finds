@@ -396,17 +396,10 @@ local function render(part: BasePart)
 	-- fit the block's height (a scaled shop scales its pieces too); a template with a FitWidth attribute (the cash
 	-- counter: its register sticks up above the Body) is fitted to the block's width instead
 	local _, size = model:GetBoundingBox()
-	-- FitHeight = the template's design height when something sticks up above the top (Sakura's crystal spires): the
-	-- block's height is matched to that, not to the whole model
 	local fitWidth = template:GetAttribute("FitWidth")
-	local fitHeight = template:GetAttribute("FitHeight")
 	if type(fitWidth) == "number" and fitWidth > 0 then
 		if math.abs(fitWidth - part.Size.X) > 0.02 then
 			model:ScaleTo(model:GetScale() * part.Size.X / fitWidth)
-		end
-	elseif type(fitHeight) == "number" and fitHeight > 0 then
-		if math.abs(fitHeight - part.Size.Y) > 0.02 then
-			model:ScaleTo(model:GetScale() * part.Size.Y / fitHeight)
 		end
 	elseif size.Y > 0.01 and math.abs(size.Y - part.Size.Y) > 0.02 then
 		model:ScaleTo(model:GetScale() * part.Size.Y / size.Y)

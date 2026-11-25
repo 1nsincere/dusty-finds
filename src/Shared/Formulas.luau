@@ -52,6 +52,16 @@ function Formulas.quickSellPrice(itemId: string, stars: number, golden: boolean?
 	return round(baseTimesQualityTimesVariant(itemId, stars, golden) * Economy.QuickSellFraction)
 end
 
+-- Dispose payout for a Dirty item: DisposeFraction of its estimated value (price at DisposeEstimateStars), rounded down, at
+-- least DisposeMinimum. Always far below what a restored item sells for, so disposing never beats restoring. 0 = unknown item.
+function Formulas.disposePrice(itemId: string, golden: boolean?): number
+	local estimate = baseTimesQualityTimesVariant(itemId, Economy.DisposeEstimateStars, golden)
+	if estimate <= 0 then
+		return 0
+	end
+	return math.max(Economy.DisposeMinimum, math.floor(estimate * Economy.DisposeFraction))
+end
+
 -- Final quality: average step score + tool bonus, capped at 100, then >=90 -> 3 stars, >=70 -> 2 stars, else 1.
 -- `averageScore` is clamped to 0-100 (missing = 0); `toolBonus` is clamped to 0-MaxToolQualityBonus (missing = 0).
 function Formulas.qualityStars(averageScore: number, toolBonus: number?): number
