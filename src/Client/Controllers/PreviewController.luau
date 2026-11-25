@@ -108,7 +108,8 @@ end
 
 local function remember(state: any, part: BasePart, applied: Color3)
 	if state.saved[part] == nil then
-		state.saved[part] = { color = part.Color, material = part.Material, applied = applied }
+		local original = PlotTargets.snapshot(part)
+		state.saved[part] = { color = original.color, material = original.material, applied = applied }
 	end
 end
 
@@ -124,9 +125,8 @@ function PreviewController.Stop()
 	active = nil
 	for part, original in state.saved do
 		-- only put it back if nobody changed it meanwhile (the server redraws the shop when you really buy and use something)
-		if part.Parent and part.Color == original.applied then
-			part.Color = original.color
-			part.Material = original.material
+		if part.Parent and PlotTargets.shownColor(part) == original.applied then
+			PlotTargets.restorePart(part, original)
 		end
 	end
 	for part, transparency in state.hidden do
@@ -150,35 +150,32 @@ local function lookAtShop(state: any, plot: Instance)
 	if camera == nil then
 		return
 	end
-	local ok, cf, size = pcall(function()
-		return plot:GetBoundingBox()
-	end)
-	if not ok then
+	-- Frame the main shop floor (not the whole plot: the Back Room / Showroom would pull the camera away from it).
+	local floor = plot:FindFirstChild("Floor")
+	if not (floor and floor:IsA("BasePart")) then
 		return
 	end
-	-- the roof and the upper floor (Facade.Roof / Facade.Upper) are hidden for the minute so the inside can be seen
-	local facade = plot:FindFirstChild("Facade")
-	for _, name in { "Roof", "Upper" } do
-		local folder = facade and facade:FindFirstChild(name)
-		for _, d in if folder then folder:GetDescendants() else {} do
-			if d:IsA("BasePart") then
-				state.hidden[d] = d.Transparency
-				d.Transparency = 1
-			end
+	local floorTop = floor.Position.Y + floor.Size.Y / 2
+	-- Hide everything that stands above the ground floor's ceiling (roof, upper floor, the Showroom...) for the minute, so the
+	-- inside can be seen. A part counts as "above" when its bottom is more than 17 studs over the floor.
+	local limit = floorTop + 17
+	for _, d in plot:GetDescendants() do
+		if d:IsA("BasePart") and d.Transparency < 1 and d.Position.Y - d.Size.Y / 2 > limit then
+			state.hidden[d] = d.Transparency
+			d.Transparency = 1
 		end
 	end
 	-- "front" = from the back wall towards the middle of the shop
 	local back = plot:FindFirstChild("Walls") and plot.Walls:FindFirstChild("BackWall")
 	local front = Vector3.new(0, 0, 1)
 	if back and back:IsA("BasePart") then
-		local flat = Vector3.new(cf.Position.X - back.Position.X, 0, cf.Position.Z - back.Position.Z)
+		local flat = Vector3.new(floor.Position.X - back.Position.X, 0, floor.Position.Z - back.Position.Z)
 		if flat.Magnitude > 0.1 then
 			front = flat.Unit
 		end
 	end
-	local floorY = cf.Position.Y - size.Y / 2
-	local target = Vector3.new(cf.Position.X, floorY + 4, cf.Position.Z)
-	local from = target + front * 24 + Vector3.new(0, 52, 0)
+	local target = Vector3.new(floor.Position.X, floorTop + 2, floor.Position.Z)
+	local from = target + front * 26 + Vector3.new(0, 48, 0)
 	state.camera = { type = camera.CameraType, cframe = camera.CFrame }
 	camera.CameraType = Enum.CameraType.Scriptable
 	TweenService:Create(camera, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.lookAt(from, target) }):Play()
@@ -228,10 +225,7 @@ local function start(label: string, items: { { string } }): (boolean, string?)
 	for _, what in parts do
 		for _, part in what.targets do
 			remember(state, part, what.color)
-			part.Color = what.color
-			if what.material then
-				part.Material = what.material
-			end
+			PlotTargets.paintPart(part, what.color, what.material) -- textured parts are tinted (SurfaceAppearance), plain parts recoloured
 		end
 	end
 	lookAtShop(state, plot)

@@ -179,19 +179,23 @@ function PaintCheck.run()
 		local wallModel = Instance.new("Model")
 		wallModel.Name = "Shop_Walls"
 		wallModel.Parent = shell
-		local wallPart = Instance.new("Part")
+		local wallPart = Instance.new("MeshPart") -- SurfaceAppearance can only be parented to a MeshPart
 		wallPart.Color = Color3.fromRGB(1, 2, 3)
 		wallPart.Parent = wallModel
+		-- a textured wall mesh: its visible colour is SurfaceAppearance.Color, the part's own Color does nothing you can see
+		local wallSA = Instance.new("SurfaceAppearance")
+		wallSA.Color = Color3.fromRGB(236, 246, 238)
+		wallSA.Parent = wallPart
 		plot.Parent = ServerScriptService
 
 		Paint.DrawKind(plot, "Wall", "WallUbe")
-		check("draw: a wall paint colours the walls (the material stays)", back.Color == Paints.BY_ID.WallUbe.color and wallPart.Color == Paints.BY_ID.WallUbe.color and back.Material == Enum.Material.Plaster)
+		check("draw: a wall paint colours the walls (the material stays); a textured wall is tinted, its own Color untouched", back.Color == Paints.BY_ID.WallUbe.color and wallSA.Color == Paints.BY_ID.WallUbe.color and wallPart.Color == Color3.fromRGB(1, 2, 3) and back.Material == Enum.Material.Plaster)
 		check("draw: a wall paint leaves the floor alone", floorPart.Color == Color3.fromRGB(100, 100, 100))
 		Paint.DrawKind(plot, "Floor", "FloorNarra")
 		check("draw: a floor paint sets colour and material", floorPart.Color == Paints.BY_ID.FloorNarra.color and floorPart.Material == Paints.BY_ID.FloorNarra.material)
 		Paint.DrawKind(plot, "Wall", "WallPandan")
 		Paint.DrawKind(plot, "Wall", "")
-		check("draw: the original wall look comes back exactly", back.Color == Color3.fromRGB(10, 20, 30) and wallPart.Color == Color3.fromRGB(1, 2, 3))
+		check("draw: the original wall look comes back exactly (also the texture tint)", back.Color == Color3.fromRGB(10, 20, 30) and wallPart.Color == Color3.fromRGB(1, 2, 3) and wallSA.Color == Color3.fromRGB(236, 246, 238))
 		Paint.DrawKind(plot, "Floor", "")
 		check("draw: the original floor colour and material come back", floorPart.Color == Color3.fromRGB(100, 100, 100) and floorPart.Material == Enum.Material.Wood)
 		plot:Destroy()

@@ -59,21 +59,18 @@ end
 -- Draws one part with a paint (nil = restore the original look). The original is remembered in attributes the first time.
 local function drawPart(part: BasePart, paint: any)
 	if part:GetAttribute(ORIG_COLOR) == nil then
-		part:SetAttribute(ORIG_COLOR, part.Color)
-		part:SetAttribute(ORIG_MATERIAL, part.Material.Name)
+		local original = PlotTargets.snapshot(part) -- a textured part keeps its tint here (SurfaceAppearance.Color), see PlotTargets
+		part:SetAttribute(ORIG_COLOR, original.color)
+		part:SetAttribute(ORIG_MATERIAL, original.material.Name)
 	end
 	if paint == nil then
-		part.Color = part:GetAttribute(ORIG_COLOR)
-		local original = Enum.Material[part:GetAttribute(ORIG_MATERIAL)]
-		if original then
-			part.Material = original
-		end
+		PlotTargets.restorePart(part, {
+			color = part:GetAttribute(ORIG_COLOR),
+			material = Enum.Material[part:GetAttribute(ORIG_MATERIAL)] or part.Material,
+		})
 		return
 	end
-	part.Color = paint.color
-	if paint.material then
-		part.Material = paint.material
-	end
+	PlotTargets.paintPart(part, paint.color, paint.material)
 end
 
 -- Draws a plot with its owner's paints (or the original look when nobody owns it).

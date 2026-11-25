@@ -21,6 +21,49 @@ local function addAll(list: { BasePart }, container: Instance?)
 	end
 end
 
+-- ===== Painting one part (shared by the server's real paint and the client's preview) =====
+-- The shop's walls and floor are textured meshes: they carry a SurfaceAppearance, and for those the part's own Color does
+-- NOTHING you can see. The colour that shows is SurfaceAppearance.Color (a tint over the texture), and the material can't change.
+-- Plain parts (no SurfaceAppearance) use Color and Material as usual.
+
+local function surfaceOf(part: BasePart): SurfaceAppearance?
+	return part:FindFirstChildWhichIsA("SurfaceAppearance")
+end
+
+-- What the part looks like now: { color (the colour that shows), material }.
+function PlotTargets.snapshot(part: BasePart): { color: Color3, material: Enum.Material }
+	local sa = surfaceOf(part)
+	return { color = if sa then sa.Color else part.Color, material = part.Material }
+end
+
+-- The colour that currently shows on the part.
+function PlotTargets.shownColor(part: BasePart): Color3
+	local sa = surfaceOf(part)
+	return if sa then sa.Color else part.Color
+end
+
+function PlotTargets.paintPart(part: BasePart, color: Color3, material: Enum.Material?)
+	local sa = surfaceOf(part)
+	if sa then
+		sa.Color = color -- textured: tint only
+	else
+		part.Color = color
+		if material then
+			part.Material = material
+		end
+	end
+end
+
+function PlotTargets.restorePart(part: BasePart, original: { color: Color3, material: Enum.Material })
+	local sa = surfaceOf(part)
+	if sa then
+		sa.Color = original.color
+	else
+		part.Color = original.color
+		part.Material = original.material
+	end
+end
+
 -- kind = "Wall" | "Floor"
 function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 	local list: { BasePart } = {}
@@ -38,6 +81,10 @@ function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 		addAll(list, shell and shell:FindFirstChild("Shop_Walls"))
 	else
 		addAll(list, shell and shell:FindFirstChild("Shop_Floor"))
+		local base = plot:FindFirstChild("Floor") -- the plank slab under the floor mesh (shows at the edges)
+		if base and base:IsA("BasePart") then
+			table.insert(list, base)
+		end
 	end
 	return list
 end
