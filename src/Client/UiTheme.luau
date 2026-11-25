@@ -5,22 +5,24 @@
 
 local UiTheme = {}
 
-UiTheme.Teal = Color3.fromHex("1F7A7A") -- primary
-UiTheme.Coral = Color3.fromHex("D2694A") -- accent / call to action
-UiTheme.Cream = Color3.fromHex("22252B") -- panels
-UiTheme.Ink = Color3.fromHex("F4F0E8") -- text
-UiTheme.Disabled = Color3.fromRGB(74, 79, 88)
-UiTheme.Golden = Color3.fromHex("FFD43B")
+-- 2026-11-25: aligned with the Figma "Main HUD" palette (warm walnut panels, cream text, vivid teal / coral / gold).
+-- The names stay (screens read UiTheme.Teal etc.); only the values changed.
+UiTheme.Teal = Color3.fromHex("1FC2A5") -- primary (was 1F7A7A)
+UiTheme.Coral = Color3.fromHex("FF6A4D") -- accent / call to action (was D2694A)
+UiTheme.Cream = Color3.fromHex("3F281B") -- panels: walnut (was 22252B)
+UiTheme.Ink = Color3.fromHex("FFF1D6") -- text: cream (was F4F0E8)
+UiTheme.Disabled = Color3.fromRGB(122, 106, 96) -- warm grey (was 4A4F58)
+UiTheme.Golden = Color3.fromHex("FFC83A")
 
 -- Keys match the rarity ids in Shared/Config/Rarities.luau.
 UiTheme.Rarity = {
-	Common = Color3.fromHex("9AA0A6"),
-	Uncommon = Color3.fromHex("3DBE6B"),
-	Rare = Color3.fromHex("2F80ED"),
-	Epic = Color3.fromHex("9B51E0"),
-	Legendary = Color3.fromHex("F2A93B"),
-	Relic = Color3.fromHex("8CF0FF"), -- icy cyan-white: above Legendary gold, clear on dark panels
-	Mythic = Color3.fromHex("FF4FD8"), -- hot magenta (2026-11-20)
+	Common = Color3.fromHex("CFC7B8"), -- parchment
+	Uncommon = Color3.fromHex("5FD16B"),
+	Rare = Color3.fromHex("4DA3FF"),
+	Epic = Color3.fromHex("B070FF"),
+	Legendary = Color3.fromHex("FFC83A"),
+	Relic = Color3.fromHex("FF7A4D"), -- orange-red (was icy cyan; it clashed with Rare blue on warm panels)
+	Mythic = Color3.fromHex("FF5FB8"), -- magenta
 	Secret = Color3.fromHex("FF3B3B"), -- deep red: the rarest
 }
 

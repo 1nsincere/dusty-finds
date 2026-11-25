@@ -51,6 +51,12 @@ Skins.LIST = {
 			sparkle = rgb(255, 242, 204), starDust = rgb(255, 242, 204), pulse = true,
 			orbit = { rgb(255, 140, 220), rgb(140, 232, 232), rgb(255, 242, 204) },
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
+	-- Sakura Starlight (Sean, 2026-11-24): gems = glowing pink cut diamonds floating round the piece with pink trails;
+	-- aura = a rose-pink mist round the base (all off with Reduce effects)
+	{ id = "ShelfSakura", name = "Sakura Starlight", kind = "Shelf", rarity = "Mythic", price = 35000,
+		look = { model = "ShelfSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			aura = rgb(215, 70, 150) } },
 
 	-- ===== Pedestal skins (all exhibit pedestals in the shop) =====
 	{ id = "PedestalCream", name = "Cream Paint", kind = "Pedestal", rarity = "Common", price = 250,
@@ -77,6 +83,10 @@ Skins.LIST = {
 			sparkle = rgb(255, 242, 204), starDust = rgb(255, 242, 204), pulse = true,
 			orbit = { rgb(255, 140, 220), rgb(140, 232, 232), rgb(255, 242, 204) },
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
+	{ id = "PedestalSakura", name = "Sakura Starlight", kind = "Pedestal", rarity = "Mythic", price = 25000,
+		look = { model = "PedestalSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			aura = rgb(215, 70, 150) } },
 
 	-- ===== Cashier skins (the shop's cash counter; model skins only) =====
 	-- Common .. Legendary use one plain counter model (CashierClassic) that SkinModelController paints: `color` /
@@ -111,6 +121,10 @@ Skins.LIST = {
 			sparkle = rgb(255, 242, 204), starDust = rgb(255, 242, 204), pulse = true,
 			orbit = { rgb(255, 140, 220), rgb(140, 232, 232), rgb(255, 242, 204) },
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
+	{ id = "CashierSakura", name = "Sakura Starlight", kind = "Cashier", rarity = "Mythic", price = 50000,
+		look = { model = "CashierSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			aura = rgb(215, 70, 150) } },
 }
 
 Skins.BY_ID = {}

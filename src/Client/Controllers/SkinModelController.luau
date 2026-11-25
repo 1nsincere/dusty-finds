@@ -33,7 +33,7 @@ local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
 local drawn: { [BasePart]: Model } = {}
 local folder: Folder? = nil
 -- orbiting star orbs per drawn model (look.orbit), moved every frame in Start
-type Orb = { part: BasePart, phase: number, a: number, b: number, height: number, tilt: number, speed: number }
+type Orb = { part: BasePart, phase: number, a: number, b: number, height: number, tilt: number, speed: number, spin: number? }
 local orbits: { [Model]: { Orb } } = {}
 local ORBIT_DRAW_STUDS = 120 -- orbs further than this from the camera don't move (saves phones)
 
@@ -282,6 +282,68 @@ local function addAura(model: Model, look: any, kind: string)
 		end
 		orbits[model] = list
 	end
+	-- floating diamonds (look.gems = their colour): the model's hidden Gem mesh is cloned into glowing cut diamonds
+	-- that drift slowly round the piece, bobbing and spinning, each with soft sparkles (all off with Reduce effects)
+	local source = model:FindFirstChild("Gem")
+	if look.gems and source and source:IsA("BasePart") then
+		local list = orbits[model] or {}
+		local count = if kind == "Shelf" then 4 elseif kind == "Cashier" then 3 else 2
+		for i = 1, count do
+			local g = source:Clone()
+			g.Name = "OrbitStar" -- hidden with Reduce effects like the star orbs
+			g.Material = Enum.Material.Neon
+			g.Color = look.gems
+			g.CastShadow = false
+			g.Transparency = if reduceEffects() then 1 else 0
+			local s = Instance.new("ParticleEmitter")
+			s.Name = "SkinAura"
+			s.Texture = SPARKLE
+			s.Color = ColorSequence.new(look.gems, Color3.new(1, 1, 1))
+			s.LightEmission = 1
+			s.LightInfluence = 0
+			s.Rate = 3
+			s.Lifetime = NumberRange.new(0.8, 1.4)
+			s.Speed = NumberRange.new(0.2, 0.6)
+			s.SpreadAngle = Vector2.new(180, 180)
+			s.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) })
+			s.Enabled = not reduceEffects()
+			s.Parent = g
+			-- a pink light trail behind each diamond (off with Reduce effects, like the star orbs' trails)
+			local half = g.Size.Y * 0.3
+			local a0 = Instance.new("Attachment")
+			a0.Position = Vector3.new(0, half, 0)
+			a0.Parent = g
+			local a1 = Instance.new("Attachment")
+			a1.Position = Vector3.new(0, -half, 0)
+			a1.Parent = g
+			local trail = Instance.new("Trail")
+			trail.Attachment0 = a0
+			trail.Attachment1 = a1
+			trail.Color = ColorSequence.new(look.gems, look.light or look.gems)
+			trail.LightEmission = 1
+			trail.Lifetime = 1.2
+			trail.Transparency = NumberSequence.new(0.2, 1)
+			trail.WidthScale = NumberSequence.new(1, 0.2)
+			trail.FaceCamera = true
+			trail.Enabled = not reduceEffects()
+			trail.Parent = g
+			g.Parent = model
+			table.insert(list, {
+				part = g,
+				phase = (i - 1) / count * math.pi * 2 + 0.4,
+				a = size.X / 2 + (if kind == "Pedestal" then 0.9 else 1.1),
+				b = size.Z / 2 + (if kind == "Pedestal" then 0.9 else 1.1),
+				height = size.Y * (0.6 + 0.2 * ((i - 1) % 2)),
+				tilt = 0.25,
+				speed = 0.3, -- slower than the star orbs: they drift, they don't race
+				spin = 1.4,
+			})
+		end
+		orbits[model] = list
+	end
+	if source then
+		source:Destroy() -- the hidden template piece itself never shows
+	end
 end
 
 -- Paintable templates (attribute Paint, e.g. CashierClassic): the colour skins paint its Body / Frame / Top / Trim
@@ -458,7 +520,8 @@ function SkinModelController.Start()
 					local ang = o.phase + t * o.speed
 					local y = o.height + o.tilt * math.sin(ang) + 0.15 * math.sin(t * 2 + o.phase)
 					table.insert(parts, o.part)
-					table.insert(cframes, pivot * CFrame.new(math.cos(ang) * o.a, y, math.sin(ang) * o.b))
+					local spin = if o.spin then CFrame.Angles(0, t * o.spin, 0) else CFrame.identity
+					table.insert(cframes, pivot * CFrame.new(math.cos(ang) * o.a, y, math.sin(ang) * o.b) * spin)
 				end
 			end
 		end
