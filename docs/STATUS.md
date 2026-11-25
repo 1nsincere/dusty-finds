@@ -4,7 +4,43 @@
 > Format: one line per item. Newest first inside each section.
 
 **Current stage:** 1: Project setup
-**Last updated:** 2026-11-15 by Dev 1 (Ace, with Claude Code)
+**Last updated:** 2026-11-25 by Dev 1 (Ace, with Claude Code)
+
+## 🔧 Windows v2 + lighting (Dev 1 working alone, 2026-11-25; code checked in a Play test: no errors, layout numbers OK; NOT yet looked at by eye)
+- **Windows:** new `src/Client/WindowKit.luau` restyles Inventory, Upgrades, Supply, Collection, Settings, Visit (Studio screens, restyled at runtime by `HudSkinController` -> `WindowKit.SkinScreen`): walnut shell + gold rim, title medallion + icon, coral close button, pill tabs, chunky buttons, rounded cards (templates are styled, controllers clone them). Controllers and their colours are untouched. `TravelController` rebuilt in the Figma look (2-column cards, coloured icon medallions). The Discovery card, boxes and Epic Find are deliberately NOT touched (the unboxing animation is Ace's next task).
+- **Theme:** `UiTheme` colours moved to the warm palette (Teal 1FC2A5, Coral FF6A4D, walnut panels, cream text, new rarity colours; Relic is now orange-red, was icy cyan). `UiSkin.ART` has 8 more icons (Home, Museum, Jeepney, Tricycle, Bell, Music, Speaker, Sparkles).
+- **Upgrades:** the Decor tab stays closed (`Economy.ClosedUpgradeTabs`); the Figma designs now show Tools / Shop / Expansions. A store (grow-a-garden style) is planned: to be brainstormed.
+- **Lighting:** small nudges in `Shared/Config/DayNight.luau` KEYS (saturation, contrast, tint, night ambient, bloom; the list is in the Figma "Atmosphere & Lighting" board). `HudLayoutController` blurs the world (size 6) while a window is open; off with Reduce effects. Revert = `git checkout` that file.
+- **Auto Run:** now also stops on WASD / arrows / left-half touch / gamepad stick (the test client has no PlayerModule).
+
+## 🔧 In progress: Player list, Day chip, cream loading screen (Dev 1 + Claude, 2026-11-25; runs in Play, NOT yet seen by a person)
+- `PlayerListController` (new, in `Main.local` ORDER after TravelController): Roblox's PlayerList is switched off; a "Players" tile (right rail, under Visit) or Tab opens our window (headshot, name, @username, Visit button via the existing `RequestVisit`). Tile is placed by `HudLayoutController.TILES.Players`.
+- Day chip = in-game days since I joined (Day 1 on joining, +1 per `DayNight` cycle, per player), no longer server uptime.
+- Loading screen background is Sean's cream parchment again (dark text); backup copy in `tools/studio_only/LoadingScreen.local.luau`, real script is Studio-only.
+- Still open: phone thumbstick overlap with the lower-left HUD.
+
+## 🔧 In progress: Discovery card redesign (Dev 1 + Claude, 2026-11-25; runs for all 30 items in a scripted Play test, NOT yet seen by a person)
+- `DiscoveryController.skinCard/updateShowcase`: walnut panel, glossy rarity ribbon, a lit showcase (rarity glow, slow rays, sparkle) with the item's real model turning (`UnboxingKit.ItemViewport`, model name = `Items[id].model`), gold value line, chunky Store/Restore buttons, pop-in, shrinks to fit short screens. Studio card keeps its names.
+- 26 of 30 items have models in `Assets.Items`; Astrolabe, CrystalMusicBox, JadeDragonClock and SunIdol (Mythic/Secret) have none yet, so they show a star badge until Dwayne adds the models.
+- Dev preview: `DiscoveryController.Preview("LavaLamp")`.
+
+## 🔧 In progress: Dispose unrestored items (Dev 1 + Claude, 2026-11-25; server logic and UI NOT yet tested in Play)
+- New remote `RequestDisposeItems` ({uid,...}); `InventoryService.Dispose` re-checks each item (mine, `Dirty` only) and pays `Formulas.disposePrice` (`Economy.DisposeFraction` 40% of est. value at 2★, rounded down, min $1). Config additive in `Economy.luau`; docs/03 §6 updated.
+- Inventory UI (`InventoryController`): "Dispose…" button next to the capacity -> pick mode (Dirty items only, ticks, "Select all Common", payout total, warning for Rare+/Golden, tap-twice confirm); single Dispose button (same two taps) in the details panel for a Dirty item.
+- To check: crate prices vs the disposal value of what is inside (is 40% ever profitable to farm?), button positions in the restyled Inventory window.
+
+## 🔧 In progress: Unboxing show (Dev 1 + Claude, 2026-11-25; runs without errors in a scripted Play test, NOT yet seen or heard by a person)
+- New `src/Client/UnboxingKit.luau`: tap-to-open overlay before the Discovery card (3 taps, 4 for Rare+; first item full, others 1 quick tap; Skip all; Reduce Effects = 1 tap + fade). Hooked in `DiscoveryController.openBox`. Client only, no remotes or data change.
+- VFX sprites made in Blender: `tools/blender/unbox_vfx.py` -> `assets/vfx/*.png` (glow, flare, star, rays, ring, puff, bokeh, shard, ember, vignette), uploaded 2026-11-25; ids are in `UnboxingKit.FX`.
+- New sounds in `Config/Sounds.luau`: unboxTap1-4, unboxBurst, unboxReveal, hover. Crate = Sean's loading-screen crate art (swap ids in `UnboxingKit.CRATE`) with light leaking along the lid seam (bloom, line, beams, hotter wood per tap), drop-in + thud, and a pool of light when open. A Blender-built wooden crate (`tools/blender/unbox_crate.py`) was tried and dropped ("looks military"); its renders stay in `assets/vfx/crate_*.png`, unused. Taps never block (reworked 2026-11-25 after "sluggish/cheap" feedback). Sounds on every opened crate: land, taps, burst, crack, shimmer (+ bright chime for Epic+).
+- Test hook: `Unboxing.Play(info, { autoTap = 0.35 })` taps by itself.
+- Open: item model preview uses `Assets.Items.<ItemId>` when it exists, else a star badge.
+
+## 🔧 In progress: HUD v2 from Figma (Dev 1 working alone, 2026-11-25; NOT yet tested in Play)
+- **What:** the whole HUD restyled + re-laid out from the Figma file "Main HUD — Final Proposal" (+ "Notifications"). New client files: `src/Client/HudKit.luau` (tile / menu cell / status plate / chip builders, hover + press motion, Reduce effects), `src/Client/NotificationDock.luau` (one dock, max 3 toasts, merge, priority banner), `src/Client/Controllers/HudLayoutController.luau` (layout, Menu flyout, chips, Passes), `src/Client/Controllers/AutoRunController.luau` (**Auto Run works**: Menu switch / green pill / key R; keeps walking forward relative to the camera; stops on manual input, sit, death, respawn, restoring). Changed: `UiSkin.luau` (warm walnut palette, `ART` = 17 multicolour icons exported from Figma and uploaded 2026-11-25, `TILE`, `TOAST`), `HudSkinController.luau` (old drawer + column skin removed; windows/toasts keep the new palette), `HudController.luau` (Notify/Announcement -> dock), `SprintController.luau` (gold outline via `HudKit.SetActive`), `Main.local.luau` (2 controllers added after SprintController). Contract changes: docs/03 section 8 "HUD v2". No server, remote or data-template change.
+- **Layout:** left = Inventory + Menu; right = Travel + Visit; top-right = Passes + Settings; top-centre = Day chip + Invite chip; Menu flyout = Auto Run (switch), Upgrades, Edit Mode, Collection. Upgrades/Collection/Supply/My Shop are no longer separate HUD buttons (Supply + My Shop: Travel window).
+- **Placeholders:** Passes button (toast "coming soon"), Invite chip text "Boost: soon" (the button itself opens the real Roblox invite popup), Day = `floor(DistributedGameTime / one day-night cycle) + 1` (confirm what "3" should mean).
+- **Needs:** Script Sync of the `Client` folder (new files did not reach Studio in the first attempt), then a Play test on desktop + phone emulator, 2-player test not needed (client only).
 
 ## ✅ Done
 - Isolated Wipe prototype (Dev 2, Dwayne): `prototypes/Wipe/{PointerInput.luau,SpotClear.luau,WipeTest.local.luau}` tested in the separate, unsynced `WipePrototype.rbxl` place. Studio interaction results supplied by Dwayne: mouse wiping clears all spots and completes; Exit midway restores dirt/camera and disables wiping until Start; starting again and Restart pass; iPhone 17 Pro emulated touch, Start, Restart and Exit pass in landscape and portrait; Roblox menu stops wiping and requires a fresh press after closing; one-spot/five-spot fixtures count and complete correctly; missing `Dirt` decal gives an explanatory setup error without starting/completing. Temporary fixture variations were made during Play only; the original three-spot fixture was restored and verified. Dwayne separately confirmed manually: switching away from Studio stops wiping; returning requires a fresh mouse press. Completion means **Wipe complete only**; no production state, remotes, rewards, XP or saving. This does not verify the production restoration loop. Setup/results: [Wipe README](../prototypes/Wipe/README.md). Pending: physical phone, another teammate's playtest, production integration and agreed server acknowledgements.

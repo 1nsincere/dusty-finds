@@ -229,6 +229,7 @@ durations, max score 100, quality bonus capped by owned tools, and rate limits s
 | `RequestRemoveFromSlot` | `kind, slotIndex` | Dev 1 (server), Dev 3 (UI) | slot mine, not reserved by a customer, capacity (kind is "Display" or "Exhibit") |
 | `RequestCheckout` | — | Dev 3 | a customer waiting at my counter, near counter |
 | `RequestQuickSell` | `uid` | Dev 1 | item mine & `Restored`, near counter |
+| `RequestDisposeItems` | `{ uid, ... }` (max `Economy.DisposeMaxPerRequest`) | Dev 1 | each item mine & `Dirty` (never InProgress/Restored); pays `Formulas.disposePrice` = `Economy.DisposeFraction` (40%) of est. value at 2★, min $1; rate-limited; bad uids skipped; one `Notify "Sale"` toast |
 | `RequestBuyUpgrade` | `upgradeId` | Dev 1 | exists, next level, level req, **`requires` owned**, cash |
 | `RequestLikeShop` | `ownerUserId` | Dev 3 | **Unused for now (2026-11-16):** likes come from `Counter.LikePrompt` Triggered on the server (Roblox checks the distance). Same rules: not own shop, not liked today |
 | `RequestVisit` | `ownerUserId` | Dev 3 | target in server; teleports character to plot Spawn |
@@ -290,6 +291,17 @@ HUD.XPBar.{Fill,Level}  -- Fill.Size = UDim2.fromScale(progress, 1); Level = "Lv
 Toasts.Banner (Frame, hidden) → Text (TextLabel)  -- good news: Notify LevelUp/Upgrade + Announcement, 4 s, queued
   -- in Toasts (DisplayOrder 5), not HUD, so it shows above open windows (moved 2026-11-16)
 HUD.UIScale  -- HudController sets Scale by screen size
+-- HUD v2 (2026-11-25, Figma "Main HUD — Final Proposal"; HudLayoutController, HudKit, NotificationDock, AutoRunController):
+--   HUD.LeftButtons / HUD.TopRight are now FULL-SCREEN transparent containers; every button inside is placed by
+--   absolute Position (no UIListLayout). Button names + parents are unchanged, so controllers keep finding them.
+--   Visible tiles: LeftButtons.{Inventory, Menu(new), Travel, Sprint(phones only)}, TopRight.{Visit, Settings, GamePasses(new, placeholder)}
+--   Menu flyout: LeftButtons.MenuPanel + exactly four cells: LeftButtons.{AutoRun(new), Upgrades, EditShop, Collection}
+--   Hidden (not deleted): LeftButtons.{Supply, MyShop}: reached from the Travel window (Warehouse / My Shop)
+--   HUD.StatusPlate (new: cash, level, stars, XP) replaces MoneyPill / RatingPill / XPBar, which stay but are hidden
+--   Button look = Df* child layers (DfFace, DfLip, DfIcon...), built by HudKit.SkinTile; do not name your own children "Df*"
+--   PlayerGui.HudTop (new ScreenGui, IgnoreGuiInset): TopChips.{DayChip, InviteChip}, AutoRunPill, NotificationDock, PriorityBanner
+--   Notify / Announcement remotes now show in NotificationDock (max 3 toasts, 4 s, merge); old Toasts screen = fallback only
+--   Auto Run is client only (no remote): AutoRunController.{Toggle, Set, IsOn, OnChanged}; key R; stops on manual input
 StarterGui.ScreenOrientation = LandscapeSensor  -- landscape only (decision 2026-11-16): windows are ~600 px wide
 Inventory.Window.Grid (ScrollingFrame) + ItemCard template in ReplicatedStorage.Assets.UI
 Inventory.Window.{Title,Capacity,CloseButton,Empty}  Tabs.{All,NeedsRestoring,Restored}

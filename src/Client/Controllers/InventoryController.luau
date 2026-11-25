@@ -1,7 +1,7 @@
 -- InventoryController.luau
 -- Purpose: Inventory screen: grid of my items (from ClientState) with filters and capacity, a details panel per
 -- item, and Quick Sell for Restored items at my counter (RequestQuickSell). The server checks state, distance and
--- price; this screen only shows and requests. Opens from HUD 🎒 or my Counter's QuickSellPrompt.
+-- price; this screen only shows and requests. Opens from HUD 🎒 (the counter's QuickSellPrompt is switched off, 2026-11-25).
 -- Picker mode (OpenPicker, called by DisplayController from an empty slot): choose a Restored item and send
 -- RequestPlaceDisplay / RequestPlaceExhibit for that slot.
 -- Restore (Dirty/InProgress) calls Dev 2's RestorationController.RequestStartRestore(uid); greyed until that exists.
@@ -50,6 +50,7 @@ local FILTERS = {
 	All = { Dirty = true, InProgress = true, Restored = true, Displayed = true, Exhibited = true },
 	NeedsRestoring = { Dirty = true, InProgress = true },
 	Restored = { Restored = true },
+	DirtyOnly = { Dirty = true }, -- Dispose mode: only items that were never started
 }
 
 local player = Players.LocalPlayer
@@ -63,6 +64,11 @@ local soldMessageUntil = 0
 -- Picker mode: opened from a shelf/pedestal prompt (DisplayController) to choose a Restored item for that slot.
 local pickTarget: { kind: string, slotIndex: number, label: string }? = nil
 local placingUid: string? = nil
+-- Dispose (2026-11-25): throw away Dirty items for ~40% of their estimated value (the server decides the price and re-checks).
+local disposeMode = false -- the "pick what to throw away" view
+local picked: { [string]: boolean } = {}
+local confirmUntil = 0 -- a dispose button needs a second tap before this time
+local disposeUi: { mode: TextButton, single: TextButton, selCommon: TextButton, confirm: TextButton }? = nil -- built on first open
 
 local function log(...)
 	if DEBUG then
@@ -125,7 +131,41 @@ local function setDetailsVisible(details: Frame, showItem: boolean)
 		details.QuickSellButton.Visible = false
 		details.RestoreButton.Visible = false
 		details.PlaceButton.Visible = false
+		if disposeUi then
+			disposeUi.single.Visible = false
+			disposeUi.selCommon.Visible = false
+			disposeUi.confirm.Visible = false
+		end
 	end
+end
+
+-- The Dispose view's side panel: how many are picked, the payout, a warning for rare items, and the two buttons.
+local function updateDisposePanel(details: Frame)
+	local ui = disposeUi
+	if ui == nil then
+		return
+	end
+	local n, total, risky = 0, 0, false
+	for uid in picked do
+		local item = ClientState.Get("inventory." .. uid)
+		if type(item) == "table" and item.state == "Dirty" then
+			n += 1
+			total += Formulas.disposePrice(item.itemId, item.golden)
+			risky = risky or item.golden == true or Rarities[rarityOf(item)].index >= 3
+		end
+	end
+	setDetailsVisible(details, false)
+	details.Hint.Visible = true
+	details.Hint.Text = if n == 0
+		then "Tap the items you want to throw away. They pay about 40% of their estimated value."
+		else `{n} picked · you get ${total}` .. (if risky then "\n⚠ Includes rare or golden items!" else "")
+	ui.selCommon.Visible = true
+	ui.selCommon.Text = "Select all Common"
+	ui.selCommon.BackgroundColor3 = UiTheme.Teal
+	ui.confirm.Visible = true
+	local sure = os.clock() < confirmUntil
+	ui.confirm.Text = if n == 0 then "Pick items first" elseif sure then "Tap again to confirm" else `Dispose {n} · +${total}`
+	ui.confirm.BackgroundColor3 = if n == 0 then UiTheme.Disabled else UiTheme.Coral
 end
 
 local function updateDetails()
@@ -135,6 +175,13 @@ local function updateDetails()
 	local details = inventoryGui.Window.Details
 	if os.clock() < soldMessageUntil then
 		return -- keep showing "Sold for $X!" for a moment
+	end
+	if disposeUi then
+		disposeUi.mode.Visible = pickTarget == nil -- not while choosing an item for a shelf
+	end
+	if disposeMode then
+		updateDisposePanel(details)
+		return
 	end
 	local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
 	if type(item) ~= "table" or not FILTERS.All[item.state] then
@@ -180,6 +227,17 @@ local function updateDetails()
 	restore.Text = if item.state == "InProgress" then "Continue" else "Restore"
 	restore.BackgroundColor3 = if canRestore then UiTheme.Coral else UiTheme.Disabled
 	restore.AutoButtonColor = canRestore
+
+	-- Dispose (one item): only Dirty items, two taps (the second confirms).
+	if disposeUi then
+		local single = disposeUi.single
+		single.Visible = item.state == "Dirty" and pickTarget == nil
+		if single.Visible then
+			local sure = os.clock() < confirmUntil
+			single.Text = if sure then "Tap again to confirm" else `Dispose +${Formulas.disposePrice(item.itemId, item.golden)}`
+			single.BackgroundColor3 = if sure then UiTheme.Coral else UiTheme.Disabled
+		end
+	end
 
 	-- Picker mode: the only action is "put it on the slot I came from" (Quick Sell/Restore hidden).
 	local place = details.PlaceButton :: TextButton
@@ -258,7 +316,13 @@ local function renderGrid()
 			child:Destroy()
 		end
 	end
-	local list = sortedItems(currentFilter)
+	local list = sortedItems(if disposeMode then "DirtyOnly" else currentFilter)
+	for uid in picked do -- forget picks that are no longer Dirty (disposed, restored, gone)
+		local it = ClientState.Get("inventory." .. uid)
+		if type(it) ~= "table" or it.state ~= "Dirty" then
+			picked[uid] = nil
+		end
+	end
 	inventoryGui.Window.Empty.Visible = #list == 0 -- lives on Window: the grid layout would squeeze it into a cell
 	for order, item in list do
 		local def = Items[item.itemId]
@@ -275,7 +339,33 @@ local function renderGrid()
 		local value, estimate = itemValue(item)
 		card.Value.Text = if estimate then `~${value}` else `${value}`
 		local uid = item.uid
+		if disposeMode then
+			if picked[uid] then
+				card.RarityStroke.Thickness = 5
+				local tick = Instance.new("TextLabel")
+				tick.Name = "Tick"
+				tick.AnchorPoint = Vector2.new(1, 0)
+				tick.Position = UDim2.new(1, -3, 0, 3)
+				tick.Size = UDim2.fromOffset(24, 24)
+				tick.BackgroundColor3 = UiTheme.Teal
+				tick.TextColor3 = Color3.new(1, 1, 1)
+				tick.Text = "✔"
+				tick.TextSize = 16
+				tick.ZIndex = 20
+				Instance.new("UICorner", tick).CornerRadius = UDim.new(1, 0)
+				tick.Parent = card
+			end
+			if item.golden or Rarities[rarityOf(item)].index >= 3 then
+				card.StateIcon.Text = "⚠" -- rare or golden: think twice
+			end
+		end
 		card.Activated:Connect(function()
+			if disposeMode then
+				picked[uid] = if picked[uid] then nil else true
+				confirmUntil = 0
+				renderGrid()
+				return
+			end
 			selectedUid = uid
 			soldMessageUntil = 0
 			renderGrid() -- redraw the selection outline
@@ -345,6 +435,114 @@ local function onSaleMade(amount: any)
 	end
 end
 
+-- ===== Dispose (throw away Dirty items, ~40% of their estimated value) =====
+
+local savedTitle: string? = nil
+
+local function setDisposeMode(on: boolean)
+	if inventoryGui == nil or disposeUi == nil then
+		return
+	end
+	disposeMode = on
+	table.clear(picked)
+	confirmUntil = 0
+	selectedUid = nil
+	local window = inventoryGui.Window
+	if on then
+		savedTitle = window.Title.Text
+	end
+	window.Title.Text = if on then "Dispose items" else (savedTitle or window.Title.Text)
+	window.Tabs.Visible = not on and pickTarget == nil
+	window.Empty.Text = if on then "No unrestored items to dispose of." else "Nothing here yet. Open boxes at your door!"
+	window.Details.Hint.Size = if on then UDim2.new(1, -20, 0, 100) else UDim2.new(1, -20, 0, 40)
+	disposeUi.mode.Text = if on then "Done" else "Dispose…"
+	renderGrid()
+end
+
+-- Two taps: the first arms the button ("Tap again to confirm"), the second within 3 s goes through.
+local function armed(): boolean
+	if os.clock() < confirmUntil then
+		confirmUntil = 0
+		return true
+	end
+	confirmUntil = os.clock() + 3
+	updateDetails()
+	task.delay(3.05, updateDetails)
+	return false
+end
+
+local function sendDispose(uids: { string })
+	if #uids == 0 then
+		return
+	end
+	Remotes.RequestDisposeItems:FireServer(uids)
+	log("asked to dispose", #uids, "item(s)")
+	table.clear(picked)
+	selectedUid = nil
+	-- the inventory change from the server redraws the grid and the details
+end
+
+local function buildDisposeUi()
+	if disposeUi or inventoryGui == nil then
+		return
+	end
+	local window = inventoryGui.Window
+	local details = window.Details
+	-- Cloned from existing (already skinned) buttons so they look like the rest of the window
+	local function clone(from: GuiButton, name: string, parent: Instance): TextButton
+		local b = from:Clone() :: TextButton
+		b.Name = name
+		b.Visible = false
+		b.Parent = parent
+		return b
+	end
+	local tab = window.Tabs:FindFirstChildWhichIsA("TextButton")
+	local mode = clone(tab or details.QuickSellButton, "DisposeModeButton", window)
+	mode.AnchorPoint = Vector2.new(0, 0)
+	mode.Position = UDim2.fromOffset(300, 12)
+	mode.Size = UDim2.fromOffset(120, 30)
+	mode.Text = "Dispose…"
+	mode.BackgroundColor3 = UiTheme.Disabled
+	mode.Visible = pickTarget == nil
+	local single = clone(details.QuickSellButton, "DisposeButton", details)
+	local selCommon = clone(details.QuickSellButton, "SelectCommonButton", details)
+	local confirm = clone(details.RestoreButton, "DisposeConfirmButton", details)
+	disposeUi = { mode = mode, single = single, selCommon = selCommon, confirm = confirm }
+
+	mode.Activated:Connect(function()
+		setDisposeMode(not disposeMode)
+	end)
+	single.Activated:Connect(function()
+		local item = selectedUid and ClientState.Get("inventory." .. selectedUid)
+		if type(item) == "table" and item.state == "Dirty" and armed() then
+			sendDispose({ selectedUid :: string })
+		end
+	end)
+	selCommon.Activated:Connect(function()
+		local commons, allPicked = {}, true
+		for _, item in sortedItems("DirtyOnly") do
+			if Rarities[rarityOf(item)].index == 1 and item.golden ~= true then
+				table.insert(commons, item.uid)
+				allPicked = allPicked and picked[item.uid] == true
+			end
+		end
+		for _, uid in commons do
+			picked[uid] = if allPicked then nil else true -- tap again to clear them
+		end
+		confirmUntil = 0
+		renderGrid()
+	end)
+	confirm.Activated:Connect(function()
+		local uids = {}
+		for uid in picked do
+			table.insert(uids, uid)
+		end
+		if #uids > 0 and armed() then
+			sendDispose(uids)
+		end
+	end)
+end
+
 -- ===== Open / close (only one modal at a time, docs/01 J4) =====
 
 function InventoryController.IsOpen(): boolean
@@ -364,6 +562,9 @@ end
 
 function InventoryController.Close()
 	if inventoryGui then
+		if disposeMode then
+			setDisposeMode(false)
+		end
 		inventoryGui.Window.Visible = false
 	end
 	endPicker()
@@ -422,6 +623,7 @@ openWindow = function(filter: string?)
 	if shop and shop.CloseAll then
 		shop.CloseAll() -- Supply + Upgrades
 	end
+	buildDisposeUi() -- first time only
 	selectTab(filter or currentFilter)
 	inventoryGui.Window.Visible = true
 	log("opened on", currentFilter)
@@ -454,28 +656,29 @@ local function waitForMyPlot(): Model?
 	return nil
 end
 
--- Every counter has a QuickSellPrompt; only mine opens my inventory. Others' are hidden for me.
+-- Every counter has a QuickSellPrompt ("Quick Sell" [Q]). Removed from the counter (Sean, 2026-11-25): it is switched
+-- off on every counter, mine included, and kept off. Restored items still sell from the Inventory window (Quick Sell
+-- button) or to customers. The prompt stays in the place, so this is easy to undo.
 local function hookCounters()
 	local plots = workspace:FindFirstChild("Plots")
 	if plots == nil then
 		return
 	end
-	for _, plot in plots:GetChildren() do
-		local counter = plot:FindFirstChild("Counter")
-		local prompt = counter and counter:FindFirstChild("QuickSellPrompt")
-		if prompt and prompt:IsA("ProximityPrompt") then
-			local function updateEnabled()
-				prompt.Enabled = plot:GetAttribute("OwnerUserId") == player.UserId
-			end
-			updateEnabled()
-			plot:GetAttributeChangedSignal("OwnerUserId"):Connect(updateEnabled)
-			prompt.Triggered:Connect(function()
-				if plot:GetAttribute("OwnerUserId") == player.UserId then
-					InventoryController.Open("Restored")
+	local function switchOff(prompt: Instance)
+		if prompt.Name == "QuickSellPrompt" and prompt:IsA("ProximityPrompt") then
+			prompt.Enabled = false
+			prompt:GetPropertyChangedSignal("Enabled"):Connect(function()
+				if prompt.Enabled then
+					prompt.Enabled = false
 				end
 			end)
 		end
 	end
+	for _, d in plots:GetDescendants() do
+		switchOff(d)
+	end
+	-- other shops' counters stream in (and back in) later: catch their prompts as they arrive
+	plots.DescendantAdded:Connect(switchOff)
 end
 
 -- ===== Lifecycle =====

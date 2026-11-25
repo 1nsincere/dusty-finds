@@ -32,6 +32,7 @@ local CLIENT_TO_SERVER = {
 	"RequestTravel", -- travel menu: (placeId) teleport to a Config.Travel place (server checks id, cooldown, state)
 	"RequestBuySkin", -- skins stall: (skinId) buy a skin that is in stock right now (server checks stock, owned, cash, distance)
 	"RequestApplySkin", -- skins: (kind "Shelf"|"Pedestal", skinId or "" for classic) use an owned skin in your shop
+	"RequestDisposeItems", -- inventory: ({ uid, ... }) throw away Dirty items for DisposeFraction of their est. value (server re-checks each)
 }
 
 -- Server -> Client notifications

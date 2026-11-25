@@ -212,6 +212,31 @@ function InventoryService.QuickSell(player: Player, uid: string): (boolean, stri
 	return true, nil, amount
 end
 
+-- Disposes Dirty (not yet restored) items to free storage: removes each and pays Formulas.disposePrice. Only Dirty items count
+-- (InProgress ones have work in them; restored / displayed ones are sold, not thrown away). Every uid is re-checked here, bad
+-- ones are skipped. Returns how many were disposed and the total paid.
+function InventoryService.Dispose(player: Player, uids: { string }): (number, number)
+	local count, total = 0, 0
+	local seen = {}
+	for _, uid in uids do
+		if isUid(uid) and not seen[uid] then
+			seen[uid] = true
+			local item = InventoryService.Get(player, uid)
+			if item ~= nil and item.state == "Dirty" then
+				local amount = Formulas.disposePrice(item.itemId, item.golden)
+				if amount > 0 and InventoryService.Remove(player, uid) then
+					count += 1
+					total += amount
+				end
+			end
+		end
+	end
+	if total > 0 then
+		EconomyService.AddCash(player, total, "Dispose")
+	end
+	return count, total
+end
+
 -- A customer buys a Displayed item (called by CustomerService / DisplayService, Dev 3). The server works out the whole
 -- price, so the caller can't invent one: price = sellPrice (wish x1.25 if wishMatched), + 10% if `checkout`, + a tip
 -- (chance = 5% + 5% x shop rating stars + opts.tipBonus; amount 10-25% of the price).
@@ -285,6 +310,25 @@ function InventoryService.Start()
 			return
 		end
 		InventoryService.QuickSell(player, uid)
+	end)
+	-- Dispose: the client sends a plain list of uids; everything else (state, price, ownership) is decided here.
+	Remotes.RequestDisposeItems.OnServerEvent:Connect(function(player, list)
+		if not Validate.rateLimit(player, "RequestDisposeItems", 2) then
+			return
+		end
+		if type(list) ~= "table" or #list == 0 or #list > Economy.DisposeMaxPerRequest then
+			return
+		end
+		local uids = {}
+		for _, uid in list do
+			if isUid(uid) then
+				table.insert(uids, uid)
+			end
+		end
+		local count, total = InventoryService.Dispose(player, uids)
+		if count > 0 and Validate.isPlayer(player) then
+			Remotes.Notify:FireClient(player, "Sale", `Disposed {count} item{if count == 1 then "" else "s"} for ${total}`)
+		end
 	end)
 	log.info("Start")
 end

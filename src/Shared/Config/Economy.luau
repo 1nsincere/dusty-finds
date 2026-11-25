@@ -27,6 +27,12 @@ local Economy = {
 	QualityMult = { 0.8, 1.0, 1.3 }, -- index = stars (1, 2, 3)
 	WishMult = 1.25,
 	QuickSellFraction = 0.7, -- of baseValue x qualityMult x variantMult; no wish, no tip
+	-- Dispose (2026-11-25): throw away a Dirty (not yet restored) item to free storage. Pays DisposeFraction of its estimated
+	-- value (the same "Est. value" the cards show = price at DisposeEstimateStars), rounded down, at least DisposeMinimum.
+	DisposeFraction = 0.4,
+	DisposeEstimateStars = 2,
+	DisposeMinimum = 1,
+	DisposeMaxPerRequest = 40, -- most items one RequestDisposeItems may carry (inventory is at most 40 anyway)
 	TipBaseChance = 0.05, -- chance = 5% + 5% x rating stars
 	TipChancePerRatingStar = 0.05,
 	TipMinFraction = 0.10, -- tip amount = 10-25% of price
