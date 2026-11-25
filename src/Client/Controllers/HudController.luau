@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Formulas = require(Shared:WaitForChild("Formulas"))
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
+local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin")) -- toast styles per kind (NotificationDock)
 
 local HudController = {}
 local DEBUG = true
@@ -218,7 +219,9 @@ local function onNotify(kind: any, text: any)
 	-- Since 2026-11-25 every message goes to the notification dock (HudLayoutController builds it). The old Toasts /
 	-- Banner path below stays as a fallback for the first moments of a session and for an old place without the dock.
 	if NotificationDock.IsReady() then
-		NotificationDock.Notify(if icon then kind else "Info", message)
+		-- every kind with its own toast style (UiSkin.TOAST: Delivery, LevelUp, Upgrade, Sale) keeps it; others use Info
+		local styled = type(kind) == "string" and UiSkin.TOAST[kind] ~= nil
+		NotificationDock.Notify(if styled then kind else "Info", message)
 		return
 	end
 	if icon then

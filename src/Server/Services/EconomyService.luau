@@ -106,6 +106,9 @@ function EconomyService.AddXp(player: Player, amount: number): (boolean, number)
 	DataService.Set(player, "xp", xp)
 	if gained > 0 then
 		DataService.Set(player, "level", level)
+		if typeof(player) == "Instance" then
+			player:SetAttribute("DF_Level", level) -- the player list shows everyone's shop level
+		end
 		local previous = level - gained
 		for newLevel = previous + 1, level do
 			EconomyService.AddCash(player, Economy.LevelUpRewardPerLevel * newLevel, "LevelUp")
@@ -122,6 +125,15 @@ function EconomyService.Init(services)
 end
 
 function EconomyService.Start()
+	-- publish the shop level as a player attribute once the save has loaded (the player list reads it; not saved data)
+	if DataService.OnPlayerLoaded then
+		DataService.OnPlayerLoaded(function(player)
+			local level = DataService.GetValue(player, "level")
+			if typeof(player) == "Instance" and type(level) == "number" then
+				player:SetAttribute("DF_Level", level)
+			end
+		end)
+	end
 	log.info("Start (no remotes: other services call this one)")
 end
 
