@@ -113,6 +113,9 @@ function CollectionBookService.RefreshRating(player: Player)
 	local stars = CollectionBookService.GetRatingStars(player)
 	if lastRating[player] ~= stars then
 		lastRating[player] = stars
+		if typeof(player) == "Instance" then
+			player:SetAttribute("DF_Rating", stars) -- the player list shows everyone's shop rating
+		end
 		if DataService.Push then
 			DataService.Push(player, "rating", stars)
 		end
@@ -129,6 +132,13 @@ function CollectionBookService.Start()
 		DataService.AddSnapshotExtra("rating", function(player)
 			lastRating[player] = CollectionBookService.GetRatingStars(player)
 			return lastRating[player]
+		end)
+	end
+	if DataService.OnPlayerLoaded then
+		DataService.OnPlayerLoaded(function(player)
+			if typeof(player) == "Instance" then
+				player:SetAttribute("DF_Rating", CollectionBookService.GetRatingStars(player))
+			end
 		end)
 	end
 	DataService.OnPlayerReleasing(function(player)

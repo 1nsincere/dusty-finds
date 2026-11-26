@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Stock = require(Shared:WaitForChild("Stock"))
 local Skins = require(Shared:WaitForChild("Config"):WaitForChild("Skins"))
+local Monetization = require(Shared:WaitForChild("Config"):WaitForChild("Monetization"))
 local StockConfig = require(Shared:WaitForChild("Config"):WaitForChild("Stock"))
 local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
@@ -34,9 +35,10 @@ local TABS = {
 	{ key = "Pedestal", label = "Pedestals" },
 	{ key = "Shelf", label = "Shelves" },
 	{ key = "Cashier", label = "Cashiers" },
+	{ key = "Voucher", label = "Vouchers" }, -- Robux: buy a voucher, then pick any Epic / Legendary skin
 	{ key = "Owned", label = "Owned" },
 }
-local tab = "Pedestal" -- a kind ("Pedestal" | "Shelf" | "Cashier") or "Owned"
+local tab = "Pedestal" -- a kind ("Pedestal" | "Shelf" | "Cashier"), "Voucher" or "Owned"
 local emptyLabel: TextLabel? = nil
 local shownIndex = -1
 local tabButtons: { [string]: GuiObject } = {}
@@ -51,8 +53,12 @@ local function now(): number
 	return workspace:GetServerTimeNow()
 end
 
+-- Two stalls sell skins from the same window (Skins Booth and the centre Shelves & Pedestals stall); each opens on its own tab.
+local STALLS = { { model = "SkinStall", startTab = "Cashier" }, { model = "ShelfStall", startTab = "Shelf" } }
+local activeStall = "SkinStall" -- the stall you opened the window at (walking away from it closes the window)
+
 local function stallCounter(): BasePart?
-	local stall = workspace:FindFirstChild("SkinStall")
+	local stall = workspace:FindFirstChild(activeStall)
 	local counter = stall and stall:FindFirstChild("Counter")
 	return if counter and counter:IsA("BasePart") then counter else nil
 end
@@ -169,6 +175,63 @@ local function inUse(kind: string): string
 	return if type(skins) == "table" and type(skins[field]) == "string" then skins[field] else ""
 end
 
+-- "Try" (60 s on your own shop, client only): shelves and pedestals; cashier skins are models and can't be previewed yet
+local function tryable(kind: string): boolean
+	return (kind == "Shelf" or kind == "Pedestal") and others.PreviewController ~= nil
+end
+
+local function tryButton(parent: Instance, skin: any, kind: string)
+	button(parent, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), function()
+		local ok, reason = others.PreviewController.Try(kind, skin.id)
+		if ok then
+			SkinShopController.Close()
+		else
+			log("preview refused:", reason)
+		end
+	end)
+end
+
+-- ===== Vouchers tab (Robux): buy a voucher, then pick ANY skin of that rarity (Epic / Legendary); you see the skin first, nothing is random =====
+
+local function vouchersHeld(tier: string): number
+	local v = ClientState.Get("vouchers")
+	return if type(v) == "table" and type(v[tier]) == "number" then v[tier] else 0
+end
+
+local function voucherCard(product: any, order: number)
+	local c = panel(list :: ScrollingFrame, "Voucher_" .. product.id, UDim2.new(), nil)
+	c.LayoutOrder = order
+	text(c, "Name", product.name, UDim2.new(1, -10, 0, 20), UDim2.fromOffset(5, 8), UiTheme.rarityColor(product.tier), UiSkin.FONT_TITLE)
+	text(c, "Held", `You have {vouchersHeld(product.tier)}`, UDim2.new(1, -10, 0, 16), UDim2.fromOffset(5, 34), UiSkin.COLORS.text)
+	text(c, "Blurb", "Pick any " .. product.tier .. " skin", UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 54), UiSkin.COLORS.textDim)
+	local live = product.productId > 0
+	button(c, "Buy", if live then `R$ {product.price}` else "Coming soon", UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+		if live then
+			Remotes.RequestPurchaseProduct:FireServer(product.id)
+			log("asked to buy", product.id)
+		end
+	end, if live then UiSkin.COLORS.accent else UiSkin.COLORS.textDim)
+end
+
+local function redeemCard(skin: any, order: number)
+	local c = panel(list :: ScrollingFrame, "Redeem_" .. skin.id, UDim2.new(), nil)
+	c.LayoutOrder = order
+	swatch(c, skin, skin.kind)
+	text(c, "Name", skin.name, UDim2.new(1, -10, 0, 18), UDim2.fromOffset(5, 52))
+	text(c, "Rarity", `{skin.rarity} · {skin.kind}`, UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 70), UiTheme.rarityColor(skin.rarity))
+	if owned(skin.id) then
+		text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
+		return
+	end
+	if tryable(skin.kind) then
+		tryButton(c, skin, skin.kind)
+	end
+	button(c, "Redeem", "Redeem", if tryable(skin.kind) then UDim2.new(0.62, -10, 0, 30) else UDim2.new(1, -16, 0, 30), if tryable(skin.kind) then UDim2.new(0.38, 4, 1, -36) else UDim2.new(0, 8, 1, -36), function()
+		Remotes.RequestRedeemVoucher:FireServer(skin.id)
+		log("asked to redeem a voucher for", skin.id)
+	end, UiSkin.COLORS.good)
+end
+
 local function card(skin: any, kind: string, order: number)
 	local c = panel(list :: ScrollingFrame, "Card_" .. (if skin then skin.id else "Classic" .. kind), UDim2.new(), nil)
 	c.LayoutOrder = order
@@ -182,7 +245,10 @@ local function card(skin: any, kind: string, order: number)
 			text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
 		else
 			local cash = ClientState.Get("cash") or 0
-			button(c, "Buy", UiTheme.formatCash(skin.price), UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+			if tryable(kind) then
+				tryButton(c, skin, kind)
+			end
+			button(c, "Buy", UiTheme.formatCash(skin.price), if tryable(kind) then UDim2.new(0.62, -10, 0, 30) else UDim2.new(1, -16, 0, 30), if tryable(kind) then UDim2.new(0.38, 4, 1, -36) else UDim2.new(0, 8, 1, -36), function()
 				Remotes.RequestBuySkin:FireServer(skin.id)
 				log("asked to buy", skin.id)
 			end, if cash >= skin.price then UiSkin.COLORS.money else UiSkin.COLORS.textDim)
@@ -245,7 +311,25 @@ local function render()
 	end
 	local order = 0
 	local empty = ""
-	if tab ~= "Owned" then
+	if tab == "Voucher" then
+		for _, product in Monetization.PRODUCTS do
+			if product.kind == "Voucher" then
+				order += 1
+				voucherCard(product, order)
+			end
+		end
+		-- for each tier you hold a voucher of: every skin you can pick (theme / pass skins are not for vouchers)
+		for _, tier in Monetization.VOUCHER_TIERS do
+			if vouchersHeld(tier) > 0 then
+				for _, skin in Skins.LIST do
+					if skin.rarity == tier and skin.pass == nil then
+						order += 1
+						redeemCard(skin, order)
+					end
+				end
+			end
+		end
+	elseif tab ~= "Owned" then
 		-- a kind's tab: one card per rarity, the real skin if it rolled this restock, else a greyed "?" teaser
 		local kind = tab
 		local index = Stock.restockIndex(now())
@@ -321,7 +405,7 @@ local function build()
 	button(w, "Close", "X", UDim2.fromOffset(40, 40), UDim2.new(1, -48, 0, 6), SkinShopController.Close)
 	-- 4 tabs side by side (fits a phone: 4 x 128 px)
 	for i, t in TABS do
-		tabButtons[t.key] = button(w, "Tab" .. t.key, t.label, UDim2.fromOffset(120, 34), UDim2.fromOffset(14 + (i - 1) * 128, 46), function()
+		tabButtons[t.key] = button(w, "Tab" .. t.key, t.label, UDim2.fromOffset(96, 34), UDim2.fromOffset(14 + (i - 1) * 102, 46), function()
 			tab = t.key
 			render()
 		end)
@@ -353,7 +437,10 @@ local function build()
 	gui, window, list = screen, w, scroll
 end
 
-function SkinShopController.Open()
+function SkinShopController.Open(stallName: string?)
+	if type(stallName) == "string" then
+		activeStall = stallName
+	end
 	if gui == nil then
 		build()
 	end
@@ -368,9 +455,14 @@ function SkinShopController.Open()
 		others.ShopController.CloseAll()
 	end
 	tab = TABS[1].key
+	for _, s in STALLS do
+		if s.model == activeStall then
+			tab = s.startTab -- the stall you walked up to decides the first tab (the centre stall opens on Shelves)
+		end
+	end
 	render();
 	(gui :: ScreenGui).Enabled = true
-	log("opened")
+	log("opened at " .. activeStall)
 end
 
 -- ===== Mythic sparkles follow Settings "Reduce effects" on this screen =====
@@ -418,21 +510,66 @@ end
 
 function SkinShopController.Start()
 	-- the stall's prompt opens the window; walking away closes it
+	for _, s in STALLS do
+		task.spawn(function()
+			local stall = workspace:WaitForChild(s.model, if s.model == "SkinStall" then 60 else 20)
+			local counter = stall and stall:WaitForChild("Counter", 10)
+			local prompt = counter and counter:FindFirstChildWhichIsA("ProximityPrompt", true)
+			if not prompt then
+				warn(`[SkinShopController] Workspace.{s.model}.Counter has no ProximityPrompt: that stall can't be opened`)
+				return
+			end
+			prompt.Triggered:Connect(function()
+				SkinShopController.Open(s.model)
+			end)
+			log("ready: stall prompt hooked: " .. s.model)
+		end)
+	end
+	task.spawn(watchSparkles)
+	-- a floating "Fresh stock in m:ss" sign over the stall (so you can see the restock from the market floor without opening the window)
 	task.spawn(function()
 		local stall = workspace:WaitForChild("SkinStall", 60)
 		local counter = stall and stall:WaitForChild("Counter", 10)
-		local prompt = counter and counter:FindFirstChildWhichIsA("ProximityPrompt", true)
-		if not prompt then
-			warn("[SkinShopController] Workspace.SkinStall.Counter has no ProximityPrompt: the stall can't be opened")
+		if not (counter and counter:IsA("BasePart")) then
 			return
 		end
-		prompt.Triggered:Connect(SkinShopController.Open)
-		log("ready: stall prompt hooked")
+		local board = Instance.new("BillboardGui")
+		board.Name = "RestockSign"
+		board.Adornee = counter
+		board.Size = UDim2.fromOffset(190, 34)
+		board.StudsOffsetWorldSpace = Vector3.new(0, 8, 0)
+		board.MaxDistance = 70
+		board.AlwaysOnTop = false
+		board.Parent = counter
+		local label = Instance.new("TextLabel")
+		label.Name = "Label"
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundColor3 = Color3.fromRGB(34, 36, 42)
+		label.BackgroundTransparency = 0.2
+		label.TextScaled = true
+		label.FontFace = UiSkin.FONT_TITLE
+		label.TextColor3 = UiSkin.COLORS.accent
+		label.Parent = board
+		Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
+		local acc = 0
+		RunService.Heartbeat:Connect(function(dt)
+			acc += dt
+			if acc < 0.5 then
+				return
+			end
+			acc = 0
+			local left = math.max(0, math.floor(Stock.secondsLeft(now())))
+			label.Text = string.format("Fresh stock in %d:%02d", left // 60, left % 60)
+		end)
 	end)
-	task.spawn(watchSparkles)
 	-- live data: re-draw when skins or cash change; timer and restock while open
 	ClientState.OnChanged("skins", function()
 		if SkinShopController.IsOpen() then
+			render()
+		end
+	end)
+	ClientState.OnChanged("vouchers", function()
+		if SkinShopController.IsOpen() and tab == "Voucher" then
 			render()
 		end
 	end)

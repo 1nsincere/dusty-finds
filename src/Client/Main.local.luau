@@ -36,6 +36,7 @@ local ORDER = {
 	"VisitController", -- Sean: 👥 Visit window (RequestVisit)
 	"TutorialController",
 	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
+	"CameraWallController", -- Dev 1: keeps the third-person camera inside the shop walls (no seeing through them)
 	"AdminController", -- Dev 1: Studio-only dev commands (/fly, /tp, /noclip ...); does nothing on the live game
 	"AdminPanelController", -- Dev 1: the /admin card (AdminPanel remote shows every command + what it does)
 	"RestorationMoreMinigamesController", -- Dev 1: Test, Scrape, Reassemble, Replace minigames (Dwayne registers Wipe/Polish in his own controller)
@@ -53,6 +54,12 @@ local ORDER = {
 	"TownsfolkController", -- Sean: ambient townspeople walking the streets (client-only decoration, Config.Townsfolk)
 	"StorageShelfController", -- Sean: draws unrestored items on every shop's storage room shelves (StorageShelfService)
 	"EditModeController", -- Sean: shop edit mode, move / turn shelves and pedestals (Shared.Layout; docs/09); after HudSkinController
+	"LayoutSlotsController", -- Dev 1: "Shop layouts" window (Saved Layouts pass / VIP slots); opened from Edit Mode's Layouts button
+	"CollectorsCornerController", -- Dev 1: Collector's Corner window (Robux passes, VIP choices, tip jar); Workspace.CollectorsCorner.Counter prompt
+	"FlairController", -- Dev 1: pass / VIP cosmetics everyone sees: companion pet, VIP title above the head, Glow Pack bursts (Player attributes from MonetizationService)
+	"AuraController", -- Dev 1: collector auras (sparkles + glow by collector tier, DF_CollectorTier); Reduce effects turns them off
+	"PreviewController", -- Dev 1: "Try it for 60 seconds" on your own shop (paints and shelf / pedestal skins), client only
+	"PaintShopController", -- Dev 1: Paint Bar window (wall / floor paints, always in stock; Workspace.PaintCounter prompt)
 	"SkinShopController", -- Sean: skins stall window (stock, restock timer, buy) + your skins (apply); sparkles off with Reduce effects
 	"SkinModelController", -- Sean: draws model skins (Assets.Skins) over the shelf / pedestal blocks on this screen, with light + aura
 	"MainMenuController", -- Sean: title menu after the loading screen (PLAY / Settings / Updates / Credits); last: hides the HUD until PLAY

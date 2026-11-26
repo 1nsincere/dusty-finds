@@ -55,7 +55,7 @@ Skins.LIST = {
 	-- aura = a rose-pink mist round the base (all off with Reduce effects)
 	{ id = "ShelfSakura", name = "Sakura Starlight", kind = "Shelf", rarity = "Mythic", price = 35000,
 		look = { model = "ShelfSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
-			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160), petals = true, floatItems = true,
 			aura = rgb(215, 70, 150) } },
 
 	-- ===== Pedestal skins (all exhibit pedestals in the shop) =====
@@ -85,7 +85,7 @@ Skins.LIST = {
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
 	{ id = "PedestalSakura", name = "Sakura Starlight", kind = "Pedestal", rarity = "Mythic", price = 25000,
 		look = { model = "PedestalSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
-			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160), petals = true, floatItems = true,
 			aura = rgb(215, 70, 150) } },
 
 	-- ===== Cashier skins (the shop's cash counter; model skins only) =====
@@ -123,9 +123,97 @@ Skins.LIST = {
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
 	{ id = "CashierSakura", name = "Sakura Starlight", kind = "Cashier", rarity = "Mythic", price = 50000,
 		look = { model = "CashierSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
-			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160), petals = true, floatItems = true,
 			aura = rgb(215, 70, 150) } },
 }
+
+-- ===== Filipino-inspired families (Ace + Claude, 2026-11-25; docs/12 Stage 2) =====
+-- Subtle: the material and the colour are the culture (rattan weave, narra hardwood, capiz shell, machuca cement tile).
+-- One definition becomes a shelf, a pedestal AND a cashier skin, so a player can match the whole shop. Looks only.
+-- `colorways` (Legendary and above): one skin per colour, all sharing `family`. Shared.Stock rolls ONE skin per kind and
+-- rarity from the pool, so only one colourway of a family is in stock at a time: you wait for the colour you want.
+-- Cashier looks need `model = "CashierClassic"` (see the Cashier note above); `frame` (default: `color` darkened) is the body.
+local FAMILIES = {
+	{ family = "Rattan", name = "Rattan Weave", rarity = "Common", price = 250,
+		look = { color = rgb(222, 190, 130), material = M.WoodPlanks }, frame = rgb(186, 146, 90) },
+	{ family = "Narra", name = "Narra Wood", rarity = "Rare", price = 1500,
+		look = { color = rgb(122, 52, 38), material = M.Wood, trim = rgb(44, 24, 18), trimMaterial = M.Wood } },
+	{ family = "Capiz", name = "Capiz Pearl", rarity = "Epic", price = 4000,
+		look = { color = rgb(244, 240, 230), material = M.SmoothPlastic, reflectance = 0.18, trim = rgb(212, 196, 160),
+			trimMaterial = M.Metal, light = rgb(255, 238, 205) }, frame = rgb(226, 214, 190) },
+	{ family = "Machuca", name = "Machuca Tiles", rarity = "Legendary", price = 9000, colorways = {
+		{ colorway = "Terracotta", look = { color = rgb(196, 98, 66), material = M.Concrete, reflectance = 0.08,
+			trim = rgb(240, 228, 200), trimMaterial = M.SmoothPlastic, light = rgb(255, 206, 150) } },
+		{ colorway = "Teal", look = { color = rgb(35, 120, 128), material = M.Concrete, reflectance = 0.08,
+			trim = rgb(240, 228, 200), trimMaterial = M.SmoothPlastic, light = rgb(170, 240, 235) } },
+		{ colorway = "Navy", look = { color = rgb(36, 56, 110), material = M.Concrete, reflectance = 0.08,
+			trim = rgb(236, 190, 80), trimMaterial = M.Metal, light = rgb(170, 190, 255) } },
+	} },
+}
+
+local function copyLook(look: { [string]: any }): { [string]: any }
+	local out = {}
+	for key, value in look do
+		out[key] = value
+	end
+	return out
+end
+
+for _, fam in FAMILIES do
+	local variants = fam.colorways or { { look = fam.look } }
+	for _, variant in variants do
+		for _, kind in { "Shelf", "Pedestal", "Cashier" } do
+			local look = copyLook(variant.look)
+			if kind == "Cashier" then
+				look.model = "CashierClassic"
+				look.frame = fam.frame or look.trim or look.color
+				look.top = look.top or look.trim
+			end
+			local suffix = variant.colorway or ""
+			table.insert(Skins.LIST, {
+				id = kind .. fam.family .. suffix,
+				name = fam.name .. (if variant.colorway then " (" .. variant.colorway .. ")" else ""),
+				kind = kind,
+				rarity = fam.rarity,
+				price = fam.price,
+				family = fam.family,
+				colorway = variant.colorway,
+				look = look,
+			})
+		end
+	end
+end
+
+-- ===== Theme skins (Robux passes, docs/12 Stage 5) =====
+-- `pass` = the pass id in Config.Monetization that grants the skin. They are NEVER in the stock roll (Shared.Stock skips them) and
+-- never sold for cash: owning the pass puts them in your Owned tab. The price field is unused (kept so every skin has one).
+local THEME_SKINS = {
+	{ pass = "ThemeArcade", name = "Retro Arcade", shelf = { color = rgb(30, 26, 56), material = M.SmoothPlastic, reflectance = 0.1,
+			trim = rgb(255, 70, 160), trimMaterial = M.Neon, light = rgb(255, 90, 170) },
+		frame = rgb(54, 40, 96), id = "Arcade" },
+	{ pass = "ThemeCabin", name = "Cozy Cabin", shelf = { color = rgb(150, 100, 62), material = M.Wood,
+			trim = rgb(86, 54, 32), trimMaterial = M.Wood, light = rgb(255, 214, 150) },
+		frame = rgb(112, 72, 44), id = "Cabin" },
+}
+for _, theme in THEME_SKINS do
+	for _, kind in { "Shelf", "Pedestal", "Cashier" } do
+		local look = copyLook(theme.shelf)
+		if kind == "Cashier" then
+			look.model = "CashierClassic"
+			look.frame = theme.frame
+			look.top = theme.shelf.trim
+		end
+		table.insert(Skins.LIST, {
+			id = kind .. theme.id,
+			name = theme.name,
+			kind = kind,
+			rarity = "Epic",
+			price = 1,
+			pass = theme.pass,
+			look = look,
+		})
+	end
+end
 
 Skins.BY_ID = {}
 for _, skin in Skins.LIST do

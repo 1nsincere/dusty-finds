@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared.Config:WaitForChild("Economy"))
+local Items = require(Shared.Config:WaitForChild("Items"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local RestorationController = {}
@@ -26,7 +27,8 @@ local DEBUG = true
 local player = Players.LocalPlayer
 local others: { [string]: any } = {}
 
-type Session = { uid: string, recipe: { { [string]: any } }, stepIndex: number, sessionId: number?, seed: number? }
+type Session = { uid: string, recipe: { { [string]: any } }, stepIndex: number, sessionId: number?, seed: number?, provisional: boolean? }
+local requestedAt = 0 -- when the player pressed Restore (for the "how long did it take" log)
 local session: Session? = nil
 local activeBench: string? = nil -- the bench the player asked to restore at (Bench1 / Bench2)
 local cleanup: (() -> ())? = nil
@@ -38,6 +40,15 @@ local function log(...)
 		print("[RestorationController]", ...)
 	end
 end
+
+-- when the previous step's report is (or was) sent: the server starts timing the next step from its acceptance
+local lastReportAt = 0
+
+-- how long a restoration that started before the server answered may wait for that answer
+local PROVISIONAL_SECONDS = 5
+
+-- seconds the finished step stays on screen (chime, full bar) before the next one starts
+local ADVANCE_DELAY = 0.45
 
 local function ui()
 	return others.RestorationUIController
@@ -199,18 +210,41 @@ local function startStep()
 			end
 			-- The server rejects a step finished faster than Economy.MinStepSeconds. Hold the report back until that time has
 			-- passed, so a fast player is never refused: minigames just call complete() whenever they are done.
-			local wait = (Economy.MinStepSeconds[step.type] or 0) + 0.25 - (os.clock() - ctx.startedAt)
+			-- The server times a step from the moment it ACCEPTED the previous report, not from when this client started it (the client
+			-- now moves on early, see ADVANCE_DELAY). So count from the later of the two, with room for the round trip, or a quick step
+			-- would be refused as "too fast", the session re-sent, and the player made to do the step again.
+			local nowT = os.clock()
+			local wait = (Economy.MinStepSeconds[step.type] or 0) + 0.45 - (nowT - math.max(ctx.startedAt, lastReportAt))
+			lastReportAt = nowT + math.max(wait, 0)
 			local function send()
-				if session ~= current or session == nil or session.stepIndex ~= ctx.stepIndex then
-					return -- exited or moved on while we waited
+				if session ~= current or session == nil then
+					return -- exited while we waited (moving on to the next step does NOT cancel this report)
 				end
-				Remotes.ReportStepComplete:FireServer(ctx.uid, ctx.stepIndex, score, ctx.sessionId)
+				Remotes.ReportStepComplete:FireServer(ctx.uid, ctx.stepIndex, score, (session :: Session).sessionId or ctx.sessionId) -- the live id: a step started before the server confirmed has none yet
 				log(`reported {ctx.uid} step {ctx.stepIndex} ({step.type}) score {score}`)
 			end
 			if wait > 0 then
 				task.delay(wait, send)
 			else
 				send()
+			end
+			-- Move on to the next step AT ONCE (after a short beat for the chime and the full bar) instead of waiting for the held-back
+			-- report and the server's answer: that wait was the "slow, the minigame takes a while to load" feeling. The server still
+			-- checks every report in order; if it ever refuses one, it re-sends the session and onSession puts us back where it says.
+			-- The last step waits for the server (the Restored card comes from it).
+			local doneIndex = ctx.stepIndex
+			if doneIndex < #current.recipe then
+				task.delay(ADVANCE_DELAY, function()
+					if session ~= current or current.stepIndex ~= doneIndex then
+						return
+					end
+					current.stepIndex = doneIndex + 1
+					local view = ui()
+					if view and view.AdvanceTo then
+						view.AdvanceTo(current.stepIndex)
+					end
+					startStep()
+				end)
 			end
 		end,
 	}
@@ -244,13 +278,27 @@ local function startStep()
 		warn("[RestorationController] minigame for " .. step.type .. " failed: " .. tostring(result))
 	end
 	log(`step {current.stepIndex}/{#current.recipe}: {step.type}{if minigames[step.type] then "" else " (placeholder)"}`)
+	if requestedAt > 0 then
+		log(string.format("ready %.2f s after you pressed Restore", os.clock() - requestedAt))
+		requestedAt = 0
+	end
 end
 
 local function onSession(uid: any, recipe: any, stepIndex: any, seed: any, sessionId: any)
 	if type(uid) ~= "string" or type(recipe) ~= "table" or type(stepIndex) ~= "number" then
 		return
 	end
+	-- The view already started when Restore was pressed (see RequestStartRestore): the server's answer just confirms it. Same item and
+	-- step = keep going without restarting the minigame; anything else (a resumed item at another step, a resync) rebuilds as before.
+	if session and session.provisional and session.uid == uid and session.stepIndex == stepIndex then
+		session.provisional = nil
+		session.sessionId = sessionId
+		session.seed = seed
+		log("server confirmed the session")
+		return
+	end
 	session = { uid = uid, recipe = recipe, stepIndex = stepIndex, sessionId = sessionId, seed = seed }
+	lastReportAt = 0 -- a (re)sent session: the server starts timing this step now
 	dropView() -- a (re)sent session starts from a clean view rebuilt from saved progress (also after a rejection)
 	startStep()
 end
@@ -263,7 +311,7 @@ local function onInventoryChanged()
 	end
 	local item = ClientState.Get("inventory." .. current.uid)
 	local saved = type(item) == "table" and item.stepIndex
-	if type(saved) == "number" and saved ~= current.stepIndex and saved >= 1 and saved <= #current.recipe and item.state == "InProgress" then
+	if type(saved) == "number" and saved > current.stepIndex and saved >= 1 and saved <= #current.recipe and item.state == "InProgress" then
 		current.stepIndex = saved
 		startStep()
 	end
@@ -317,8 +365,32 @@ function RestorationController.RequestStartRestore(uid: string)
 		return
 	end
 	activeBench = bench
+	requestedAt = os.clock()
 	Remotes.RequestStartRestore:FireServer(uid, bench)
 	log("asked to restore", uid, "at", bench)
+	-- Start at once instead of waiting for the server's round trip (that wait was the pause after pressing Restore). The item and its
+	-- recipe are already known here; the server's RestoreSession confirms a moment later (onSession). If it refuses (too far, bench busy)
+	-- its toast arrives and we step back out (see Start); a missing answer ends it after PROVISIONAL_SECONDS.
+	local item = ClientState.Get("inventory." .. uid)
+	local def = type(item) == "table" and Items[item.itemId] or nil
+	local recipe = def and def.recipe
+	if session == nil and type(item) == "table" and type(recipe) == "table" and #recipe > 0 and (item.state == "Dirty" or item.state == "InProgress") then
+		local index = if item.state == "InProgress" and type(item.stepIndex) == "number" then math.clamp(item.stepIndex, 1, #recipe) else 1
+		session = { uid = uid, recipe = recipe, stepIndex = index, sessionId = nil, seed = math.random(1, 1000000), provisional = true }
+		lastReportAt = 0
+		local view = ui()
+		if view and view.Begin then
+			view.Begin(uid, recipe, index)
+		end
+		startStep()
+		local started = session
+		task.delay(PROVISIONAL_SECONDS, function()
+			if session == started and started.provisional then
+				warn("[RestorationController] the server never confirmed the restoration: leaving it")
+				endSession()
+			end
+		end)
+	end
 end
 
 -- The Exit button (RestorationUIController) calls this instead of sending the remote itself.
@@ -372,6 +444,16 @@ end
 
 function RestorationController.Start()
 	Remotes.RestoreSession.OnClientEvent:Connect(onSession)
+	-- the server refused (too far, bench in use...): its toast comes instead of a session, so back out of the provisional one
+	Remotes.Notify.OnClientEvent:Connect(function(kind)
+		if session and session.provisional and kind == "Info" then
+			endSession()
+			local view = ui()
+			if view and view.Hide then
+				view.Hide()
+			end
+		end
+	end)
 	Remotes.ItemRestored.OnClientEvent:Connect(function()
 		endSession()
 	end)

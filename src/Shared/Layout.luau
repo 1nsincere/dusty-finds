@@ -10,6 +10,7 @@ local Layout = {}
 Layout.GRID = 2.8
 Layout.ORIGIN = -26.6 -- grid lines at ORIGIN + k * GRID: the inner face of the shop walls, so pieces sit flush to them
 Layout.FLOORS = { Ground = 0.7, Upstairs = 18.5 } -- top of each walkable floor
+Layout.ENABLED = false -- 2026-11-26 (Ace): Edit mode is paused. Shelves and pedestals stay in their fixed default spots (saved layouts are kept in the data, ignored) until the Edit update.
 Layout.MAX_PIECES = 32 -- a saved layout never has more entries than this (server size check)
 local EPS = 0.02
 

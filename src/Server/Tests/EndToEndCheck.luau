@@ -76,11 +76,26 @@ function EndToEndCheck.run(services: { [string]: any }, player: Player, devCall:
 		local cashBefore, xpBefore, soldBefore = D().cash, D().xp, D().stats.sold
 		local customer, why = Cust.TrySpawn(player)
 		step("a customer arrives (TrySpawn)", customer ~= nil, why or (customer and customer.typeId))
+		-- Customers no longer pay by themselves (2026-11-25): they walk, look, decide (maybe "let me think", maybe pass), queue at
+		-- the till and WAIT. So the test plays the owner: when a customer is waiting at the counter it checks them out; if that
+		-- customer left without buying (a pass is a normal outcome), a new one is let in.
 		local waited = 0
-		local limit = waitSeconds or 70
+		local limit = waitSeconds or 150
 		while waited < limit and D().stats.sold == soldBefore do
 			task.wait(1)
 			waited += 1
+			local any = false
+			for id, c in Cust.GetCustomers(player) do
+				any = true
+				local model = workspace:FindFirstChild("Customer_" .. id, true)
+				if c.uid ~= nil and model and model:GetAttribute("AtCounter") == true then
+					Cust.Checkout(player, id, true, nil, true)
+					break
+				end
+			end
+			if not any and D().stats.sold == soldBefore then
+				Cust.TrySpawn(player, os.time() + waited * 100) -- a fresh customer (time pushed forward past the spawn gap)
+			end
 		end
 		step(`a customer bought it (after {waited}s)`, D().stats.sold > soldBefore, `cash {cashBefore} -> {D().cash}, xp {xpBefore} -> {D().xp}, sold {D().stats.sold}`)
 		step("cash went up after the sale (XP comes from restoring, not selling: docs/01)", D().cash > cashBefore and D().xp == xpBefore, `cash +{D().cash - cashBefore}`)

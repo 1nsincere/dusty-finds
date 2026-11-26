@@ -9,7 +9,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Hours = require(ReplicatedStorage.Shared.Hours)
 local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
@@ -219,7 +221,7 @@ function ShipmentService.BuyCrate(player: Player, crateId: string): (boolean, st
 	if boxes >= Economy.MaxWaitingBoxes then
 		return false, "tooManyBoxes", nil
 	end
-	if not EconomyService.Spend(player, crate.price) then
+	if not EconomyService.Spend(player, crate.price, "Shop", crateId) then
 		return false, "cash", nil
 	end
 	local uids, reason = addBox(player, crateId)
@@ -322,6 +324,7 @@ function ShipmentService.OpenBox(player: Player, uid: string): (boolean, string?
 		end
 	end
 
+	Analytics.Step(player, Analytics.STEP.OpenedBox)
 	local isNew = CollectionBookService.RecordFound(player, item.itemId, item.golden) == true
 	local bonus = 0
 	if isNew then
@@ -374,6 +377,10 @@ function ShipmentService.Start()
 
 	Remotes.RequestBuyCrate.OnServerEvent:Connect(function(player, crateId)
 		if not Validate.rateLimit(player, "RequestBuyCrate", 3) or type(crateId) ~= "string" then
+			return
+		end
+		if not Hours.marketOpen() then
+			Remotes.Notify:FireClient(player, "Info", "The Warehouse Market is closed. It opens at " .. Hours.format(Hours.MARKET_OPEN) .. ".")
 			return
 		end
 		-- Crates are sold at the Supply Warehouse (Environment.Districts.Warehouse.SupplyCounter), not from anywhere:

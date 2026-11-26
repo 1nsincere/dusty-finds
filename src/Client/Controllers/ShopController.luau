@@ -530,6 +530,9 @@ local function upgradeButtonState(def, owned: number): (string, boolean, boolean
 	if owned >= def.maxLevel then
 		return "MAX", false, false
 	end
+	if def.comingSoon then
+		return "Coming soon", false, false -- one upgrade switched off (Config/Upgrades comingSoon = true), whatever the player's level
+	end
 	local nextLevel = owned + 1
 	local level = ClientState.Get("level") or 1
 	if level < def.requiredLevel[nextLevel] then

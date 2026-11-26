@@ -55,6 +55,10 @@ local MOOD_TEXT = {
 }
 
 local function bubbleText(model: Model): string
+	local say = model:GetAttribute("Say") -- what the customer says right now (server sets it; empty = nothing)
+	if type(say) == "string" and say ~= "" then
+		return "💬 " .. say
+	end
 	local paid = model:GetAttribute("CashierPaid")
 	local mood = model:GetAttribute("Mood")
 	if paid ~= nil and mood == nil then
@@ -168,6 +172,7 @@ local function addBubble(model: Instance)
 	table.insert(connections, model:GetAttributeChangedSignal("Wish"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("ItemId"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("Mood"):Connect(refresh))
+	table.insert(connections, model:GetAttributeChangedSignal("Say"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("CashierPaid"):Connect(refresh))
 	bubbles[model] = { gui = gui, connections = connections }
 	log("bubble for", model.Name, label.Text)

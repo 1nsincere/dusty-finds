@@ -26,11 +26,18 @@ local ORDER = {
 	"CustomerService",
 	"CustomerNpcService", -- Sean: customer models/walking/checkout prompt; reacts to CustomerService
 	"UpgradeService",
+	"LayoutService", -- Dev 1: edit mode server side: validates + saves the shop layout, moves shelves / pedestals (after Plot, Display, Upgrade)
 	"ShopSocialService",
 	"SettingsService",
 	"TutorialService", -- Sean: saves tutorial.step/done (RequestTutorialStep), checked against Shared.Tutorial
 	"StorageShelfService", -- Sean: storage room shelves show each owner's unrestored items (slot attributes, no remotes)
 	"SkinService", -- Sean: shelf / pedestal skins: buy at the stall (RequestBuySkin), use (RequestApplySkin), draw on every shop
+	"MonetizationService", -- Dev 1: Robux: passes + tip jar (prompt, ownership check, entitlements, theme grants), VIP choices, public cosmetics attributes
+	"CollectorService", -- Dev 1: collector score + tier (DF_CollectorScore / DF_CollectorTier player attributes), tier-up message; nothing saved
+	"PaintService", -- Dev 1: wall / floor / trim / accent paints: buy at the Paint Bar (RequestBuyPaint), use (RequestApplyPaint), draw on every shop
+	"HoursService", -- Dev 1: in-game opening hours: Warehouse Market and shops close at night (Shared.Hours)
+	"VipLoungeService", -- Dev 1: the VIP Lounge gate in the market: only VIP owners walk through (collision groups); looks only
+	"SeasonService", -- Dev 1: seasonal shop decor (Pasko): shown in season, the special pieces only for owners of the pass
 	"CashierService", -- Dev 1: the till at the counter (count out the change; RequestGiveChange / CashierUpdate)
 	"TravelService", -- Dev 1: Travel menu teleports (RequestTravel; places in Config.Travel)
 	"AdminService", -- Dev 1: live admin chat commands (/admin), only for Config.Admins user ids

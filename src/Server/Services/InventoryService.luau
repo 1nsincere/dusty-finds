@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
@@ -37,7 +38,7 @@ end
 
 function InventoryService.GetCapacity(player: Player): number
 	local upgrades = DataService.GetValue(player, "upgrades") or {}
-	return Formulas.inventoryCapacity(upgrades.StorageRacks or 0)
+	return Formulas.inventoryCapacity(upgrades.StorageRacks or 0, DataService.GetValue(player, "entitlements")) -- + the Big Storage pass
 end
 
 -- Number of items that use up capacity.
@@ -241,6 +242,7 @@ end
 -- price, so the caller can't invent one: price = sellPrice (wish x1.25 if wishMatched), + 10% if `checkout`, + a tip
 -- (chance = 5% + 5% x shop rating stars + opts.tipBonus; amount 10-25% of the price).
 -- opts: wishMatched (boolean), checkout (boolean), tipBonus (the customer type's tipBonus), random (tests only),
+-- priceMult (number 0.5-1, optional, server-picked): an accepted haggle; price = round(price x priceMult).
 -- bonusFraction (number, optional, the cashier result from CashierService, Dev 3 2026-11-23): replaces the checkout
 -- bonus with round(price x fraction), clamped to -0.5..0.5; negative = an angry customer pays less. Server-picked only.
 -- Returns ok, reason, { price, bonus, tip, total }. Reasons: noItem, notDisplayed, noPrice, removeFailed.
@@ -259,6 +261,10 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 		return false, "noPrice", nil
 	end
 
+	-- a haggle the owner accepted (server-picked via CustomerService.SetPriceMult): the price is lower by that fraction
+	if type(opts.priceMult) == "number" and opts.priceMult == opts.priceMult then
+		price = math.max(1, math.floor(price * math.clamp(opts.priceMult, 0.5, 1) + 0.5))
+	end
 	local bonus = if opts.checkout == true then Formulas.checkoutBonus(price) else 0
 	local fraction = opts.bonusFraction
 	if type(fraction) == "number" and fraction == fraction then -- (fraction == fraction rejects NaN)
@@ -281,6 +287,7 @@ function InventoryService.CompleteSale(player: Player, uid: string, opts: { [str
 	EconomyService.AddCash(player, total, "Sale")
 	local sold = DataService.GetValue(player, "stats.sold") or 0
 	DataService.Set(player, "stats.sold", sold + 1)
+	Analytics.Step(player, Analytics.STEP.FirstSale)
 	if Validate.isPlayer(player) then
 		Remotes.SaleMade:FireClient(player, total, wishMatched, tip)
 	end

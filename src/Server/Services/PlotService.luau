@@ -77,6 +77,10 @@ local function slotCounts(upgrades: { [string]: number }?)
 	local exhibitCount = Economy.StartingExhibitPedestals
 	if (owned.Showroom or 0) > 0 then
 		exhibitCount = exhibitCount + Upgrades.Showroom.effect.exhibitPedestals
+		-- the Upper Back Room's pedestals (11-14) are reached from the Showroom gallery: they count only together with it
+		if (owned.UpperBackRoom or 0) > 0 then
+			exhibitCount = exhibitCount + Upgrades.UpperBackRoom.effect.exhibitPedestals
+		end
 	end
 	return displayCount, exhibitCount
 end
@@ -152,6 +156,17 @@ local function buildExpansion(plot: Model, template: Instance, name: string)
 	if math.abs(scale - 1) > 0.001 then
 		clone:ScaleTo(scale)
 	end
+	-- art that moves with another room (Ace, 2026-11-26: the Showroom's arched gallery wall and rope go to the back of the Upper Back Room):
+	-- MoveWithExpansion = <room> and MoveBy = a template-unit offset. Now that the room is scaled, turn it into the plot-local
+	-- HomeCFrame / ExpansionCFrame pair that applyMovedParts uses.
+	for _, part in clone:GetDescendants() do
+		local by = part:GetAttribute("MoveBy")
+		if part:IsA("BasePart") and typeof(by) == "Vector3" then
+			local home = floor.CFrame:ToObjectSpace(part.CFrame)
+			part:SetAttribute("HomeCFrame", home)
+			part:SetAttribute("ExpansionCFrame", CFrame.new(by * scale) * home)
+		end
+	end
 	for _, folderName in { "Benches", "DecorSlots" } do
 		local source = clone:FindFirstChild(folderName)
 		local target = plot:FindFirstChild(folderName)
@@ -183,6 +198,21 @@ local function applyHiddenArt(plot: Model, ownedRooms: { [string]: boolean })
 					part.Transparency = if hide then 1 else part:GetAttribute("ShownTransparency")
 				end
 			end
+		end
+	end
+end
+
+-- Walls that open for an expansion (Ace, 2026-11-26): a part with the attribute OpenWithExpansion = <expansion name> does not block
+-- you while that room is owned (the Showroom's invisible rear wall opens onto the Upper Back Room). Its own CanCollide is kept in
+-- the attribute ClosedCanCollide.
+local function applyOpenWalls(plot: Model, ownedRooms: { [string]: boolean })
+	for _, tagged in plot:GetDescendants() do
+		local room = tagged:GetAttribute("OpenWithExpansion")
+		if type(room) == "string" and tagged:IsA("BasePart") then
+			if tagged:GetAttribute("ClosedCanCollide") == nil then
+				tagged:SetAttribute("ClosedCanCollide", tagged.CanCollide)
+			end
+			tagged.CanCollide = if ownedRooms[room] == true then false else tagged:GetAttribute("ClosedCanCollide") == true
 		end
 	end
 end
@@ -240,6 +270,7 @@ local function applyExpansions(plot: Model, upgrades: { [string]: number }?)
 		end
 	end
 	applyHiddenArt(plot, ownedRooms)
+	applyOpenWalls(plot, ownedRooms)
 	applyMovedParts(plot, ownedRooms)
 	local walls = plot:FindFirstChild("Walls")
 	local backWall = walls and walls:FindFirstChild("BackWall")
@@ -295,6 +326,8 @@ local function freePlot(): Model?
 	end
 	return nil
 end
+
+local refreshHook: ((Player) -> ())? = nil
 
 -- Gives the player the first free plot (does nothing if they already have one). Returns the plot or nil if full.
 local function assignPlot(player: Player): Model?
@@ -362,7 +395,15 @@ function PlotService.RefreshSlots(player: Player)
 	local plot = plotOf[player]
 	if plot then
 		applySlots(plot, DataService.GetValue(player, "upgrades"))
+		if refreshHook then
+			refreshHook(player) -- LayoutService puts the saved shelf layout back on top of the default spots
+		end
 	end
+end
+
+-- LayoutService registers here so a purchase never undoes a player's shop layout.
+function PlotService.SetRefreshHook(hook: ((Player) -> ())?)
+	refreshHook = hook
 end
 
 function PlotService.Init(services)

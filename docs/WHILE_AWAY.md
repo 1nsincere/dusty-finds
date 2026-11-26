@@ -1,4 +1,61 @@
-# CATCH-UP for Dwayne and Sean (latest, 2026-11-16: read this first)
+# CATCH-UP for Dwayne and Sean (latest, 2026-11-25: read this first)
+
+## 2026-11-25 update from Ace's Claude session (branch `ace/canal-town`, everything committed, not pushed yet)
+- **Pull `ace/canal-town` BEFORE you edit or press Play.** Six commits landed: restoration UI/camera, Collection + Settings redesign, customer behaviour, edit-mode layout saving, warehouse tools + `docs/12_Solo_Roadmap.md`, and one commit of earlier UI/crate work (HUD layout, inventory, player list, shop, notification dock, WindowKit, Yard Sale crate, unboxing art; commit `1ca00cf`).
+- **Sean:** your files in `1ca00cf` were committed as found; tell Ace if anything was unfinished.
+- **Customers:** hesitation, come-back, queue + manual checkout (no auto-pay), haggling, personalities, shop rating as a gentle factor. Config in `Economy.luau`, `Customers.luau`, `CustomerLines.luau`.
+- **Restoration:** left-column HUD + guide, no start wait, wall-safe camera, Test LED meter, missing-part markers.
+- **Edit mode:** `LayoutService` saves shop layouts on the server (data template v2, `layout = {}`).
+- **Warehouse Market (Studio only, not in Git):** new two-floor modern/vintage warehouse at `Workspace.CanalTownWow.BlenderBuildings.Warehouse`, generated from `tools/blender/warehouse_market.py` (asset 99200784514192). Invisible walk collision is in its `WalkCollision` folder, lights in `Lights`. **Do not edit it in Studio; change the generator.** The Supply desk and Skins stall now stand inside it (same objects, same prompts). Dwayne's old warehouse is at `ServerStorage.Warehouse_Dwayne_Backup`.
+- **Plan:** `docs/12_Solo_Roadmap.md` (stock shop, skins and paints, collector auras, gentle Robux). Trading is off for now. Nothing Robux-related is built.
+- **Sean (if free):** market stall buy screens and the Style picker (docs/12 Stage 3). **Dwayne (if free):** shop-piece families (Rattan, Narra, Capiz, Machuca, Banig, Inabel) with 3 colourways for the rarest tiers, following `docs/Blender_Pipeline.md`. Subtle Filipino touches in materials, patterns and names; no flags.
+
+## FOR SEAN: create the Robux passes and tip products on Roblox (asked by Ace, 2026-11-25)
+The code for all Robux items is finished and tested, but every Roblox id is `0` ("coming soon"), so nothing can be bought yet. Please create the items in the Creator Dashboard and paste the ids into `src/Shared/Config/Monetization.luau`. **Passes and products can never be deleted once created, so double-check names and prices first.** Rules for everything we sell: docs/11 section 2 and 11 (no cash/XP/speed/odds, nothing random, price always shown).
+
+**Steps** (Creator Dashboard, our experience, left menu "Monetization"):
+1. **Passes** -> "Create a Pass" -> upload a 512x512 icon, enter the **Name** and **Description** from the table, Create. Open it -> "Sales" -> set the **Price** from the table. Leave "Item for sale" **OFF** until Ace says go.
+2. **Developer Products** -> "Create a Developer Product" -> **Name** and **Price** from the table (icon optional).
+3. Copy each item's **ID** (the number in its page address) into `Monetization.luau`: `passId = ...` for passes, `productId = ...` for tips. The `id = "..."` text stays exactly as it is.
+4. **Only paste an id when that item is ready to sell** (on sale). With an id set the Corner shows a Buy button; a pass that is not on sale would make Roblox show an error.
+5. Keep the price on Roblox the SAME as `price = ...` in the config (Roblox charges the dashboard price; the window shows the config price).
+6. Test with `/pass me <id>` (admin chat) or `DevTools givePass`; a real purchase test needs a second account on the published game.
+
+**Passes** (name | config id | price | description to paste)
+| Name on Roblox | `id` | R$ | Description |
+|---|---|---|---|
+| Theme: Retro Arcade | ThemeArcade | 149 | Neon pink and midnight blue: matching walls, floor, shelves, pedestals and counter for your whole shop. |
+| Theme: Cozy Cabin | ThemeCabin | 149 | Warm logs and honey wood: matching walls, floor, shelves, pedestals and counter. |
+| Theme: Pasko Pack (Christmas, added 2026-11-26) | ThemePasko | 149 | Two Christmas looks: Parol Pasko (cream, deep red and gold) and Noche Buena (pine green and gold), plus a glowing parol, a wreath and a belen for your door. |
+| Restoration Glow Pack | GlowPack | 99 | Golden sparkles when you finish restoring and a shower of confetti when you open a box. Looks only: same speed, same score. |
+| Saved Layouts | SavedLayouts | 149 | Save 3 shop layouts in Edit Mode and switch between them in one tap. |
+| Shopkeeper's Companion | Companion | 199 | A little friend that follows you around the market and your shop. Everyone can see it. |
+| Big Storage Room | BigStorage | 149 | +16 inventory slots. (You can also grow your storage with Storage Racks in the game.) |
+| VIP | VIP | 349 | Choose a pet, a title, an aura style and a nameplate colour, plus 1 extra saved layout. Looks only: never cash, XP, speed or odds. |
+
+**Developer products (tip jar)**: `Tip the team` TipSmall 25 R$ | `Big thanks!` TipMedium 100 R$ | `You're amazing!` TipLarge 250 R$. They give nothing but a thank-you.
+
+**Premium paint products (added 2026-11-26, Robux Premium tab in the Paint Bar).** These are **Developer Products** (not passes): the game gives the paint for good when Roblox confirms the purchase. Create each one, then paste its id as `productId = ...` in `Monetization.luau` (the `id` text stays as it is; the table is built from the `PREMIUM` list, so look for the entry by its `id`). Price must match `price`. Keep them off sale until Ace says go.
+| Name on Roblox | `id` | R$ |
+|---|---|---|
+| Capiz Pearl Wall | PaintWallPremPearl | 39 |
+| Machuca Marble Wall | PaintWallPremMarble | 49 |
+| Ube Velvet Wall | PaintWallPremVelvet | 39 |
+| Machuca Marble Floor | PaintFloorPremMarble | 35 |
+| Mayon Granite Floor | PaintFloorPremGranite | 29 |
+| Brushed Brass Trim | PaintTrimPremBrass | 29 |
+| Gold-Leaf Trim | PaintTrimPremGold | 35 |
+| Barako Brass Accent | PaintAccentPremBrass | 25 |
+| Ube Velvet Accent | PaintAccentPremVelvet | 25 |
+| Capiz Pearl Set | SetPearl | 99 |
+| Ube Velvet Set | SetVelvet | 119 |
+**Skin voucher products (added 2026-11-26, Vouchers tab at the skins stall).** Two more **Developer Products**: `Epic Skin Voucher` (id `VoucherEpic`, 49 R$) and `Legendary Skin Voucher` (id `VoucherLegendary`, 99 R$). A purchase gives ONE voucher (saved in the new data field `vouchers`, data version 6); the player then redeems it at the stall for any Epic / Legendary skin they choose (no randomness). Paste the ids as `productId = ...` on those two entries in `Monetization.luau`. Keep them off sale until Ace says go.
+
+In `Monetization.luau` the nine single paints are in the `PREMIUM` list (set `productId = ...` on the paint's line) and the two sets are the `SetPearl` and `SetVelvet` entries right below it. (Marble Wall and Gold-Leaf Trim can also be EARNED for free at the Radiant / Gilded collector tiers.)
+
+**Also Studio-only (not in Git), please keep:** `Workspace.CollectorsCorner` (counter + prompt), `Workspace.PaintCounter` (Paint Bar prompt), the Warehouse (`BlenderBuildings.Warehouse`, change the generator not the model). More in docs/STATUS.md (2026-11-25 entries) and the roadmap docs/12_Solo_Roadmap.md.
+
+# Older catch-up (2026-11-16)
 
 Written by Ace's Claude session. The older report further down is from an earlier session; it is kept below.
 

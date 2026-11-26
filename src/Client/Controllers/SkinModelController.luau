@@ -43,6 +43,8 @@ local function log(...)
 	end
 end
 
+local PETAL = "rbxassetid://92667698474654" -- a soft pink sakura petal (alpha PNG, uploaded 2026-11-26)
+
 local function reduceEffects(): boolean
 	return ClientState.Get("settings.reduceEffects") == true
 end
@@ -340,6 +342,40 @@ local function addAura(model: Model, look: any, kind: string)
 			})
 		end
 		orbits[model] = list
+	end
+	-- falling petals (look.petals, Sakura Starlight): a thin invisible field above the piece drops soft pink petals that sway
+	-- down past the shelf and fade (named SkinAura, so Reduce effects turns them off like the rest)
+	if look.petals then
+		local field = Instance.new("Part")
+		field.Name = "PetalField"
+		field.Anchored = true
+		field.CanCollide = false
+		field.CanQuery = false
+		field.CanTouch = false
+		field.CastShadow = false
+		field.Transparency = 1
+		field.Size = Vector3.new(size.X + 1.5, 0.2, size.Z + 1.5)
+		field.CFrame = model:GetPivot() * CFrame.new(0, size.Y + 3.2, 0)
+		field.Parent = model
+		local petals = Instance.new("ParticleEmitter")
+		petals.Name = "SkinAura"
+		petals.Texture = PETAL
+		petals.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 196, 224))
+		petals.LightEmission = 0.35
+		petals.LightInfluence = 0.3
+		petals.Rate = 2.4
+		petals.Lifetime = NumberRange.new(4.5, 6)
+		petals.EmissionDirection = Enum.NormalId.Bottom
+		petals.Speed = NumberRange.new(0.3, 0.8)
+		petals.SpreadAngle = Vector2.new(25, 25)
+		petals.Acceleration = Vector3.new(0.35, -0.5, 0.15) -- a gentle drift down and sideways
+		petals.Drag = 0.7
+		petals.RotSpeed = NumberRange.new(-70, 70)
+		petals.Rotation = NumberRange.new(0, 360)
+		petals.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.12, 0.42), NumberSequenceKeypoint.new(1, 0.3) })
+		petals.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.1), NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		petals.Enabled = not reduceEffects()
+		petals.Parent = field
 	end
 	if source then
 		source:Destroy() -- the hidden template piece itself never shows

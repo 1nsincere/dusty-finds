@@ -8,6 +8,7 @@ local Config = script.Parent:WaitForChild("Config")
 local Economy = require(Config:WaitForChild("Economy"))
 local Items = require(Config:WaitForChild("Items"))
 local Upgrades = require(Config:WaitForChild("Upgrades"))
+local Monetization = require(Config:WaitForChild("Monetization"))
 
 local Formulas = {}
 
@@ -50,6 +51,19 @@ end
 -- Quick Sell at the counter: 70% of baseValue x qualityMult x variantMult. No wish bonus, no tip.
 function Formulas.quickSellPrice(itemId: string, stars: number, golden: boolean?): number
 	return round(baseTimesQualityTimesVariant(itemId, stars, golden) * Economy.QuickSellFraction)
+end
+
+-- Chance (0.15-0.98) that a customer standing at a shelf decides to BUY the item: the shop's rating stars (1-5) set the base, a
+-- wish match and the item's restore stars (1-3) nudge it, `bonus` is for a customer who came back to think about it.
+function Formulas.buyChance(ratingStars: number, itemStars: number?, wishMatched: boolean?, bonus: number?): number
+	local rating = math.clamp(math.floor(cleanNumber(ratingStars, 1)), 1, #Economy.BuyChanceByRating)
+	local chance = Economy.BuyChanceByRating[rating]
+	if wishMatched == true then
+		chance += Economy.BuyChanceWish
+	end
+	chance += Economy.BuyChanceItemStars[cleanStars(itemStars)] or 0
+	chance += cleanNumber(bonus, 0)
+	return math.clamp(chance, 0.15, 0.98)
 end
 
 -- Dispose payout for a Dirty item: DisposeFraction of its estimated value (price at DisposeEstimateStars), rounded down, at
@@ -100,12 +114,17 @@ function Formulas.ratingStars(points: number): number
 end
 
 -- Inventory slots for a Storage Racks level (0 = not bought). One copy for the server and the UI.
-function Formulas.inventoryCapacity(storageLevel: number): number
+-- `entitlements` (optional, data.entitlements): the Big Storage Room pass (Config.Monetization) adds its slots on top.
+function Formulas.inventoryCapacity(storageLevel: number, entitlements: any?): number
 	local level = math.floor(cleanNumber(storageLevel, 0))
+	local base = Economy.StartingInventoryCapacity
 	if level > 0 then
-		return Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
+		base = Upgrades.StorageRacks.effect.inventoryCapacity[level] or Economy.StartingInventoryCapacity
 	end
-	return Economy.StartingInventoryCapacity
+	if type(entitlements) == "table" and entitlements.BigStorage == true then
+		base += Monetization.BY_PASS.BigStorage.storageSlots
+	end
+	return base
 end
 
 -- Chance (0-1) that a customer tips: 5% + 5% x rating stars (docs/02 §5), plus the customer type's own bonus.

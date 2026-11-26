@@ -230,6 +230,18 @@ local function clearBubble()
 	bubbleEnds = 0
 end
 
+local function foodPurchaseReady(): boolean
+	local controllers = script.Parent:FindFirstChild("Controllers")
+	local controller = controllers and controllers:FindFirstChild("FoodVendorController")
+	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+	if not controller or not controller:IsA("ModuleScript") or not remotes then return false end
+	for _, name in { "RequestFoodQuote", "RequestBuyFood", "RequestEatFood", "FoodVendorResult" } do
+		local remote = remotes:FindFirstChild(name)
+		if not remote or not remote:IsA("RemoteEvent") then return false end
+	end
+	return true
+end
+
 local function talkAnchorPosition(head: BasePart): Vector3
 	local actor = head.Parent
 	local vendor = actor and vendorActors[actor]
@@ -730,5 +742,6 @@ while script:IsDescendantOf(game) do
 	local vendor = actor and vendorActors[actor]
 	buyPrompt.Enabled = prompt.Enabled and vendor ~= nil and CARTS[vendor.index].name == "Fishball"
 		and foodWindow ~= nil and foodWindow:IsA("ScreenGui") and not foodWindow.Enabled
+		and foodPurchaseReady()
 	task.wait(TALK.updateSeconds)
 end

@@ -22,11 +22,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local CustomerTypes = require(ReplicatedStorage.Shared.Config.Customers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local Formulas = require(ReplicatedStorage.Shared.Formulas)
+local Hours = require(ReplicatedStorage.Shared.Hours)
 
 local CustomerService = {}
 local DEBUG = true
@@ -36,7 +38,7 @@ local DataService, DisplayService, InventoryService, CollectionBookService = nil
 
 -- Safety net: a customer that nobody finished (NPC destroyed, script error) is removed after this long so it can't
 -- block the shop's customer cap forever. Longer than any normal visit (walk + browse + 8 s checkout).
-local MAX_CUSTOMER_SECONDS = 90
+local MAX_CUSTOMER_SECONDS = 420 -- long enough for a visit with thinking, coming back and waiting for the owner at the till
 local WISH_FROM_DISPLAY_CHANCE = 0.7 -- docs/01 B9: 70% of wishes are chosen from categories currently on display
 local PICK_ATTEMPTS = 3 -- how many times ChooseItem retries when a reservation fails (another customer was faster)
 
@@ -47,6 +49,8 @@ type Customer = {
 	spawnedAt: number,
 	uid: string?, -- the reserved item, once chosen
 	wishMatched: boolean,
+	noTip: boolean?, -- a declined haggler who stayed: pays full price but never tips
+	priceMult: number?, -- a haggle the owner accepted: the sale price is multiplied by this (0.5-1)
 }
 
 local customers: { [any]: { [string]: Customer } } = {} -- [Player][customerId] = Customer
@@ -75,6 +79,8 @@ local function removeCustomer(player: any, customerId: string, reason: string)
 		DisplayService.Release(player, customer.uid, customer.id)
 	end
 	mine[customerId] = nil
+	-- how every customer visit ended (paid / left / impatient / nothing / timeout / ...), by customer type
+	Analytics.Event(player, "CustomerOutcome", 1, customer.typeId, reason)
 	local handler = removedHandler
 	if handler then
 		task.spawn(function()
@@ -235,6 +241,88 @@ function CustomerService.ChooseItem(player: any, customerId: any, random: Random
 	return nil, "nothing"
 end
 
+-- The customer looks at the item it reserved and decides (2026-11-25). Returns outcome, reason:
+--   "buy"   -> go to the counter and wait for the owner
+--   "think" -> "let me think about it": CustomerService.Reconsider, wander off, maybe come back
+--   "pass"  -> leaves with a critique (reason: scratched | notWanted | plainShop | pricey)
+-- The chance to buy grows with the SHOP RATING (a 5-star shop sells much more than a 1-star one), a little with the item's stars and
+-- a wish match (Formulas.buyChance). `returning` = this customer already thought it over once: more likely to buy, never thinks twice.
+function CustomerService.Judge(player: any, customerId: any, random: Random?, returning: boolean?): (string?, string?)
+	local customer = customers[player] and type(customerId) == "string" and customers[player][customerId]
+	if not customer or customer.uid == nil then
+		return nil, "noItem"
+	end
+	local item = InventoryService.Get(player, customer.uid)
+	local ratingStars = CollectionBookService.GetRatingStars(player)
+	local itemStars = if item and type(item.stars) == "number" then item.stars else 2
+	local rng = random or Random.new()
+	local personality = CustomerTypes[customer.typeId] or {}
+	local chance = Formulas.buyChance(ratingStars, itemStars, customer.wishMatched, (if returning then Economy.ThinkReturnBonus else 0) + (personality.buyBonus or 0))
+	if rng:NextNumber() < chance then
+		return "buy", nil
+	end
+	local reason
+	if itemStars <= 1 then
+		reason = "scratched"
+	elseif not customer.wishMatched then
+		reason = "notWanted"
+	elseif ratingStars <= 2 then
+		reason = "plainShop"
+	else
+		reason = "pricey"
+	end
+	if not returning and rng:NextNumber() < Economy.ThinkShare then
+		return "think", reason
+	end
+	return "pass", reason
+end
+
+-- Haggling: does a customer of this type ask for a discount at the till, and how much? Returns the discount fraction (0.05 steps),
+-- or nil for no haggle. Pure apart from the random it is given.
+function CustomerService.HaggleOffer(typeId: string, random: Random?): number?
+	local def = CustomerTypes[typeId]
+	if def == nil or type(def.haggleChance) ~= "number" or def.haggleDiscount == nil then
+		return nil
+	end
+	local rng = random or Random.new()
+	if rng:NextNumber() >= def.haggleChance then
+		return nil
+	end
+	local raw = rng:NextNumber(def.haggleDiscount[1], def.haggleDiscount[2])
+	local step = Economy.HaggleStep
+	return math.clamp(math.floor(raw / step + 0.5) * step, step, 0.5)
+end
+
+-- The owner declined a haggle and the customer stayed: full price, no tip.
+function CustomerService.SetNoTip(player: any, customerId: any)
+	local customer = customers[player] and type(customerId) == "string" and customers[player][customerId]
+	if customer then
+		customer.noTip = true
+	end
+end
+
+-- The owner accepted a haggle: the sale will be at price x mult (clamped 0.5-1; the till and the sale both use it).
+function CustomerService.SetPriceMult(player: any, customerId: any, mult: number): boolean
+	local customer = customers[player] and type(customerId) == "string" and customers[player][customerId]
+	if not customer or type(mult) ~= "number" or mult ~= mult then
+		return false
+	end
+	customer.priceMult = math.clamp(mult, 0.5, 1)
+	return true
+end
+
+-- A thinking customer puts the item back: the reservation is released and it can choose again later (or never come back).
+function CustomerService.Reconsider(player: any, customerId: any): boolean
+	local customer = customers[player] and type(customerId) == "string" and customers[player][customerId]
+	if not customer or customer.uid == nil then
+		return false
+	end
+	DisplayService.Release(player, customer.uid, customer.id)
+	customer.uid = nil
+	customer.wishMatched = false
+	return true
+end
+
 -- Pays the sale. `tapped` = the owner tapped Checkout (+10%); false = auto checkout. Removes the customer.
 -- Returns ok, reason, result = { price, bonus, tip, total } (the same table InventoryService.CompleteSale gives).
 -- Reasons: noCustomer, noItem (no item chosen yet), or CompleteSale's own (notDisplayed, noPrice, removeFailed).
@@ -252,10 +340,11 @@ function CustomerService.Checkout(player: any, customerId: any, tapped: boolean,
 	local ok, reason, result = InventoryService.CompleteSale(player, customer.uid, {
 		wishMatched = customer.wishMatched,
 		checkout = tapped == true,
-		noTip = tapped ~= true and served ~= true, -- served at the till may earn a tip; auto-checkout never does
 		tipBonus = CustomerTypes[customer.typeId].tipBonus,
 		random = random,
 		bonusFraction = bonusFraction,
+		priceMult = customer.priceMult,
+		noTip = (tapped ~= true and served ~= true) or customer.noTip == true, -- a declined haggler who stayed never tips
 	})
 	removeCustomer(player, customer.id, if ok then "paid" else "failed") -- also releases the reservation
 	if not ok then
@@ -354,7 +443,8 @@ function CustomerService.Start()
 			if spawnHandler then
 				for _, player in Players:GetPlayers() do
 					if Validate.isPlayer(player) and DataService.IsLoaded(player) then
-						local ok, err = pcall(CustomerService.Tick, player)
+						-- closing time: nobody new arrives (Shared.Hours.SHOP_CLOSE..SHOP_OPEN); customers already inside finish or time out
+						local ok, err = pcall(if Hours.shopOpen() then CustomerService.Tick else CustomerService.Sweep, player)
 						if not ok then
 							log.warn("tick failed:", tostring(err))
 						end

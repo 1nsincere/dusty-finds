@@ -13,9 +13,12 @@ local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Items = require(Shared.Config:WaitForChild("Items"))
+local Skin = require(Shared.Config:WaitForChild("UiSkin"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local Minigames = script.Parent.Parent:WaitForChild("Minigames")
 local TestGame = require(Minigames:WaitForChild("Test"))
@@ -60,84 +63,297 @@ local function frame(parent: Instance, name: string, position: UDim2, size: UDim
 	return f
 end
 
--- ===== Test: a bar with a green zone and a sweeping needle; tap to stop =====
+-- ===== Test: a retro LED meter with a sweeping light; tap to stop it in the green (redesigned 2026-11-25) =====
+-- Not a flat bar any more: a row of LED cells (red edges, yellow, a green middle) with a light that sweeps along and leaves a glowing trail,
+-- a little marker above it, and a chunky 3D key that matches the item's test (PLAY / FLIP / WIND / SHAKE) and sinks when pressed.
+-- Tap the key, tap the meter or press Space / Enter. A good stop stamps the result for a moment before the step ends.
+local TEST_KEYS = {
+	Play = { "▶", "PLAY", "Press play, then hit the green!" },
+	Switch = { "⏻", "FLIP", "Flip the switch at the right moment!" },
+	Wind = { "⟳", "WIND", "Wind it up, stop in the green!" },
+	Shake = { "≋", "SHAKE", "Give it a shake, stop in the green!" },
+}
+local TEST_CELLS = 28
+
 local function runTest(ctx)
 	local step = table.clone(ctx.step)
 	step.rarity = rarityOf(ctx.uid)
-	local finished = false
+	step.center = 0.5 -- the green zone is always in the middle of the meter (Ace, 2026-11-26); the recipe's own `center` is ignored
+	local closed = false
+	local pendingScore: number? = nil
 	local game_
 	game_ = TestGame.new(nil, step, function(fraction)
-		ctx.setProgress(fraction)
+		if not closed then
+			ctx.setProgress(fraction)
+		end
 	end, function(score)
-		finished = true
-		ctx.complete(score)
+		pendingScore = score -- the result is shown first; the step ends in a moment (see tap)
 	end)
 
+	local C = Skin.COLORS
+	local key = TEST_KEYS[step.style] or { "●", "TAP", "Stop the light in the green!" }
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RestorationTest"
 	gui.ResetOnSpawn = false
-	gui.DisplayOrder = 4
+	gui.DisplayOrder = 6
 	gui.IgnoreGuiInset = true
+
+	-- the device: a dark casing with a cream bezel, bottom centre (a little right of centre: the HUD column is on the left)
+	local card = Instance.new("Frame")
+	card.Name = "Card"
+	card.AnchorPoint = Vector2.new(0.5, 1)
+	card.Position = UDim2.new(0.5, 0, 1, -18)
+	card.Size = UDim2.fromOffset(600, 196)
+	card.BackgroundColor3 = C.walnut
+	card.BorderSizePixel = 0
+	card.Parent = gui
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 22)
+	local cardGradient = Instance.new("UIGradient")
+	cardGradient.Color = ColorSequence.new(C.panelTop, C.panelBottom)
+	cardGradient.Rotation = 90
+	cardGradient.Parent = card
+	local cardStroke = Instance.new("UIStroke")
+	cardStroke.Color = C.ink
+	cardStroke.Thickness = 3
+	cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	cardStroke.Parent = card
+	local cardScale = Instance.new("UIScale")
+	cardScale.Parent = card
+	local function rescale()
+		local view = gui.AbsoluteSize
+		if view.X > 0 and view.Y > 0 then
+			cardScale.Scale = math.clamp(math.min(view.X * 0.94 / 600, view.Y / 700), 0.55, 1.1)
+		end
+	end
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
+
 	local label = Instance.new("TextLabel")
-	label.AnchorPoint = Vector2.new(0.5, 1)
-	label.Position = UDim2.fromScale(0.5, 0.66)
-	label.Size = UDim2.fromScale(0.6, 0.07)
+	label.Name = "Prompt"
 	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
-	label.TextColor3 = Color3.fromHex("1F2D3A")
-	label.TextStrokeColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.2
-	label.Text = TEST_LABELS[step.style] or "Does it work?"
-	label.Parent = gui
-	local bar = frame(gui, "Bar", UDim2.fromScale(0.5, 0.74), UDim2.fromScale(0.6, 0.06), Color3.fromHex("E0524D"))
-	bar.AnchorPoint = Vector2.new(0.5, 0.5)
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(0.5, 0)
+	label.Position = UDim2.fromOffset(0, 10)
+	label.Size = UDim2.new(1, 0, 0, 26)
+	label.FontFace = Skin.FONT_TITLE
+	label.TextSize = 20
+	label.TextColor3 = C.edge
+	label.Text = key[3]
+	label.Parent = card
+
+	-- the LED meter inside a dark window
+	local window = frame(card, "Window", UDim2.fromOffset(20, 48), UDim2.new(1, -40, 0, 56), Color3.fromRGB(20, 12, 8))
+	Instance.new("UICorner", window).CornerRadius = UDim.new(0, 12)
+	local windowStroke = Instance.new("UIStroke")
+	windowStroke.Color = C.accentDim
+	windowStroke.Thickness = 2
+	windowStroke.Parent = window
 	local z = game_.zone
-	local yellow = frame(bar, "Yellow", UDim2.fromScale(z.yellowFrom, 0), UDim2.fromScale(z.yellowTo - z.yellowFrom, 1), Color3.fromHex("FFD43B"))
-	local green = frame(bar, "Green", UDim2.fromScale(z.greenFrom, 0), UDim2.fromScale(z.greenTo - z.greenFrom, 1), Color3.fromHex("3DBE6B"))
-	local needle = frame(bar, "Needle", UDim2.fromScale(0, -0.4), UDim2.new(0, 6, 1.8, 0), Color3.fromHex("1F2D3A"))
-	needle.AnchorPoint = Vector2.new(0.5, 0)
+	local cells = {}
+	local zoneOf = {}
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Padding = UDim.new(0, 3)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.Parent = window
+	local cellWidth = (560 - 24 - 3 * (TEST_CELLS - 1)) / TEST_CELLS
+	for i = 1, TEST_CELLS do
+		local centre = (i - 0.5) / TEST_CELLS
+		local zone = if centre >= z.greenFrom and centre <= z.greenTo then "green" elseif centre >= z.yellowFrom and centre <= z.yellowTo then "yellow" else "red"
+		zoneOf[i] = zone
+		local cell = Instance.new("Frame")
+		cell.Name = "Cell" .. i
+		cell.LayoutOrder = i
+		cell.Size = UDim2.fromOffset(cellWidth, if zone == "green" then 34 else if zone == "yellow" then 28 else 22)
+		cell.BackgroundColor3 = if zone == "green" then Color3.fromHex("46E07A") elseif zone == "yellow" then Color3.fromHex("FFD43B") else Color3.fromHex("FF5A52")
+		cell.BackgroundTransparency = 0.8
+		cell.BorderSizePixel = 0
+		cell.Parent = window
+		Instance.new("UICorner", cell).CornerRadius = UDim.new(0, 4)
+		cells[i] = cell
+	end
+	-- a marker above the window that follows the light
+	local marker = Instance.new("TextLabel")
+	marker.Name = "Marker"
+	marker.AnchorPoint = Vector2.new(0.5, 1)
+	marker.BackgroundTransparency = 1
+	marker.Size = UDim2.fromOffset(24, 16)
+	marker.Position = UDim2.new(0, 32, 0, 50)
+	marker.FontFace = Skin.FONT_TITLE
+	marker.TextSize = 16
+	marker.TextColor3 = C.accent
+	marker.Text = "▼"
+	marker.Parent = card
+
+	local caption = Instance.new("TextLabel")
+	caption.Name = "Caption"
+	caption.BackgroundTransparency = 1
+	caption.Position = UDim2.fromOffset(0, 108)
+	caption.Size = UDim2.new(1, 0, 0, 14)
+	caption.FontFace = Skin.FONT_TEXT
+	caption.TextSize = 11
+	caption.TextColor3 = C.accentDim
+	caption.Text = "STOP THE LIGHT IN THE GREEN"
+	caption.Parent = card
+
+	-- the key: a dark base with the key on top, offset up; pressing sinks it
+	local KEY_W, KEY_H, LIFT = 250, 50, 6
+	local base = frame(card, "KeyBase", UDim2.new(0.5, 0, 1, -14), UDim2.fromOffset(KEY_W, KEY_H), Color3.fromRGB(150, 52, 34))
+	base.AnchorPoint = Vector2.new(0.5, 1)
+	Instance.new("UICorner", base).CornerRadius = UDim.new(0, 18)
 	local button = Instance.new("TextButton")
 	button.Name = "TapButton"
-	button.AnchorPoint = Vector2.new(0.5, 0)
-	button.Position = UDim2.fromScale(0.5, 0.79)
-	button.Size = UDim2.fromScale(0.3, 0.12)
-	button.BackgroundColor3 = Color3.fromHex("F2784B")
+	button.AnchorPoint = Vector2.new(0.5, 1)
+	button.Position = UDim2.new(0.5, 0, 1, -14 - LIFT)
+	button.Size = UDim2.fromOffset(KEY_W, KEY_H)
+	button.BackgroundColor3 = Color3.fromHex("FF6A4D")
 	button.TextColor3 = Color3.new(1, 1, 1)
-	button.TextScaled = true
-	button.Font = Enum.Font.FredokaOne
-	button.Text = "TAP!"
-	button.AutoButtonColor = true
-	button.Parent = gui
-	Instance.new("UICorner", button).CornerRadius = UDim.new(0.3, 0)
-	local limit = Instance.new("UISizeConstraint")
-	limit.MinSize = Vector2.new(180, 64)
-	limit.MaxSize = Vector2.new(380, 110)
-	limit.Parent = button
-	gui.Parent = player:WaitForChild("PlayerGui")
-	_ = yellow
-	_ = green
+	button.FontFace = Skin.FONT_TITLE
+	button.TextSize = 26
+	button.Text = `{key[1]}  {key[2]}`
+	button.AutoButtonColor = false
+	button.Parent = card
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 18)
+	local buttonStroke = Instance.new("UIStroke")
+	buttonStroke.Color = C.ink
+	buttonStroke.Thickness = 3
+	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	buttonStroke.Parent = button
+	local shine = Instance.new("UIGradient")
+	shine.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(215, 215, 215))
+	shine.Rotation = 90
+	shine.Parent = button
 
-	local tapped = button.Activated:Connect(function()
+	-- the stamp that pops up with the result
+	local stamp = Instance.new("TextLabel")
+	stamp.Name = "Stamp"
+	stamp.AnchorPoint = Vector2.new(0.5, 0.5)
+	stamp.BackgroundTransparency = 1
+	stamp.Position = UDim2.new(0.5, 0, 0.5, -34)
+	stamp.Size = UDim2.fromOffset(300, 56)
+	stamp.FontFace = Skin.FONT_TITLE
+	stamp.TextSize = 44
+	stamp.Text = ""
+	stamp.Visible = false
+	stamp.ZIndex = 5
+	stamp.Parent = card
+	local stampStroke = Instance.new("UIStroke")
+	stampStroke.Color = C.ink
+	stampStroke.Thickness = 3
+	stampStroke.Parent = stamp
+	local stampScale = Instance.new("UIScale")
+	stampScale.Parent = stamp
+
+	gui.Parent = player:WaitForChild("PlayerGui")
+	rescale()
+
+	local resetToken = 0
+	local function say(text: string, color: Color3, back: boolean)
+		label.Text = text
+		label.TextColor3 = color
+		resetToken += 1
+		local token = resetToken
+		if back then
+			task.delay(0.9, function()
+				if not closed and token == resetToken then
+					label.Text = key[3]
+					label.TextColor3 = C.edge
+				end
+			end)
+		end
+	end
+	local function pop(text: string, color: Color3)
+		stamp.Text = text
+		stamp.TextColor3 = color
+		stamp.Visible = true
+		stampScale.Scale = 0.4
+		TweenService:Create(stampScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+	local function press(down: boolean)
+		TweenService:Create(button, TweenInfo.new(0.06), {
+			Position = UDim2.new(0.5, 0, 1, -14 - (if down then 1 else LIFT)),
+		}):Play()
+	end
+
+	local function tap()
+		if closed or pendingScore ~= nil then
+			return
+		end
 		local result = game_:OnPointerDown(nil)
 		if result == "red" then
-			label.Text = "Missed! Try again"
-		elseif result == "yellow" then
-			label.Text = "Good!"
-		elseif result == "green" then
-			label.Text = "Perfect!"
+			say("Missed! Try again", Color3.fromHex("FF8A80"), true)
+			cardStroke.Color = Color3.fromHex("E0524D")
+			task.delay(0.25, function()
+				if not closed then
+					cardStroke.Color = C.ink
+				end
+			end)
+		elseif result == "yellow" or result == "green" then
+			local perfect = result == "green"
+			say(if perfect then "Perfect timing!" else "Good one!", if perfect then Color3.fromHex("7DE08D") else Color3.fromHex("FFD43B"), false)
+			pop(if perfect then "PERFECT!" else "NICE!", if perfect then Color3.fromHex("7DE08D") else Color3.fromHex("FFD43B"))
+			button.Active = false
+			button.BackgroundColor3 = if perfect then Color3.fromHex("3DBE6B") else Color3.fromHex("FFB300")
+			-- flash the lit zone
+			for i, cell in cells do
+				if zoneOf[i] == result then
+					cell.BackgroundTransparency = 0
+				end
+			end
+			task.delay(0.65, function()
+				if not closed and pendingScore ~= nil then
+					ctx.complete(pendingScore)
+				end
+			end)
+		end
+	end
+
+	local downs = button.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			press(true)
+		end
+	end)
+	local ups = button.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			press(false)
+		end
+	end)
+	local tapped = button.Activated:Connect(tap)
+	local windowTapped = window.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			tap()
+		end
+	end)
+	local keys = UserInputService.InputBegan:Connect(function(input, processed)
+		if not processed and (input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.Return) then
+			press(true)
+			task.delay(0.1, function()
+				if not closed then
+					press(false)
+				end
+			end)
+			tap()
 		end
 	end)
 	local beat = RunService.Heartbeat:Connect(function(dt)
 		game_:Update(dt)
-		needle.Position = UDim2.fromScale(game_.needle, -0.4)
-		if finished then
-			button.Active = false
+		local needle = game_.needle
+		local index = math.clamp(math.floor(needle * TEST_CELLS) + 1, 1, TEST_CELLS)
+		if pendingScore == nil then
+			for i, cell in cells do
+				local glow = math.max(0, 1 - math.abs(i - index) / 3) -- a lit head with a soft trail either side
+				cell.BackgroundTransparency = 0.8 - 0.8 * glow
+			end
+			-- the marker sits exactly over the lit cell and stops with it when you tap (it used to keep sweeping after the tap, so it
+			-- drifted far away from the frozen light). The cells span x 32..568 inside the card (window at 20 + 12 padding).
+			marker.Position = UDim2.fromOffset(32 + 536 * ((index - 0.5) / TEST_CELLS), 50)
 		end
 	end)
 	return function()
+		closed = true
 		tapped:Disconnect()
+		downs:Disconnect()
+		ups:Disconnect()
+		windowTapped:Disconnect()
+		keys:Disconnect()
 		beat:Disconnect()
 		game_:Destroy()
 		gui:Destroy()
@@ -296,17 +512,112 @@ local function repairFx(model: Instance)
 		table.insert(made, beam)
 		return beam
 	end
+	-- A flat 2D marker over every empty spot, drawn ON TOP of the whole screen: a pulsing ring and "PUT IT HERE". The 3D arrows can sit
+	-- hidden inside the item (the Lava Lamp's bulb spot is inside its foot), so this one is what a lost player can always find. If the
+	-- spot is off screen the marker sticks to the nearest edge.
+	local function screenMarkers(game_)
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "RestorationGuide"
+		gui.ResetOnSpawn = false
+		gui.DisplayOrder = 7
+		gui.IgnoreGuiInset = true
+		local markers: { [string]: { frame: Frame, ring: UIStroke, label: TextLabel, base: BasePart } } = {}
+		for name, target in game_.targets do
+			local base = basePartOf(target.socket)
+			if base then
+				local frame = Instance.new("Frame")
+				frame.Name = "Spot_" .. name
+				frame.AnchorPoint = Vector2.new(0.5, 0.5)
+				frame.Size = UDim2.fromOffset(56, 56)
+				frame.BackgroundTransparency = 1
+				frame.Parent = gui
+				local ring = Instance.new("Frame")
+				ring.AnchorPoint = Vector2.new(0.5, 0.5)
+				ring.Position = UDim2.fromScale(0.5, 0.5)
+				ring.Size = UDim2.fromScale(1, 1)
+				ring.BackgroundTransparency = 1
+				ring.Parent = frame
+				Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+				local stroke = Instance.new("UIStroke")
+				stroke.Color = SELECT_COLOR
+				stroke.Thickness = 4
+				stroke.Parent = ring
+				local dot = Instance.new("Frame")
+				dot.AnchorPoint = Vector2.new(0.5, 0.5)
+				dot.Position = UDim2.fromScale(0.5, 0.5)
+				dot.Size = UDim2.fromOffset(10, 10)
+				dot.BackgroundColor3 = SELECT_COLOR
+				dot.BorderSizePixel = 0
+				dot.Parent = frame
+				Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+				local label = Instance.new("TextLabel")
+				label.AnchorPoint = Vector2.new(0.5, 1)
+				label.Position = UDim2.new(0.5, 0, 0, -6)
+				label.Size = UDim2.fromOffset(150, 24)
+				label.BackgroundColor3 = Skin.COLORS.walnut
+				label.TextColor3 = SELECT_COLOR
+				label.FontFace = Skin.FONT_TITLE
+				label.TextSize = 15
+				label.Text = "PUT IT HERE"
+				label.Parent = frame
+				Instance.new("UICorner", label).CornerRadius = UDim.new(0, 10)
+				local labelStroke = Instance.new("UIStroke")
+				labelStroke.Color = Skin.COLORS.ink
+				labelStroke.Thickness = 2
+				labelStroke.Parent = label
+				markers[name] = { frame = frame, ring = stroke, label = label, base = base }
+			end
+		end
+		gui.Parent = player:WaitForChild("PlayerGui")
+		table.insert(made, gui)
+		table.insert(connections, RunService.RenderStepped:Connect(function()
+			local camera = workspace.CurrentCamera
+			if camera == nil then
+				return
+			end
+			local view = camera.ViewportSize
+			local t = os.clock()
+			local pulse = math.sin(t * 5) * 0.5 + 0.5
+			local selectedName = game_.selected and game_.selected.Name
+			for name, m in markers do
+				local filled = game_.targets[name].filled
+				m.frame.Visible = not filled
+				if not filled then
+					local point, onScreen = camera:WorldToViewportPoint(m.base.Position)
+					local x, y = point.X, point.Y
+					if point.Z < 0 then
+						x, y = view.X - x, view.Y - y -- behind the camera: flip so the marker points back toward it
+					end
+					x, y = math.clamp(x, 40, view.X - 40), math.clamp(y, 70, view.Y - 40)
+					m.frame.Position = UDim2.fromOffset(x, y)
+					local size = (if selectedName == name then 64 else 52) + 8 * pulse
+					m.frame.Size = UDim2.fromOffset(size, size)
+					m.ring.Transparency = 0.1 + 0.5 * (1 - pulse)
+				end
+			end
+		end))
+	end
+
 	function fx.init(game_)
 		local replacing = game_.stepType == "Replace"
+		screenMarkers(game_)
 		local guides: { [string]: any } = {}
 		for name, target in game_.targets do
 			local piece = game_.loose:FindFirstChild(name)
 			guides[name] = {
 				baseY = heightOf(target.socket) / 2 + 0.55,
+				hide3d = false,
 				socketGui = marker(target.socket, "GOES HERE", SELECT_COLOR),
 				partGui = if piece then marker(piece, "PICK ME", Color3.fromRGB(63, 220, 200)) else nil,
 				beam = if piece then guideBeam(piece, target.socket) else nil,
 			}
+		end
+		-- A spot hidden INSIDE the item (the lamp's bulb) gets its 3D arrow floating above the item's top, far from the real spot: the flat ring
+		-- (screenMarkers) points at the exact spot, so that arrow only confuses and is switched off.
+		for _, g in guides do
+			if g.socketGui and (g.socketGui:GetAttribute("BaseY") or g.baseY) > g.baseY + 0.05 then
+				g.hide3d = true
+			end
 		end
 		table.insert(connections, RunService.Heartbeat:Connect(function()
 			local t = os.clock()
@@ -316,7 +627,7 @@ local function repairFx(model: Instance)
 				local filled = game_.targets[name].filled
 				local bob = math.sin(t * 5) * 0.5 + 0.5
 				if g.socketGui then
-					g.socketGui.Enabled = not filled
+					g.socketGui.Enabled = not filled and not g.hide3d
 					g.socketGui.StudsOffsetWorldSpace = Vector3.new(0, (g.socketGui:GetAttribute("BaseY") or g.baseY) + 0.12 * bob, 0)
 					-- the spot of the part you are holding shouts louder
 					g.socketGui.Arrow.TextTransparency = if selectedName == name then 0 else 0.15 + 0.3 * (1 - bob)

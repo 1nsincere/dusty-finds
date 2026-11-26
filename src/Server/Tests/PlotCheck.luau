@@ -217,6 +217,23 @@ function PlotCheck.run()
 			return n
 		end
 		check("expansions: templates exist in ServerStorage.Expansions", game:GetService("ServerStorage"):FindFirstChild("Expansions") ~= nil and game:GetService("ServerStorage").Expansions:FindFirstChild("BackRoom") ~= nil and game:GetService("ServerStorage").Expansions:FindFirstChild("Showroom") ~= nil)
+		-- solid shell (2026-11-26): the shell, roof and extension are meshes (they never collide), so each has invisible solid proxies or a hull
+		do
+			local solidShops = 0
+			for _, shop in workspace.Plots:GetChildren() do
+				local col = shop:FindFirstChild("Facade") and shop.Facade:FindFirstChild("Collision")
+				local roof = shop:FindFirstChild("Facade") and shop.Facade.Roof:FindFirstChild("Shop_Roof")
+				local roofMesh = roof and roof:FindFirstChildWhichIsA("MeshPart")
+				local block = shop:FindFirstChild("Facade") and shop.Facade.Upper:FindFirstChild("BackCapBlock")
+				if col and #col:GetChildren() >= 6 and roofMesh and roofMesh.CanCollide and roofMesh.CollisionFidelity == Enum.CollisionFidelity.Hull and block and (block.CanCollide or block:GetAttribute("OpenWithExpansion") == "UpperBackRoom") then -- open only while the Upper Back Room is owned
+					solidShops += 1
+				end
+			end
+			check("solid shell: every shop has solid upper walls, balcony, columns, a solid roof and a solid rear wall", solidShops == #workspace.Plots:GetChildren(), solidShops)
+			local backRoom = game:GetService("ServerStorage").Expansions.BackRoom
+			local roofMesh = backRoom:FindFirstChild("BackRoom_Roof", true) and backRoom:FindFirstChild("BackRoom_Roof", true):FindFirstChildWhichIsA("MeshPart")
+			check("solid shell: the Back Room template has solid upper walls and a solid roof", backRoom.Shell:FindFirstChild("ColUpperL") ~= nil and backRoom.Shell:FindFirstChild("ColUpperR") ~= nil and backRoom.Shell:FindFirstChild("ColUpperBack") ~= nil and roofMesh ~= nil and roofMesh.CanCollide == true)
+		end
 		check("expansions: no rooms before buying, back wall closed", p4:FindFirstChild("Expansion_BackRoom") == nil and p4.Benches:FindFirstChild("Bench2") == nil and wall4.Transparency == 0 and wall4.CanCollide == true)
 		upgradesById[P[4]] = { BackRoom = 1 }
 		PlotService.RefreshSlots(P[4])
@@ -293,6 +310,57 @@ function PlotCheck.run()
 		end
 		check("refreshing again does not duplicate rooms or decor (and no Bench2)", countNamed(p4, "Expansion_BackRoom") == 1 and countNamed(p4, "Bench2") == 0 and countNamed(p4, "FishTank") == 1)
 		check("Showroom: the Fountain decor exists and is hidden until bought", p4.DecorSlots:FindFirstChild("Fountain") ~= nil and decorHiddenProperly(4, "Fountain"))
+		do
+			local function rearWall(): BasePart?
+				local upper = p4:FindFirstChild("Expansion_Showroom") and p4.Expansion_Showroom:FindFirstChild("UpperFloor", true)
+				for _, w in if upper then upper:GetChildren() else {} do
+					if w.Name == "InvisibleWall" and w:GetAttribute("OpenWithExpansion") == "UpperBackRoom" then
+						return w :: BasePart
+					end
+				end
+				return nil
+			end
+			local ceiling = p4.Expansion_BackRoom.Shell:FindFirstChild("Ceiling")
+			check("Back Room: it has a real ceiling (visible from inside)", ceiling ~= nil and ceiling.Transparency == 0)
+			local wall = rearWall()
+			check("Upper Back Room not owned: the Showroom's rear wall is closed (nobody walks into the empty space)", p4:FindFirstChild("Expansion_UpperBackRoom") == nil and wall ~= nil and wall.CanCollide == true)
+			upgradesById[P[4]] = { BackRoom = 1, Showroom = 1, FishTank = 1, UpperBackRoom = 1 }
+			PlotService.RefreshSlots(P[4])
+			local annex = p4:FindFirstChild("Expansion_UpperBackRoom")
+			local annexFloor = annex and annex:FindFirstChild("AnnexFloor", true)
+			wall = rearWall()
+			check("Upper Back Room owned: its floor is built and the Showroom's rear wall opens onto it", annexFloor ~= nil and wall ~= nil and wall.CanCollide == false)
+			do
+				local e11 = p4.ExhibitSlots:FindFirstChild("Exhibit11")
+				local lp11 = e11 and p4.Floor.CFrame:PointToObjectSpace(e11.Position)
+				check("Upper Back Room + Showroom: 14 exhibit pedestals, the 4 new ones (11-14) are shown, solid and stand in the Upper Back Room", slotsOn(4, "ExhibitSlots") == 14 and e11 ~= nil and e11:GetAttribute("Enabled") == true and e11.Transparency == 0 and e11.CanCollide == true and lp11 ~= nil and lp11.Z > 20 * k4 and lp11.Z < 44 * k4, slotsOn(4, "ExhibitSlots"))
+				upgradesById[P[4]] = { BackRoom = 1, UpperBackRoom = 1 }
+				PlotService.RefreshSlots(P[4])
+				check("Upper Back Room without the Showroom: no extra pedestals (they are reached from the Showroom), 11-14 stay hidden", slotsOn(4, "ExhibitSlots") == 4 and p4.ExhibitSlots.Exhibit11:GetAttribute("Enabled") == false and p4.ExhibitSlots.Exhibit11.Transparency == 1 and p4.ExhibitSlots.Exhibit11.CanCollide == false)
+				upgradesById[P[4]] = { BackRoom = 1, Showroom = 1, FishTank = 1, UpperBackRoom = 1 }
+				PlotService.RefreshSlots(P[4])
+			end
+			do
+				local pedestal = p4.ExhibitSlots:FindFirstChild("Exhibit5")
+				local lp = pedestal and p4.Floor.CFrame:PointToObjectSpace(pedestal.Position)
+				check("Upper Back Room owned: the second-floor pedestals stand in its back portion (plot z beyond the back wall line)", lp ~= nil and lp.Z > 20 * k4 and lp.Z < 44 * k4 and lp.Y > 12 * k4, tostring(lp))
+				local arch = p4.Expansion_Showroom.Shell.Gallery:FindFirstChild("NicheBack1")
+				local ap = arch and p4.Floor.CFrame:PointToObjectSpace(arch.Position)
+				check("Upper Back Room owned: the arched gallery wall moved to the back of the Upper Back Room (plot z about 43)", ap ~= nil and ap.Z > 40 * k4 and ap.Z < 44 * k4, tostring(ap))
+			end
+			upgradesById[P[4]] = { BackRoom = 1, Showroom = 1, FishTank = 1 }
+			PlotService.RefreshSlots(P[4])
+			do
+				local pedestal = p4.ExhibitSlots:FindFirstChild("Exhibit5")
+				local lp = pedestal and p4.Floor.CFrame:PointToObjectSpace(pedestal.Position)
+				check("without the Upper Back Room the pedestals are back on the main second floor", lp ~= nil and lp.Z < 20 * k4 and lp.Y > 12 * k4, tostring(lp))
+				local arch = p4.Expansion_Showroom.Shell.Gallery:FindFirstChild("NicheBack1")
+				local ap = arch and p4.Floor.CFrame:PointToObjectSpace(arch.Position)
+				check("without the Upper Back Room the arched gallery wall is back on the main second floor", ap ~= nil and ap.Z < 20 * k4, tostring(ap))
+			end
+			wall = rearWall()
+			check("losing the Upper Back Room removes its floor and closes the rear wall again", p4:FindFirstChild("Expansion_UpperBackRoom") == nil and wall ~= nil and wall.CanCollide == true)
+		end
 		upgradesById[P[4]] = { Showroom = 1 }
 		PlotService.RefreshSlots(P[4])
 		check("losing the Back Room removes its room, bench and decor but keeps the Showroom", p4:FindFirstChild("Expansion_BackRoom") == nil and p4.Benches:FindFirstChild("Bench2") == nil and p4.DecorSlots:FindFirstChild("FishTank") == nil and p4:FindFirstChild("Expansion_Showroom") ~= nil)

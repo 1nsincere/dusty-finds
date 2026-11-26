@@ -15,6 +15,8 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Layout = require(Shared:WaitForChild("Layout"))
 local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
+local Monetization = require(Shared:WaitForChild("Config"):WaitForChild("Monetization"))
+local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local EditModeController = {}
 local DEBUG = true
@@ -481,9 +483,38 @@ local function done()
 	local remote = remotes and remotes:FindFirstChild("RequestSaveLayout")
 	local layout = layoutToSend()
 	if remote and remote:IsA("RemoteEvent") then
+		-- Remember where everything stood before this edit: if the server refuses the layout (LayoutService sets the plot
+		-- attributes LayoutOk / LayoutMsg / LayoutRev), our local preview must snap back, because the server's pieces never moved.
+		local snapshot = {}
+		for _, piece in pieces do
+			table.insert(snapshot, { part = piece.part, cf = piece.startCFrame, followers = piece.followers })
+		end
+		local shopPlot = plot
+		local revBefore = if shopPlot then shopPlot:GetAttribute("LayoutRev") else nil
 		remote:FireServer(layout)
 		log("sent layout", layout)
-		exitEdit(false) -- the server moves the real pieces; ours snap to its answer when it replicates
+		exitEdit(false) -- the server moves the real pieces; ours match its answer when it accepts
+		if shopPlot then
+			task.spawn(function()
+				local waited = 0
+				while waited < 5 and shopPlot:GetAttribute("LayoutRev") == revBefore do
+					waited += task.wait(0.1)
+				end
+				if shopPlot:GetAttribute("LayoutOk") == false then
+					for _, s in snapshot do
+						if s.part.Parent then
+							s.part.CFrame = s.cf
+						end
+						for _, f in s.followers do
+							if f.part.Parent then
+								f.part.CFrame = f.start
+							end
+						end
+					end
+					log("layout refused, put back:", shopPlot:GetAttribute("LayoutMsg"))
+				end
+			end)
+		end
 	else
 		local n = 0
 		for _ in layout do
@@ -555,7 +586,7 @@ local function makeGui()
 		local b = Instance.new("ImageButton")
 		b.Name = name
 		b.LayoutOrder = order
-		b.Size = UDim2.new(0.19, -8, 1, 0)
+		b.Size = UDim2.new(0.158, -8, 1, 0) -- six buttons fit: Rotate, Upstairs, Reset, Cancel, Done, Layouts
 		b.Image = ""
 		b.Parent = bar
 		if skin and skin.Panel then
@@ -579,6 +610,16 @@ local function makeGui()
 	local db, dl = button("Done", "Done", 5, done)
 	dl.TextColor3 = UiSkin.COLORS.money
 	doneButton = db
+	-- Layouts: only with the Saved Layouts pass or VIP. Leaves edit mode (unsaved moves are put back: press Done first to keep them),
+	-- then opens the layout slots window.
+	local lb = button("Layouts", "Layouts", 6, function()
+		exitEdit(true)
+		local slots = others.LayoutSlotsController
+		if slots and slots.Open then
+			slots.Open()
+		end
+	end)
+	lb.Visible = Monetization.layoutSlots(ClientState.Get("entitlements")) > 0
 
 	screen.Parent = player:WaitForChild("PlayerGui")
 	return screen
@@ -747,7 +788,15 @@ function EditModeController.Init(controllers)
 	others = controllers
 end
 
+-- The Edit button is removed (Ace, 2026-11-26): nothing creates the HUD / Menu "Edit Mode" button any more. Edit mode itself is
+-- still in this file (EditModeController.Enter), so setting SHOW_EDIT_BUTTON = true brings the button back.
+local SHOW_EDIT_BUTTON = false
+
 function EditModeController.Start()
+	if not SHOW_EDIT_BUTTON then
+		log("Edit button is turned off (SHOW_EDIT_BUTTON = false)")
+		return
+	end
 	task.spawn(function()
 		local skin = others.HudSkinController
 		local button = skin and skin.HudButton and skin.HudButton("EditShop", UiSkin.ICONS.Upgrades)
@@ -755,19 +804,8 @@ function EditModeController.Start()
 			warn("[EditModeController] no HUD button: edit mode can't be opened")
 			return
 		end
-		-- a small EDIT tag so it doesn't look like the Upgrades button
-		local tag = Instance.new("TextLabel")
-		tag.Name = "EditTag"
-		tag.AnchorPoint = Vector2.new(0.5, 1)
-		tag.Position = UDim2.fromScale(0.5, 1)
-		tag.Size = UDim2.fromScale(1, 0.3)
-		tag.BackgroundTransparency = 1
-		tag.Text = "EDIT"
-		tag.TextScaled = true
-		tag.FontFace = UiSkin.FONT_TITLE
-		tag.TextColor3 = UiSkin.COLORS.accent
-		tag.ZIndex = button.ZIndex + 2
-		tag.Parent = button
+		-- (the old "EDIT" tag is gone, 2026-11-25: HudLayoutController draws this as the Menu's "Edit Mode" cell with its own
+		-- pencil icon and label, and the tag sat on top of that label)
 		button.Activated:Connect(EditModeController.Enter)
 		log("ready: Edit button added")
 	end)

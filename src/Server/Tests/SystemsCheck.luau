@@ -513,7 +513,7 @@ function SystemsCheck.run()
 		check("Shipment: free delivery refused while the first free box still waits", select(2, Shipment.ClaimFreeDelivery(f, t0 + 180)) == "alreadyWaiting")
 		Inventory.Remove(f, firstUid)
 		local claimed, _, claimUids = Shipment.ClaimFreeDelivery(f, t0 + 180)
-		check("Shipment: free delivery after 180 s adds 1 Unopened item", claimed and #claimUids == 1 and fakeDS.GetValue(f, "timers.lastFreeDelivery") == t0 + 180)
+		check("Shipment: free delivery after 180 s adds the crate's items (2 since 2026-11-20), Unopened", claimed and claimUids ~= nil and #claimUids == Crates.FreeDelivery.itemCount and fakeDS.GetValue(f, "timers.lastFreeDelivery") == t0 + 180)
 		check("Shipment: second claim right after is refused", select(2, Shipment.ClaimFreeDelivery(f, t0 + 181)) == "tooSoon")
 		check("Shipment: GrantFirstBox needs loaded data", Shipment.GrantFirstBox({ UserId = 2, Name = "ghost" }) == false)
 

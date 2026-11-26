@@ -169,6 +169,8 @@ Max simultaneous customers: 3 (Showroom: 5).
 | **Back Room** (first expansion) | $6,500 | Lv 4 | A big room behind the shop (full width); the 4 downstairs exhibit pedestals move into it (the downstairs arches hide); Fish Tank slot. The 2nd workbench was removed (2026-11-24) | 3 |
 | **Showroom** (second floor) | $20,000 | Lv 10 | Stairs + upstairs gallery with **6 pedestals of its own**, Fountain slot (upstairs), customer cap 5. The "+6 premium display slots" in Config are not built yet (customers stay downstairs) | 8 |
 
+| **Upper Back Room** (second floor above the Back Room, 2026-11-26) | $35,000 | Lv 12, needs the Back Room | A gallery above the Back Room joined to the Showroom gallery: the Showroom's arched gallery wall and its 6 pedestals move into it, plus **4 new pedestals (11-14)** that count only together with the Showroom (14 pedestals in total). First-guess price, tune with the economy sim | 6 |
+
 ### Shop rating
 Points = decor + expansions + exhibits. Stars: **1★ 0 · 2★ 8 · 3★ 20 · 4★ 40 · 5★ 65.**
 

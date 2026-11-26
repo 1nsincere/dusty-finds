@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
+local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 
@@ -77,6 +78,15 @@ function DisplayService.SyncSlots(player: any)
 		if folder then
 			for _, part in folder:GetChildren() do
 				local index = part:GetAttribute("SlotIndex")
+				-- a spot that is CLOSED (Enabled is exactly false: the second-floor pedestals were removed on 2026-11-26) can not
+				-- hold an item: it goes back to the inventory (kept if the inventory is full, and tried again next time)
+				if type(index) == "number" and part:GetAttribute("Enabled") == false then
+					local uid = occupant(player, kind, index)
+					if uid ~= nil and not isReserved(player, uid) and InventoryService.Update(player, uid, { state = "Restored" }) then
+						InventoryService.ClearField(player, uid, "slot")
+						log.info(`{kind} slot {index} is closed: item {uid} went back to the inventory`)
+					end
+				end
 				local item = nil
 				if type(index) == "number" then
 					local _, found = occupant(player, kind, index)
@@ -129,6 +139,7 @@ local function place(player: any, kind: string, uid: any, slotIndex: any): (bool
 	end
 	log.info(`{kind} slot {slotIndex} <- {item.itemId}`)
 	DisplayService.SyncSlots(player)
+	Analytics.Step(player, Analytics.STEP.DisplayedItem)
 	return true, nil
 end
 
@@ -166,6 +177,12 @@ function DisplayService.RemoveFromSlot(player: any, kind: any, slotIndex: any): 
 	DisplayService.SyncSlots(player)
 	log.info(`{kind} slot {slotIndex} emptied`)
 	return true, nil, uid
+end
+
+-- Is the item on display slot `slotIndex` reserved by a customer? (LayoutService: that shelf may not be moved now.)
+function DisplayService.IsReservedAt(player: any, slotIndex: number): boolean
+	local uid = occupant(player, "Display", slotIndex)
+	return uid ~= nil and isReserved(player, uid)
 end
 
 -- For CustomerService: everything for sale right now that no customer has reserved, sorted by slot.

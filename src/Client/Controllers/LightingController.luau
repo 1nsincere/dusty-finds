@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local DayNight = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("DayNight"))
+local Hours = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Hours"))
 
 local LightingController = {}
 local DEBUG = true
@@ -51,27 +52,15 @@ local function save(part: BasePart): Saved
 	return { material = part.Material, color = part.Color, transparency = part.Transparency, reflectance = part.Reflectance }
 end
 
--- Which clock hour it is right now, following the SEGMENTS pacing (shared by everyone through server time).
-local cycleLength = 0
-for _, seg in DayNight.SEGMENTS do
-	cycleLength += seg.seconds
-end
-
+-- Which sky hour it is right now: the shared in-game clock (Shared.Hours, paced by DayNight.SEGMENTS, same for everyone on the server).
 local function currentClock(): (number, string)
 	-- Testing aid: set a number attribute PreviewClock on Lighting (e.g. 21) to hold that time; remove it to resume.
 	local preview = Lighting:GetAttribute("PreviewClock")
 	if type(preview) == "number" then
 		return preview % 24, "Preview"
 	end
-	local t = workspace:GetServerTimeNow() % cycleLength
-	for _, seg in DayNight.SEGMENTS do
-		if t < seg.seconds then
-			return (seg.from + (seg.to - seg.from) * (t / seg.seconds)) % 24, seg.name
-		end
-		t -= seg.seconds
-	end
-	local last = DayNight.SEGMENTS[#DayNight.SEGMENTS]
-	return last.to % 24, last.name
+	local hour = Hours.now()
+	return hour, if hour >= 18.5 or hour < 5 then "Night" elseif hour < 7.5 then "Dawn" elseif hour < 15.5 then "Day" else "GoldenHour"
 end
 
 -- Blend the two keyframes around `clock` (wrapping past midnight).
@@ -382,6 +371,20 @@ function LightingController.Start()
 		consider(inst)
 	end
 	workspace.DescendantAdded:Connect(consider) -- streamed-in or rebuilt art
+	-- Phones (touch and no keyboard): shadow-casting lights are one of the costliest things a phone draws, and the town has about 66 of them
+	-- (street lamps, shop counter / pendant / bench lights). Switch their shadows off for this player only (client side, nothing replicates).
+	local UserInputService = game:GetService("UserInputService")
+	if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+		local function noShadow(inst: Instance)
+			if inst:IsA("Light") and inst.Shadows then
+				inst.Shadows = false
+			end
+		end
+		for _, inst in workspace:GetDescendants() do
+			noShadow(inst)
+		end
+		workspace.DescendantAdded:Connect(noShadow)
+	end
 	-- (the old single night ceiling light per shop is replaced by the placed ShopProps.ShopLights; makeShopLights unused)
 
 	local sinceLook = UPDATE_EVERY
@@ -401,7 +404,7 @@ function LightingController.Start()
 		for _ in windows do
 			windowCount += 1
 		end
-		print(`[LightingController] ready: {lampCount} lamps, {windowCount} window meshes, cycle {cycleLength} s`)
+		print(`[LightingController] ready: {lampCount} lamps, {windowCount} window meshes, cycle {Hours.CYCLE_SECONDS} s`)
 	end
 end
 

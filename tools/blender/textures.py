@@ -108,6 +108,67 @@ def make(kind):
         tone = 0.75 + 0.18 * grain + 0.07 * (fnoise(n, 1.0, 1) - 0.5)
         col = np.stack([tone * 0.62, tone * 0.43, tone * 0.27], -1) * (1 - 0.35 * plank[..., None])
         nor = normal_from_height(grain * 0.4 + plank * 0.6, 2.5)
+    elif kind == "woodgrain":  # NEUTRAL light grain for Studio to tint (trim, shutters, awnings): wavy streaks + fine pores
+        n = 512
+        x = np.arange(n)[None, :] / n
+        y = np.arange(n)[:, None] / n
+        warp = fnoise(n, 2.0, 2)
+        grain = 0.5 + 0.5 * np.sin((x * 46 + warp * 7 + y * 2) * np.pi * 2)
+        pores = fnoise(n, 0.8, 1)
+        tone = 0.86 + 0.10 * (grain - 0.5) + 0.05 * (pores - 0.5)
+        col = np.stack([tone, tone, tone], -1)
+        nor = normal_from_height(grain * 0.5 + pores * 0.5, 1.6)
+    elif kind == "shingle":  # NEUTRAL roof shingles (rows of tiles, a little variation) so the roof colour can be set by tint
+        n = 512
+        mask, vals = blocks(n, 12, 12, 0.7, offset=True)
+        m = fnoise(n, 2.2, 2)
+        v = vals[..., None]
+        tone = (0.80 + 0.14 * (v - 0.5) + 0.08 * (m[..., None] - 0.5)) * (0.62 + 0.38 * mask[..., None])
+        col = np.concatenate([tone, tone, tone], -1)
+        nor = normal_from_height(mask * 0.6 + 0.4 * m, 2.6)
+    elif kind == "pearl":  # NEUTRAL capiz / mother-of-pearl: near white with a soft iridescent swirl (a faint pink / teal drift)
+        n = 512
+        sw = fnoise(n, 2.6, 2)
+        fine = fnoise(n, 1.2, 1)
+        base = 0.93 + 0.04 * (fine - 0.5)
+        col = np.stack([base + 0.030 * np.sin(sw * 9), base + 0.012 * np.sin(sw * 9 + 2.1), base + 0.034 * np.sin(sw * 9 + 4.2)], -1)
+        nor = normal_from_height(0.6 * sw + 0.4 * fine, 1.2)
+    elif kind == "velvet":  # NEUTRAL velvet: very fine pile with a soft sheen blotch
+        n = 512
+        pile = fnoise(n, 0.5, 1)
+        sheen = fnoise(n, 3.0, 2)
+        tone = 0.74 + 0.16 * (pile - 0.5) + 0.10 * (sheen - 0.5)
+        col = np.stack([tone, tone, tone], -1)
+        nor = normal_from_height(pile, 0.9)
+    elif kind == "brass":  # NEUTRAL brushed metal: long horizontal streaks
+        n = 512
+        w = rng.standard_normal((n, n))
+        f = np.fft.fftfreq(n) * n
+        amp = 1.0 / np.maximum(np.abs(f[None, :]), 1.0) ** 0.1 / np.maximum(np.abs(f[:, None]), 1.0) ** 0.9
+        amp[0, 0] = 0
+        streak = np.real(np.fft.ifft2(np.fft.fft2(w) * amp))
+        streak = (streak - streak.min()) / (streak.max() - streak.min())
+        tone = 0.80 + 0.18 * (streak - 0.5) + 0.04 * (fnoise(n, 2.5, 2) - 0.5)
+        col = np.stack([tone, tone * 0.99, tone * 0.96], -1)
+        nor = normal_from_height(streak, 0.8)
+    elif kind == "goldleaf":  # NEUTRAL gold leaf: irregular foil flakes of slightly different brightness with hairline edges
+        n = 512
+        mask, vals = blocks(n, 7, 7, 0.35, offset=True)
+        warp = fnoise(n, 2.2, 2)
+        v = vals[..., None]
+        tone = (0.82 + 0.16 * (v - 0.5) + 0.08 * (warp[..., None] - 0.5)) * (0.78 + 0.22 * mask[..., None])
+        col = np.concatenate([tone, tone * 0.99, tone * 0.94], -1)
+        nor = normal_from_height(mask * 0.5 + 0.5 * warp, 1.4)
+    elif kind == "marblewall":  # NEUTRAL veined white marble
+        n = 512
+        x = np.arange(n)[None, :] / n
+        y = np.arange(n)[:, None] / n
+        warp = fnoise(n, 2.2, 2)
+        veins = np.abs(np.sin((x * 2 + y * 3 + warp * 3.0) * np.pi)) ** 0.18
+        vein2 = np.abs(np.sin((x * 5 - y * 2 + warp * 2.0) * np.pi)) ** 0.4
+        tone = 0.96 - 0.16 * (1 - veins) - 0.05 * (1 - vein2) + 0.02 * (fnoise(n, 1.0, 1) - 0.5)
+        col = np.stack([tone, tone, tone], -1)
+        nor = normal_from_height(0.3 * veins, 0.6)
     elif kind == "marble":  # cream/sand marble floor tiles, 2 x 2 studs, with veins
         n = 1024
         mask, vals = blocks(n, 4, 4, 0.5, offset=False)
@@ -125,7 +186,7 @@ def make(kind):
     return out
 
 
-ROUGH = {"plaster": 0.9, "stone": 0.85, "limestone": 0.6, "clay": 0.8, "wood": 0.7, "marble": 0.35}
+ROUGH = {"plaster": 0.9, "stone": 0.85, "limestone": 0.6, "clay": 0.8, "wood": 0.7, "marble": 0.35, "woodgrain": 0.7, "shingle": 0.85, "pearl": 0.3, "velvet": 0.95, "brass": 0.35, "goldleaf": 0.3, "marblewall": 0.25}
 
 
 def apply(obj, kind, name=None, tint=None):

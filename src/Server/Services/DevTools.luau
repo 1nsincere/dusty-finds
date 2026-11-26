@@ -42,6 +42,19 @@ function commands.giveCash(player: Player, amount: any)
 	return S.EconomyService.AddCash(player, amount, "Dev"), nil
 end
 
+-- givePass(player, passId, on): grants (on = true, default) or takes back (false) a Robux pass for testing the perks without paying
+function commands.givePass(player: Player, passId: any, on: any)
+	if type(passId) ~= "string" then
+		return false, "passId must be a string (see Config.Monetization)"
+	end
+	if on == false then
+		local ok = S.DataService.Set(player, "entitlements." .. passId, nil)
+		S.MonetizationService.PublishCosmetics(player)
+		return ok, nil
+	end
+	return S.MonetizationService.Grant(player, passId, true)
+end
+
 -- setLevel(player, level): sets level directly and clears XP (no level-up rewards)
 function commands.setLevel(player: Player, level: any)
 	if not Validate.isInteger(level, 1, Economy.MaxLevel) then
@@ -211,6 +224,14 @@ local ALL_CHECKS = {
 	{ "CashierCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CashierCheck") end }, -- Dev 3: till speed/mistake rules
 	{ "StorageShelfCheck", function() return script.Parent.Parent.Tests:FindFirstChild("StorageShelfCheck") end }, -- Dev 3: storage room shelf rule
 	{ "SkinCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SkinCheck") end }, -- Dev 3: skins stall stock + buy / apply / draw
+	{ "LayoutCheck", function() return script.Parent.Parent.Tests:FindFirstChild("LayoutCheck") end }, -- Dev 1: edit-mode layout rules (RequestSaveLayout)
+	{ "PersonalityCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PersonalityCheck") end }, -- Dev 1: customer personalities + haggle roll + buy chance
+	{ "MonetizationCheck", function() return script.Parent.Parent.Tests:FindFirstChild("MonetizationCheck") end }, -- Dev 1: Robux passes, tips, VIP choices (fake Marketplace)
+	{ "CollectorCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CollectorCheck") end }, -- Dev 1: collector score, tiers, CollectorService
+	{ "PaintCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PaintCheck") end }, -- Dev 1: paints (buy / apply / draw) + skin wishlist
+	{ "HoursCheck", function() return script.Parent.Parent.Tests:FindFirstChild("HoursCheck") end }, -- Dev 1: game clock, opening hours, shutters
+	{ "VipLoungeCheck", function() return script.Parent.Parent.Tests:FindFirstChild("VipLoungeCheck") end }, -- Dev 1: VIP Lounge gate (collision groups)
+	{ "SeasonCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SeasonCheck") end }, -- Dev 1: seasons (dates) + seasonal decor visibility
 	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
 }
 

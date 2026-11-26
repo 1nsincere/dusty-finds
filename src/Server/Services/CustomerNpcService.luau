@@ -8,17 +8,19 @@
 -- Owner: Dev 3 (Sean) (agreed with Ace: he owns CustomerService's rules, this file only reacts to it).
 -- Depends on: CustomerService (SetSpawnHandler/SetRemovedHandler, ChooseItem, Checkout), PlotService.GetPlot,
 -- ServerStorage.NPCs.<CustomerType>, plot CustomerPath.{StreetEntry?,Approach?,Door,Browse1..N,CounterSpot,Exit}, DisplaySlots/Slot<N>,
--- Counter.CheckoutPrompt, Shared.Config.Economy.AutoCheckoutSeconds, Shared.Config.Customers (walkSpeed),
+-- Counter.CheckoutPrompt, Shared.Config.Economy (QueuePatienceSeconds, Think*), Shared.Config.Customers (walkSpeed),
 -- walk/idle animations from the model's Animate folder (Roblox defaults if missing).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local PathfindingService = game:GetService("PathfindingService")
 local TweenService = game:GetService("TweenService")
 
 local Log = require(script.Parent.Parent.Lib.Log)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Customers = require(ReplicatedStorage.Shared.Config.Customers)
+local Lines = require(ReplicatedStorage.Shared.Config.CustomerLines)
 
 local CustomerNpcService = {}
 local DEBUG = true
@@ -46,6 +48,8 @@ type Npc = {
 	gone: boolean, -- CustomerService removed it (paid, left, timeout...): stop the visit, walk out
 	leaving: boolean, -- the walk out has started (only once)
 	atCounter: boolean, -- front of the queue and standing at the counter: Checkout prompt is on
+	haggle: number?, -- the discount (fraction) this customer asks for at the till, if it haggles
+	haggleOpen: boolean?, -- asked, waiting for the owner's Accept / Decline: the Checkout prompt is replaced by those two
 }
 
 local npcs: { [string]: Npc } = {} -- [customerId] = Npc
@@ -72,12 +76,32 @@ local function browsePoints(plot: Instance): { Vector3 }
 	return points
 end
 
+-- Where customers stand to look at each shelf: the StandSpot attachment on every shelf (it moves with the shelf in edit mode).
+local function shelfSpots(plot: Instance): { Vector3 }
+	local out = {}
+	local shelves = plot:FindFirstChild("Shelves")
+	for _, shelf in if shelves then shelves:GetChildren() else {} do
+		local spot = shelf:FindFirstChild("StandSpot")
+		if shelf:IsA("BasePart") and spot and spot:IsA("Attachment") then
+			table.insert(out, Vector3.new(spot.WorldPosition.X, shelf.Position.Y - shelf.Size.Y / 2, spot.WorldPosition.Z))
+		end
+	end
+	return out
+end
+
 -- Where to stand to look at a shelf slot: the aisle line through the browse points, level with the slot.
 local function standPointForSlot(plot: Instance, slotIndex: number): Vector3?
 	local slots = plot:FindFirstChild("DisplaySlots")
 	local slot = slots and slots:FindFirstChild("Slot" .. slotIndex)
 	if not (slot and slot:IsA("BasePart")) then
 		return nil
+	end
+	-- the slot belongs to a shelf piece: stand at that shelf's StandSpot, wherever edit mode put it
+	local shelfId = slot:GetAttribute("Piece")
+	local shelf = plot:FindFirstChild("Shelves") and plot.Shelves:FindFirstChild(tostring(shelfId))
+	local spot = shelf and shelf:FindFirstChild("StandSpot")
+	if shelf and shelf:IsA("BasePart") and spot and spot:IsA("Attachment") then
+		return Vector3.new(spot.WorldPosition.X, shelf.Position.Y - shelf.Size.Y / 2, spot.WorldPosition.Z)
 	end
 	local points = browsePoints(plot)
 	if #points == 0 then
@@ -110,28 +134,67 @@ local function queuePoint(plot: Instance, index: number): Vector3?
 	return spot + back * QUEUE_GAP * (index - 1)
 end
 
--- Walks to a point. Returns false if the visit was cancelled on the way (unless this IS the walk out).
-local function walkTo(npc: Npc, target: Vector3, isExit: boolean?): boolean
+-- One straight MoveTo with a timeout. Returns reached, cancelled.
+local function moveStep(npc: Npc, target: Vector3, isExit: boolean?): (boolean, boolean)
 	local humanoid = npc.humanoid
-	if humanoid.Parent == nil or humanoid.Health <= 0 then
-		return false
-	end
-	local reached = false
-	local connection = humanoid.MoveToFinished:Connect(function()
-		reached = true
+	local finished, success = false, false
+	local connection = humanoid.MoveToFinished:Connect(function(ok)
+		finished, success = true, ok
 	end)
 	humanoid:MoveTo(target)
 	local started = os.clock()
-	while not reached and os.clock() - started < WALK_TIMEOUT do
+	while not finished and os.clock() - started < WALK_TIMEOUT do
 		if npc.gone and not isExit then
 			break
 		end
 		task.wait(0.1)
 	end
 	connection:Disconnect()
-	local cancelled = npc.gone and not isExit
+	return finished and success, npc.gone and not isExit
+end
+
+-- Walks around furniture with the Roblox pathfinder (shelves can stand anywhere since edit mode, upstairs too). Returns
+-- "reached", "cancelled" or "failed" (no path / blocked): the caller then falls back to the straight walk.
+local function followPath(npc: Npc, target: Vector3, isExit: boolean?): string
+	local root = npc.model.PrimaryPart
+	if root == nil then
+		return "failed"
+	end
+	local path = PathfindingService:CreatePath({ AgentRadius = 1.8, AgentHeight = 5, AgentCanJump = false, WaypointSpacing = 6 })
+	local ok = pcall(function()
+		path:ComputeAsync(root.Position, target)
+	end)
+	if not ok or path.Status ~= Enum.PathStatus.Success then
+		return "failed"
+	end
+	local waypoints = path:GetWaypoints()
+	for i = 2, #waypoints do
+		local reached, cancelled = moveStep(npc, waypoints[i].Position, isExit)
+		if cancelled then
+			return "cancelled"
+		end
+		if not reached then
+			return "failed"
+		end
+	end
+	return "reached"
+end
+
+-- Walks to a point. Returns false if the visit was cancelled on the way (unless this IS the walk out).
+local function walkTo(npc: Npc, target: Vector3, isExit: boolean?): boolean
+	local humanoid = npc.humanoid
+	if humanoid.Parent == nil or humanoid.Health <= 0 then
+		return false
+	end
+	local pathResult = followPath(npc, target, isExit)
+	if pathResult == "reached" then
+		return true
+	elseif pathResult == "cancelled" then
+		return false
+	end
+	-- no path (or it got stuck): the old straight walk, and as a last resort the customer is placed at the point
+	local reached, cancelled = moveStep(npc, target, isExit)
 	if not reached and not cancelled and npc.model.Parent then
-		-- Blocked (a wall, another NPC, a player): place it there instead of standing stuck forever.
 		npc.model:PivotTo(CFrame.new(target + LIFT))
 		log.info(npc.id, "was placed at a waypoint it couldn't reach")
 	end
@@ -165,10 +228,25 @@ local function refreshPrompt(player: Player)
 		return
 	end
 	local front = frontNpc(player)
-	prompt.Enabled = front ~= nil and front.atCounter and not front.gone
+	local ready = front ~= nil and front.atCounter and not front.gone
+	local haggling = ready and front.haggleOpen == true
+	prompt.Enabled = ready and not haggling
 	prompt.ActionText = "Checkout"
 	prompt.ObjectText = if front then front.typeId else ""
+	-- a haggler asks first: Accept / Decline instead of Checkout until the owner answers
+	for _, name in { "HaggleYes", "HaggleNo" } do
+		local answer = counter and counter:FindFirstChild(name)
+		if answer and answer:IsA("ProximityPrompt") then
+			answer.Enabled = haggling
+			answer.ObjectText = if front then front.typeId else ""
+			if name == "HaggleYes" and front and front.haggle then
+				answer.ActionText = string.format("Accept -%d%%", math.floor(front.haggle * 100 + 0.5))
+			end
+		end
+	end
 end
+
+local resolveHaggle: (Player, boolean) -> () -- set below, once `say` exists
 
 local function removeFromQueue(npc: Npc)
 	local queue = queues[npc.player]
@@ -187,6 +265,22 @@ local function hookCheckoutPrompt(plot: Instance)
 		return
 	end
 	prompt.Enabled = false
+	-- Haggling (2026-11-25): two extra prompts on the same counter, only on while the customer at the front is asking for a discount.
+	for _, spec in { { "HaggleYes", "Accept", Enum.KeyCode.F, Enum.KeyCode.ButtonX, -80, true }, { "HaggleNo", "Decline", Enum.KeyCode.G, Enum.KeyCode.ButtonY, 80, false } } do
+		local answer = prompt:Clone()
+		answer.Name = spec[1]
+		answer.ActionText = spec[2]
+		answer.KeyboardKeyCode = spec[3]
+		answer.GamepadKeyCode = spec[4]
+		answer.UIOffset = Vector2.new(spec[5], 0)
+		answer.Enabled = false
+		answer.Parent = counter
+		answer.Triggered:Connect(function(tapper: Player)
+			if plot:GetAttribute("OwnerUserId") == tapper.UserId then
+				resolveHaggle(tapper, spec[6])
+			end
+		end)
+	end
 	prompt.Triggered:Connect(function(tapper: Player)
 		-- Only the shop owner can check out their own customers; visitors' taps are ignored.
 		if plot:GetAttribute("OwnerUserId") ~= tapper.UserId then
@@ -258,6 +352,141 @@ local function walkOut(npc: Npc)
 	end
 end
 
+-- Turns the customer smoothly to look at a point (flat), so it never faces the wrong way at a shelf or the till.
+local function faceToward(npc: Npc, target: Vector3)
+	local root = npc.model.PrimaryPart
+	if not (root and npc.model.Parent) then
+		return
+	end
+	local from = root.Position
+	local flat = Vector3.new(target.X, from.Y, target.Z)
+	if (flat - from).Magnitude < 0.1 then
+		return
+	end
+	TweenService:Create(root, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.lookAt(from, flat) }):Play()
+end
+
+-- A speech bubble line for a moment (the UI shows the "Say" attribute); cleared after `seconds`.
+local function say(npc: Npc, group: { string }?, seconds: number?)
+	if not (group and #group > 0 and npc.model.Parent) then
+		return
+	end
+	local line = group[Random.new():NextInteger(1, #group)]
+	npc.model:SetAttribute("Say", line)
+	task.delay(seconds or 2.4, function()
+		if npc.model.Parent and npc.model:GetAttribute("Say") == line then
+			npc.model:SetAttribute("Say", "")
+		end
+	end)
+end
+
+local function randomIn(range: { number }): number
+	return Random.new():NextNumber(range[1], range[2])
+end
+
+-- The owner answered a haggle. Accept: the sale is at the lower price (till and payment both use it). Decline: the customer may
+-- leave without buying (chance = discount x HaggleLeaveFactor), otherwise it pays full price but never tips.
+function resolveHaggle(owner: Player, accept: boolean)
+	local front = frontNpc(owner)
+	if not (front and front.atCounter and not front.gone and front.haggleOpen) then
+		return
+	end
+	front.haggleOpen = false
+	local ask = front.haggle or 0
+	if accept then
+		CustomerService.SetPriceMult(owner, front.id, 1 - ask)
+		say(front, Lines.deal, 2.5)
+		log.info(front.id, "haggle accepted:", ask)
+	elseif Random.new():NextNumber() < ask * Economy.HaggleLeaveFactor then
+		say(front, Lines.refused, 2.5)
+		front.atCounter = false
+		refreshPrompt(owner)
+		log.info(front.id, "haggle declined: the customer left")
+		CustomerService.Leave(owner, front.id, "haggled")
+		return
+	else
+		CustomerService.SetNoTip(owner, front.id)
+		say(front, Lines.grumble, 2.5)
+		log.info(front.id, "haggle declined: the customer pays full price")
+	end
+	refreshPrompt(owner)
+end
+
+-- Browse the shelves, choose an item and decide (buy / think / pass). Returns true when the customer wants to pay.
+local function shopForItem(npc: Npc, plot: Instance, returning: boolean): boolean
+	local points = shelfSpots(plot)
+	if #points == 0 then
+		points = browsePoints(plot)
+	end
+	local rng = Random.new()
+	local personality = Customers[npc.typeId] or {}
+	local browseMult = personality.browseMult or 1
+	-- a window shopper looks at more shelves for longer, a kid rushes through
+	for _ = 1, math.min(#points, rng:NextInteger(1, if browseMult > 1.2 then 3 else 2)) do
+		if not walkTo(npc, points[rng:NextInteger(1, #points)]) or not waitWhileHere(npc, BROWSE_PAUSE * browseMult) then
+			return false
+		end
+	end
+	-- Pick an item (reserves it). nil = nothing to buy: CustomerService removes it, the removed handler walks it out.
+	local choice = CustomerService.ChooseItem(npc.player, npc.id)
+	if choice == nil then
+		return false
+	end
+	npc.model:SetAttribute("ItemId", choice.itemId)
+	local stand = standPointForSlot(plot, choice.slot)
+	if stand and not walkTo(npc, stand) then
+		return false
+	end
+	-- look at the item (turn to the shelf slot), say something, take a moment: never an instant sale
+	local slots = plot:FindFirstChild("DisplaySlots")
+	local slotPart = slots and slots:FindFirstChild("Slot" .. choice.slot)
+	if slotPart and slotPart:IsA("BasePart") then
+		faceToward(npc, slotPart.Position)
+	end
+	say(npc, Lines.look, SHELF_PAUSE)
+	if not waitWhileHere(npc, SHELF_PAUSE + 1) then
+		return false
+	end
+	local outcome, reason = CustomerService.Judge(npc.player, npc.id, nil, returning)
+	if outcome == "buy" then
+		say(npc, if returning then Lines.back else Lines.buy, 2)
+		waitWhileHere(npc, 1.2)
+		if npc.gone then
+			return false
+		end
+		-- some customers will ask for a discount once they get to the till (see Customers.<type>.haggleChance)
+		npc.haggle = CustomerService.HaggleOffer(npc.typeId)
+		npc.haggleOpen = npc.haggle ~= nil
+		return true
+	end
+	if outcome == "think" then
+		-- "let me think about it": puts the item back, wanders off, may come back
+		say(npc, Lines.think, 2.6)
+		waitWhileHere(npc, 1.4)
+		npc.model:SetAttribute("ItemId", nil)
+		CustomerService.Reconsider(npc.player, npc.id)
+		local wander = points[rng:NextInteger(1, math.max(1, #points))]
+		if wander and not walkTo(npc, wander) then
+			return false
+		end
+		if not waitWhileHere(npc, randomIn(Economy.ThinkAwaySeconds)) then
+			return false
+		end
+		if rng:NextNumber() < Economy.ThinkReturnChance then
+			return shopForItem(npc, plot, true)
+		end
+		say(npc, Lines.gone, 2.5)
+		waitWhileHere(npc, 1.5)
+		CustomerService.Leave(npc.player, npc.id, "passed")
+		return false
+	end
+	local lines = Lines.critique[reason or "notWanted"] or Lines.critique.notWanted
+	say(npc, lines, 3)
+	waitWhileHere(npc, 2.2)
+	CustomerService.Leave(npc.player, npc.id, "passed")
+	return false
+end
+
 local function runVisit(npc: Npc, plot: Instance)
 	-- Walk in from the street (only if this plot has the street markers).
 	local approach = pathPoint(plot, "Approach")
@@ -268,27 +497,11 @@ local function runVisit(npc: Npc, plot: Instance)
 		end
 	end
 
-	-- Browse: 1 or 2 random points.
-	local points = browsePoints(plot)
-	local rng = Random.new()
-	for _ = 1, math.min(#points, rng:NextInteger(1, 2)) do
-		if not walkTo(npc, points[rng:NextInteger(1, #points)]) or not waitWhileHere(npc, BROWSE_PAUSE) then
-			return
-		end
-	end
-
-	-- Pick an item (reserves it). nil = nothing to buy: CustomerService removes it, the removed handler walks it out.
-	local choice = CustomerService.ChooseItem(npc.player, npc.id)
-	if choice == nil then
-		return
-	end
-	npc.model:SetAttribute("ItemId", choice.itemId)
-	local stand = standPointForSlot(plot, choice.slot)
-	if stand and (not walkTo(npc, stand) or not waitWhileHere(npc, SHELF_PAUSE)) then
+	if not shopForItem(npc, plot, false) or npc.gone then
 		return
 	end
 
-	-- Queue at the counter, moving up as the people in front leave.
+	-- Queue at the counter, moving up as the people in front are served.
 	queues[npc.player] = queues[npc.player] or {}
 	table.insert(queues[npc.player], npc.id)
 	local walkedToIndex = nil
@@ -313,27 +526,46 @@ local function runVisit(npc: Npc, plot: Instance)
 		return
 	end
 
-	-- At the counter: the owner can tap Checkout (+10%); otherwise it pays by itself after AutoCheckoutSeconds.
+	-- At the counter: face the till and WAIT for the owner (no auto-pay any more). Hellos while waiting; after the patience
+	-- limit the customer leaves without buying and the item goes back on the shelf.
 	npc.atCounter = true
+	npc.model:SetAttribute("AtCounter", true) -- lets the tests (and anything else) see who is waiting at the till
+	local counter = plot:FindFirstChild("Counter")
+	if counter and counter:IsA("BasePart") then
+		faceToward(npc, counter.Position)
+	end
 	refreshPrompt(npc.player)
-	-- Auto-checkout after AutoCheckoutSeconds, but never while the owner has the till open for this customer.
-	local waited = 0
-	local limit = Economy.AutoCheckoutSeconds or 8
+	local waited, nextHello = 0, randomIn(Economy.QueueHelloSeconds)
+	local patience = (Economy.QueuePatienceSeconds or 90) * ((Customers[npc.typeId] or {}).patienceMult or 1)
+	local nextAsk = 0.5 -- a haggler asks right away, then repeats until answered
+	local function ask()
+		local pct = math.floor((npc.haggle or 0) * 100 + 0.5)
+		local template = Lines.haggle[Random.new():NextInteger(1, #Lines.haggle)]
+		say(npc, { string.format(template, pct) }, 4)
+	end
 	while not npc.gone do
-		local serving = CashierService ~= nil and CashierService.IsOpenFor(npc.player, npc.id)
-		if not serving then
+		if CashierService ~= nil and CashierService.IsOpenFor(npc.player, npc.id) then
+			waited = 0 -- the owner is on it
+		else
 			waited += 0.25
-			if waited >= limit then
-				break
+			if waited >= patience then
+				say(npc, Lines.gone, 2.5)
+				npc.atCounter = false
+				refreshPrompt(npc.player)
+				log.info(npc.id, "gave up waiting at the till")
+				CustomerService.Leave(npc.player, npc.id, "impatient")
+				return
+			elseif npc.haggleOpen then
+				if waited >= nextAsk then
+					ask()
+					nextAsk = waited + randomIn(Economy.HaggleRepeatSeconds)
+				end
+			elseif waited >= nextHello then
+				say(npc, Lines.hello, 2.5)
+				nextHello = waited + randomIn(Economy.QueueHelloSeconds)
 			end
 		end
 		task.wait(0.25)
-	end
-	if not npc.gone then
-		npc.atCounter = false
-		refreshPrompt(npc.player)
-		local ok, reason = CustomerService.Checkout(npc.player, npc.id, false)
-		log.info(npc.id, "auto checkout:", ok, reason or "")
 	end
 end
 

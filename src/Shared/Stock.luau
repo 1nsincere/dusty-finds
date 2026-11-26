@@ -25,9 +25,11 @@ end
 -- Skins grouped by kind and rarity, in a fixed order (sorted ids) so the roll is the same everywhere.
 local pools: { [string]: { [string]: { string } } } = {}
 for _, skin in Skins.LIST do
-	pools[skin.kind] = pools[skin.kind] or {}
-	pools[skin.kind][skin.rarity] = pools[skin.kind][skin.rarity] or {}
-	table.insert(pools[skin.kind][skin.rarity], skin.id)
+	if skin.pass == nil then -- pass-only theme skins (Config.Monetization) are never in stock
+		pools[skin.kind] = pools[skin.kind] or {}
+		pools[skin.kind][skin.rarity] = pools[skin.kind][skin.rarity] or {}
+		table.insert(pools[skin.kind][skin.rarity], skin.id)
+	end
 end
 for _, byRarity in pools do
 	for _, ids in byRarity do

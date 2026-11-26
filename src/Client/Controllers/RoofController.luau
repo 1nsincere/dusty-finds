@@ -11,6 +11,10 @@ local RunService = game:GetService("RunService")
 local RoofController = {}
 local DEBUG = true
 
+-- Ace, 2026-11-26: roofs and upper walls are ALWAYS visible now (fading them looked awkward next to the Back Room's real roof and ceiling).
+-- Set to false to bring the old fade-when-inside behaviour back.
+local ALWAYS_VISIBLE = true
+
 local ENTER_HALF = 18.8 -- inside the walls (walls are at +-19.5): start hiding
 local EXIT_HALF = 20.8 -- a little outside the doorway: start showing again
 local MAX_HEIGHT = 12 -- above the walls = on the roof, not inside
@@ -22,6 +26,7 @@ local states: { PlotState } = {}
 
 local function collectParts(state: PlotState)
 	local parts: { BasePart } = {}
+	-- only the main shop's roof and upper walls fade. The Back Room keeps its own roof and a real ceiling: they stay visible from inside.
 	local facade = state.plot:FindFirstChild("Facade")
 	if facade then
 		for _, groupName in { "Roof", "Upper" } do
@@ -70,6 +75,12 @@ function RoofController.Init(_others)
 end
 
 function RoofController.Start()
+	if ALWAYS_VISIBLE then
+		if DEBUG then
+			print("[RoofController] roofs and upper walls stay visible (ALWAYS_VISIBLE): nothing fades")
+		end
+		return
+	end
 	local plots = workspace:WaitForChild("Plots", 10)
 	if plots == nil then
 		warn("[RoofController] no Workspace.Plots: roofs stay visible")

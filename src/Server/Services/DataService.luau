@@ -27,7 +27,7 @@ local MAX_VALUE_DEPTH = 8 -- deepest table we accept in Set (also stops circular
 -- Docs/03 §10.5 (same shape as Types.PlayerData). Changing a field changes saved data: ask the team first
 -- (CLAUDE.md §6.6). Adding a field later is safe: Reconcile() fills it in for existing players.
 local TEMPLATE = {
-	version = 1,
+	version = 6, -- 6 (2026-11-26, Ace OK, Robux skin vouchers): added `vouchers`; 5 (2026-11-26, Ace OK, docs/12 trim + accent paints): added `paints.trim` and `paints.accent` (ProfileStore Reconcile fills them for old saves); 2 (2026-11-25): added `layout`; 3 (2026-11-25, Ace OK, docs/12 Stage 2): added `paints`, `wishlist`, `entitlements`, `vip`; 4 (2026-11-25, Ace OK with the Saved Layouts pass): added `layoutSlots`
 	cash = 100,
 	xp = 0,
 	level = 1,
@@ -46,7 +46,22 @@ local TEMPLATE = {
 	-- shelf / pedestal skins (Sean, Ace OK 2026-11-24; SkinService): owned = { [skinId] = true }; shelf / pedestal =
 	-- the skin id in use, "" = the classic look. Old saves get this from Reconcile().
 	-- cashier = the cash counter's skin (Sean, Ace OK 2026-11-24); Reconcile adds it to saves that already have skins.
+	-- edit mode (LayoutService): layout[pieceId] = { x, z, rot, floor } in plot-local studs for MOVED shelves / pedestals only; empty = default shop.
+	layout = {},
 	skins = { owned = {}, shelf = "", pedestal = "", cashier = "" },
+	-- wall / floor paints (PaintService): owned = { [paintId] = true }; wall / floor = the paint id in use, "" = original.
+	paints = { owned = {}, wall = "", floor = "", trim = "", accent = "" }, -- v5 (2026-11-26, Ace OK): trim and accent
+	-- skins the player pinned to be told about when they are in stock: { [skinId] = true }, at most 5 (SkinService). Notify only.
+	wishlist = {},
+	-- passes owned: { [passId] = true }. Written ONLY by the server after a MarketplaceService check (not built yet, Stage 5).
+	entitlements = {},
+	-- Robux skin vouchers (2026-11-26, Ace OK, data v6): how many you hold per tier, and the last receipt ids so a repeated receipt never gives twice
+	vouchers = { Epic = 0, Legendary = 0, seen = {} },
+	-- VIP cosmetic choices (not built yet, Stage 5): cosmetic only, never cash, XP, speed or odds.
+	vip = { title = "", pet = "", petColor = "", auraStyle = "" },
+	-- saved shop layouts (Saved Layouts pass 3 slots, VIP +1; LayoutService.SaveSlot / LoadSlot): layoutSlots["1"] = a copy of `layout`
+	-- (same shape: { [pieceId] = { x, z, rot, floor } }); string keys "1".."4". Empty until the player saves one.
+	layoutSlots = {},
 }
 
 local store = nil
