@@ -1,0 +1,26 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="art">
+<path id="Vector" d="M24 37.2C33.2784 37.2 40.8 29.6784 40.8 20.4C40.8 11.1216 33.2784 3.6 24 3.6C14.7216 3.6 7.2 11.1216 7.2 20.4C7.2 29.6784 14.7216 37.2 24 37.2Z" fill="#2B1B14" stroke-width="6.8" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_2" d="M10.8 36.4H37.2L40.8 44H7.2L10.8 36.4Z" fill="#2B1B14" stroke-width="6.8" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_3" d="M10.8 36.4H37.2L40.8 44H7.2L10.8 36.4Z" fill="url(#paint0_linear_0_4)"/>
+<path id="Vector_4" d="M24 37.2C33.2784 37.2 40.8 29.6784 40.8 20.4C40.8 11.1216 33.2784 3.6 24 3.6C14.7216 3.6 7.2 11.1216 7.2 20.4C7.2 29.6784 14.7216 37.2 24 37.2Z" fill="url(#paint1_radial_0_4)"/>
+<path id="Vector_5" d="M24 12L32 28H16L24 12Z" fill="#3DBE5A"/>
+<path id="Vector_6" d="M25.6 28H22.4V32H25.6V28Z" fill="#8A5A2A"/>
+<path id="Vector_7" d="M13.6 17.6C14.4837 17.6 15.2 16.8837 15.2 16C15.2 15.1163 14.4837 14.4 13.6 14.4C12.7163 14.4 12 15.1163 12 16C12 16.8837 12.7163 17.6 13.6 17.6Z" fill="white"/>
+<path id="Vector_8" d="M34.8 14.8C35.6837 14.8 36.4 14.0837 36.4 13.2C36.4 12.3163 35.6837 11.6 34.8 11.6C33.9163 11.6 33.2 12.3163 33.2 13.2C33.2 14.0837 33.9163 14.8 34.8 14.8Z" fill="white"/>
+<path id="Vector_9" d="M31.6 24.2C32.3732 24.2 33 23.5732 33 22.8C33 22.0268 32.3732 21.4 31.6 21.4C30.8268 21.4 30.2 22.0268 30.2 22.8C30.2 23.5732 30.8268 24.2 31.6 24.2Z" fill="white"/>
+<path id="Vector_10" d="M17.2 27.4C17.9732 27.4 18.6 26.7732 18.6 26C18.6 25.2268 17.9732 24.6 17.2 24.6C16.4268 24.6 15.8 25.2268 15.8 26C15.8 26.7732 16.4268 27.4 17.2 27.4Z" fill="white"/>
+<path id="Vector_11" opacity="0.9" d="M13.6 12.4C15.2959 9.60429 18.0274 7.5916 21.2 6.8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+<path id="Vector_12" d="M38 4.8C38 6.93333 39.0667 8 41.2 8C39.0667 8 38 9.06667 38 11.2C38 9.06667 36.9333 8 34.8 8C36.9333 8 38 6.93333 38 4.8Z" fill="white"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_4" x1="7.2" y1="36.4" x2="7.2" y2="44" gradientUnits="userSpaceOnUse">
+<stop stop-color="#B87A3E"/>
+<stop offset="1" stop-color="#6E4219"/>
+</linearGradient>
+<radialGradient id="paint1_radial_0_4" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(18.96 13.68) scale(28.56 28.56)">
+<stop stop-color="#F4FBFF"/>
+<stop offset="1" stop-color="#8FCBF2"/>
+</radialGradient>
+</defs>
+</svg>
