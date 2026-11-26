@@ -1,0 +1,33 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="art">
+<path id="Vector" d="M24 42.4C32.6156 42.4 39.6 35.4156 39.6 26.8C39.6 18.1844 32.6156 11.2 24 11.2C15.3844 11.2 8.4 18.1844 8.4 26.8C8.4 35.4156 15.3844 42.4 24 42.4Z" fill="#2B1B14" stroke-width="6.8" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_2" d="M12.8 18C15.6719 18 18 15.6719 18 12.8C18 9.92812 15.6719 7.6 12.8 7.6C9.92812 7.6 7.6 9.92812 7.6 12.8C7.6 15.6719 9.92812 18 12.8 18Z" fill="#2B1B14" stroke-width="6.8" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_3" d="M35.2 18C38.0719 18 40.4 15.6719 40.4 12.8C40.4 9.92812 38.0719 7.6 35.2 7.6C32.3281 7.6 30 9.92812 30 12.8C30 15.6719 32.3281 18 35.2 18Z" fill="#2B1B14" stroke-width="6.8" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_4" d="M12.8 18C15.6719 18 18 15.6719 18 12.8C18 9.92812 15.6719 7.6 12.8 7.6C9.92812 7.6 7.6 9.92812 7.6 12.8C7.6 15.6719 9.92812 18 12.8 18Z" fill="url(#paint0_linear_0_4)"/>
+<path id="Vector_5" d="M35.2 18C38.0719 18 40.4 15.6719 40.4 12.8C40.4 9.92812 38.0719 7.6 35.2 7.6C32.3281 7.6 30 9.92812 30 12.8C30 15.6719 32.3281 18 35.2 18Z" fill="url(#paint1_linear_0_4)"/>
+<path id="Vector_6" d="M24 42.4C32.6156 42.4 39.6 35.4156 39.6 26.8C39.6 18.1844 32.6156 11.2 24 11.2C15.3844 11.2 8.4 18.1844 8.4 26.8C8.4 35.4156 15.3844 42.4 24 42.4Z" fill="url(#paint2_linear_0_4)"/>
+<path id="Vector_7" d="M24 38.6C30.517 38.6 35.8 33.317 35.8 26.8C35.8 20.283 30.517 15 24 15C17.483 15 12.2 20.283 12.2 26.8C12.2 33.317 17.483 38.6 24 38.6Z" fill="url(#paint3_radial_0_4)"/>
+<path id="Vector_8" d="M24 18.4V26.8L30 30.4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_9" d="M24 16.4V17.8M24 36V37.2M14.4 26.8H15.8M32.2 26.8H33.6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#2B1B14"/>
+<path id="Vector_10" opacity="0.8" d="M14.8 19.6C16.241 17.8403 18.2008 16.5804 20.4 16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+<path id="Vector_11" d="M14 42L16.8 39.2M34 42L31.2 39.2" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" stroke="#9E1414"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_4" x1="7.6" y1="7.6" x2="7.6" y2="18" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFE27A"/>
+<stop offset="1" stop-color="#E59B00"/>
+</linearGradient>
+<linearGradient id="paint1_linear_0_4" x1="30" y1="7.6" x2="30" y2="18" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFE27A"/>
+<stop offset="1" stop-color="#E59B00"/>
+</linearGradient>
+<linearGradient id="paint2_linear_0_4" x1="8.4" y1="11.2" x2="8.4" y2="42.4" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF8A7A"/>
+<stop offset="1" stop-color="#D32222"/>
+</linearGradient>
+<radialGradient id="paint3_radial_0_4" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(20.46 22.08) scale(20.06)">
+<stop stop-color="white"/>
+<stop offset="1" stop-color="#F3E2C0"/>
+</radialGradient>
+</defs>
+</svg>
