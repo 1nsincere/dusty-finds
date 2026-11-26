@@ -78,6 +78,15 @@ function DisplayService.SyncSlots(player: any)
 		if folder then
 			for _, part in folder:GetChildren() do
 				local index = part:GetAttribute("SlotIndex")
+				-- a spot that is CLOSED (Enabled is exactly false: the second-floor pedestals were removed on 2026-11-26) can not
+				-- hold an item: it goes back to the inventory (kept if the inventory is full, and tried again next time)
+				if type(index) == "number" and part:GetAttribute("Enabled") == false then
+					local uid = occupant(player, kind, index)
+					if uid ~= nil and not isReserved(player, uid) and InventoryService.Update(player, uid, { state = "Restored" }) then
+						InventoryService.ClearField(player, uid, "slot")
+						log.info(`{kind} slot {index} is closed: item {uid} went back to the inventory`)
+					end
+				end
 				local item = nil
 				if type(index) == "number" then
 					local _, found = occupant(player, kind, index)

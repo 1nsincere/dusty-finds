@@ -465,9 +465,7 @@ function RestorationView.new(ctx, onCancel)
 			local vs = camera.ViewportSize
 			local aspect = if vs.Y > 0 then vs.X / vs.Y else 1.78
 			if fitted == nil or math.abs(aspect - fittedAspect) > 0.01 then
-				-- the HUD column (Exit, tracker, guide) is about 280 px wide at 720 px high: keep the item out from under it
-				local hudScale = math.clamp(vs.Y / 720, 0.62, 1.1)
-				fitted = RestorationView.FitCamera(self.model, flatDir, FP_FOV, aspect, math.clamp(282 * hudScale / math.max(vs.X, 1), 0, 0.4),
+				fitted = RestorationView.FitCamera(self.model, flatDir, FP_FOV, aspect, 0, -- 0 = the item sits in the CENTRE of the screen (Ace, 2026-11-26); the progress bar is on the right edge and the HUD column is narrow
 					point.Position) -- the CameraPoint part at the bench IS where the eyes go: it is placed inside the shop, clear of walls
 				fittedAspect = aspect
 			end

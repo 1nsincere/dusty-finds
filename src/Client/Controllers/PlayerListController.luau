@@ -158,11 +158,14 @@ local function addRow(p: Player, order: number)
 	if type(role) == "string" then
 		badge(tags, string.upper(role), C.accent, 1)
 	end
+	if p:GetAttribute("DF_OneOfOne") == true then
+		badge(tags, "◆ 1/1", Color3.fromRGB(170, 145, 205), 2)
+	end
 	if p.MembershipType == Enum.MembershipType.Premium then
-		badge(tags, "✦ PREMIUM", Color3.fromRGB(63, 220, 200), 2)
+		badge(tags, "✦ PREMIUM", Color3.fromRGB(63, 220, 200), 3)
 	end
 	if friends[p.UserId] then
-		badge(tags, "♥ FRIEND", Color3.fromRGB(255, 140, 170), 3)
+		badge(tags, "♥ FRIEND", Color3.fromRGB(255, 140, 170), 4)
 	end
 
 	-- rank: shop level and rating stars (server attributes; hidden until the server has published them)
@@ -284,7 +287,7 @@ function PlayerListController.Init(controllers)
 end
 
 local function watch(p: Player)
-	for _, attr in { "DF_Level", "DF_Rating" } do
+	for _, attr in { "DF_Level", "DF_Rating", "DF_OneOfOne" } do
 		p:GetAttributeChangedSignal(attr):Connect(function()
 			if gui and gui.Enabled then
 				refresh()

@@ -226,7 +226,15 @@ function SkinCheck.run()
 		check("apply: classic cashier is saved", Service.Apply(p, "Cashier", "") == true and store[p].skins.cashier == "")
 
 		-- drawing, on a copy of one plot owned by the fake player's data
-		local plotCopy = workspace.Plots:FindFirstChildWhichIsA("Model"):Clone()
+		-- copy an UNOWNED shop (a live player's shop may already wear a skin, which would make "classic" untrue); any shop if all are taken
+		local source = nil
+		for _, shop in workspace.Plots:GetChildren() do
+			if shop:IsA("Model") and shop:GetAttribute("OwnerUserId") == nil and shop.ExhibitSlots.Exhibit1:GetAttribute("Skin") == nil then
+				source = shop
+				break
+			end
+		end
+		local plotCopy = (source or workspace.Plots:FindFirstChildWhichIsA("Model")):Clone()
 		plotCopy.Name = "SkinCheckPlot"
 		plotCopy:SetAttribute("OwnerUserId", nil)
 		plotCopy.Parent = workspace

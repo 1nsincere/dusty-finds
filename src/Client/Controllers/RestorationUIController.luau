@@ -174,6 +174,8 @@ local function buildHud(screen: ScreenGui)
 	progress.ZIndex = 2
 	local fill = progress.Fill :: Frame
 	styleBox(fill, HC.accent, 5)
+	fill.AnchorPoint = Vector2.new(0, 1) -- the bar is vertical now (right edge of the screen): it fills from the bottom up
+	fill.Position = UDim2.fromScale(0, 1)
 	fill.ZIndex = 3
 
 	local chips = screen.StepChips :: Frame
@@ -220,9 +222,11 @@ local function layoutHud(screen: ScreenGui)
 	chips.Position = UDim2.fromOffset(pad, top + 60 * s)
 	chips.Size = UDim2.fromOffset(cw - 36 * s, 22 * s)
 	local progress = screen.Progress :: Frame
-	progress.AnchorPoint = Vector2.new(0, 0)
-	progress.Position = UDim2.fromOffset(pad, top + 94 * s)
-	progress.Size = UDim2.fromOffset(cw - 36 * s, 8 * s)
+	-- the progress bar: big and vertical on the RIGHT edge, so it never covers the item in the middle (Ace, 2026-11-26)
+	local viewHeight = math.max(screen.AbsoluteSize.Y, 360)
+	progress.AnchorPoint = Vector2.new(1, 0.5)
+	progress.Position = UDim2.new(1, -16 * s, 0.45, 0)
+	progress.Size = UDim2.fromOffset(math.max(22, 30 * s), math.floor(viewHeight * 0.4))
 	-- the guide: what to do, in plain words, under the tracker
 	local hint = screen.Hint :: TextLabel
 	hint.AnchorPoint = Vector2.new(0, 0)
@@ -299,7 +303,7 @@ function RestorationUIController.SetProgress(fraction: number)
 	if screen == nil or type(fraction) ~= "number" then
 		return
 	end
-	screen.Progress.Fill.Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1)
+	screen.Progress.Fill.Size = UDim2.fromScale(1, math.clamp(fraction, 0, 1))
 	if fraction ~= lastSeenFraction then
 		lastSeenFraction = fraction
 		lastActive = os.clock() -- the player is making progress: no nudge

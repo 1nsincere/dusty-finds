@@ -106,7 +106,7 @@ end
 local bannerQueue: { string } = {}
 local bannerBusy = false
 local bannerShownPosition: UDim2? = nil -- where Studio placed it; we slide in from above to here
--- Toasts.Banner (Toasts draws above every window, DisplayOrder 5); HUD.Banner only as a fallback for an old place.
+-- Toasts.Banner (Toasts draws above every window, DisplayOrder 30; the modal windows are 10-20 and the player list 5, so a window always covers the list); HUD.Banner only as a fallback for an old place.
 local bannerFrame: Frame? = nil
 
 local function showNextBanner()

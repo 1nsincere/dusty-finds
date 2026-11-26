@@ -56,6 +56,37 @@ function MonetizationCheck.run()
 		unique[product.id] = true
 	end
 	check("config: pass and product ids are unique and indexed", idsOk)
+	local PaintsConfig = require(ReplicatedStorage.Shared.Config.Paints)
+	check("config: every premium paint has a Robux product that lists it, and every paint product only lists premium paints", (function()
+		for _, paint in PaintsConfig.LIST do
+			if paint.premium then
+				local product = Config.BY_PRODUCT[paint.product]
+				if product == nil or not table.find(product.paints or {}, paint.id) then
+					return false
+				end
+			end
+		end
+		for _, product in Config.PRODUCTS do
+			for _, id in product.paints or {} do
+				local paint = PaintsConfig.BY_ID[id]
+				if paint == nil or not paint.premium then
+					return false
+				end
+			end
+		end
+		return true
+	end)())
+	check("config: premium prices are 25-49 R$ for one paint and 99-129 R$ for a set", (function()
+		for _, product in Config.PRODUCTS do
+			if product.kind == "Paint" and (product.price < 25 or product.price > 49) then
+				return false
+			end
+			if product.kind == "PaintSet" and (product.price < 99 or product.price > 129) then
+				return false
+			end
+		end
+		return true
+	end)())
 	check("config: every pass has a name, a positive price and a Roblox id (0 = not created yet)", pricesOk)
 	check("config: a theme pass grants only paints and skins that are marked with that pass", grantsOk)
 	check("config: the approved passes exist", Config.BY_PASS.VIP and Config.BY_PASS.Companion and Config.BY_PASS.GlowPack and Config.BY_PASS.SavedLayouts and Config.BY_PASS.BigStorage and Config.BY_PASS.ThemeArcade and Config.BY_PASS.ThemeCabin ~= nil)
@@ -160,6 +191,7 @@ function MonetizationCheck.run()
 		local function fresh()
 			store[p] = {
 				entitlements = {},
+				vouchers = { Epic = 0, Legendary = 0, seen = {} },
 				vip = { title = "", pet = "", petColor = "", auraStyle = "" },
 				paints = { owned = {}, wall = "", floor = "" },
 				skins = { owned = {}, shelf = "", pedestal = "", cashier = "" },
@@ -212,6 +244,64 @@ function MonetizationCheck.run()
 		check("receipt: the same purchase again is still granted, never double-processed", Service.HandleReceipt({ PlayerId = 555, ProductId = Config.BY_PRODUCT.TipMedium.productId, PurchaseId = "a1" }) == decisions.PurchaseGranted)
 		check("receipt: a player who left is retried later", Service.HandleReceipt({ PlayerId = 999, ProductId = Config.BY_PRODUCT.TipMedium.productId, PurchaseId = "a2" }) == decisions.NotProcessedYet)
 		check("receipt: a product that isn't ours is not consumed", Service.HandleReceipt({ PlayerId = 555, ProductId = 12345, PurchaseId = "a3" }) == decisions.NotProcessedYet)
+
+		-- ===== premium paints and sets (Robux Premium tab) =====
+		fresh()
+		local pearl, setPearl = Config.BY_PRODUCT.PaintWallPremPearl, Config.BY_PRODUCT.SetPearl
+		check("premium: a premium paint opens the product window", Service.PromptProduct(p, "PaintWallPremPearl") == true and prompts[#prompts] == "product" .. pearl.productId)
+		failSet = true
+		check("premium: if saving the paint fails the receipt is NOT confirmed (Roblox retries)", Service.HandleReceipt({ PlayerId = 555, ProductId = pearl.productId, PurchaseId = "p0" }) == decisions.NotProcessedYet and store[p].paints.owned.WallPremPearl == nil)
+		failSet = false
+		check("premium: the receipt saves the paint for good, then confirms", Service.HandleReceipt({ PlayerId = 555, ProductId = pearl.productId, PurchaseId = "p1" }) == decisions.PurchaseGranted and store[p].paints.owned.WallPremPearl == true)
+		check("premium: the same receipt twice is harmless", Service.HandleReceipt({ PlayerId = 555, ProductId = pearl.productId, PurchaseId = "p1" }) == decisions.PurchaseGranted and store[p].paints.owned.WallPremPearl == true)
+		check("premium: a paint you already own is never prompted (no double charge)", select(2, Service.PromptProduct(p, "PaintWallPremPearl")) == "owned")
+		check("premium: a set gives every paint in it", Service.HandleReceipt({ PlayerId = 555, ProductId = setPearl.productId, PurchaseId = "p2" }) == decisions.PurchaseGranted
+			and store[p].paints.owned.FloorPremMarble == true and store[p].paints.owned.TrimPremBrass == true and store[p].paints.owned.AccentPremBrass == true)
+		check("premium: a set is not prompted once everything in it is owned", select(2, Service.PromptProduct(p, "SetPearl")) == "owned")
+		check("premium: a premium receipt for a player who left is retried later", Service.HandleReceipt({ PlayerId = 999, ProductId = pearl.productId, PurchaseId = "p3" }) == decisions.NotProcessedYet)
+
+		-- ===== skin vouchers (Robux): buy a voucher, redeem it for any Epic / Legendary skin =====
+		fresh()
+		local vEpic, vLeg = Config.BY_PRODUCT.VoucherEpic, Config.BY_PRODUCT.VoucherLegendary
+		check("voucher: the product window opens", Service.PromptProduct(p, "VoucherEpic") == true and prompts[#prompts] == "product" .. vEpic.productId)
+		failSet = true
+		check("voucher: if saving fails the receipt is NOT confirmed (Roblox retries)", Service.HandleReceipt({ PlayerId = 555, ProductId = vEpic.productId, PurchaseId = "v0" }) == decisions.NotProcessedYet and store[p].vouchers.Epic == 0)
+		failSet = false
+		check("voucher: the receipt saves one voucher of the tier, then confirms", Service.HandleReceipt({ PlayerId = 555, ProductId = vEpic.productId, PurchaseId = "v1" }) == decisions.PurchaseGranted and store[p].vouchers.Epic == 1 and store[p].vouchers.Legendary == 0)
+		check("voucher: the same receipt twice gives only ONE voucher", Service.HandleReceipt({ PlayerId = 555, ProductId = vEpic.productId, PurchaseId = "v1" }) == decisions.PurchaseGranted and store[p].vouchers.Epic == 1)
+		check("voucher: a second purchase is a second voucher", Service.HandleReceipt({ PlayerId = 555, ProductId = vEpic.productId, PurchaseId = "v2" }) == decisions.PurchaseGranted and store[p].vouchers.Epic == 2)
+		check("voucher: a Legendary voucher is its own count", Service.HandleReceipt({ PlayerId = 555, ProductId = vLeg.productId, PurchaseId = "v3" }) == decisions.PurchaseGranted and store[p].vouchers.Legendary == 1 and store[p].vouchers.Epic == 2)
+		check("voucher: a receipt for a player who left is retried later", Service.HandleReceipt({ PlayerId = 999, ProductId = vEpic.productId, PurchaseId = "v4" }) == decisions.NotProcessedYet)
+		check("voucher: only the last receipt ids are remembered (the list stays short)", (function()
+			for i = 1, 30 do
+				Service.HandleReceipt({ PlayerId = 555, ProductId = vEpic.productId, PurchaseId = "bulk" .. i })
+			end
+			return #store[p].vouchers.seen <= 20 and store[p].vouchers.Epic == 2 + 30
+		end)())
+		fresh()
+		store[p].vouchers.Epic, store[p].vouchers.Legendary = 1, 1
+		local SkinsCfg = require(ReplicatedStorage.Shared.Config.Skins)
+		local epicSkin, legSkin, rareSkin = "ShelfTeal", "ShelfGilded", "ShelfBrass"
+		check("voucher: the test skins are the rarities they should be", SkinsCfg.BY_ID[epicSkin].rarity == "Epic" and SkinsCfg.BY_ID[legSkin].rarity == "Legendary" and SkinsCfg.BY_ID[rareSkin].rarity == "Rare")
+		check("redeem: an unknown skin and a non-string are refused", select(2, Service.RedeemVoucher(p, "NoSuch")) == "unknown" and select(2, Service.RedeemVoucher(p, 5)) == "unknown")
+		check("redeem: a Rare skin can't be bought with a voucher", select(2, Service.RedeemVoucher(p, rareSkin)) == "notRedeemable" and store[p].vouchers.Epic == 1)
+		check("redeem: a theme (pass) skin can't be bought with a voucher", select(2, Service.RedeemVoucher(p, "ShelfArcade")) == "notRedeemable")
+		failSet = true
+		check("redeem: a failed save keeps the voucher and gives nothing", select(2, Service.RedeemVoucher(p, epicSkin)) == "saveFailed" and store[p].vouchers.Epic == 1 and store[p].skins.owned[epicSkin] == nil)
+		failSet = false
+		check("redeem: an Epic voucher gives the chosen Epic skin and is used up", Service.RedeemVoucher(p, epicSkin) == true and store[p].skins.owned[epicSkin] == true and store[p].vouchers.Epic == 0 and store[p].vouchers.Legendary == 1)
+		check("redeem: with no voucher left the next Epic skin is refused", select(2, Service.RedeemVoucher(p, "PedestalVelvet")) == "noVoucher" and store[p].skins.owned.PedestalVelvet == nil)
+		check("redeem: a skin you already own is refused and the voucher is kept", select(2, Service.RedeemVoucher(p, epicSkin)) == "owned" and store[p].vouchers.Legendary == 1)
+		check("redeem: a Legendary voucher gives a Legendary skin", Service.RedeemVoucher(p, legSkin) == true and store[p].skins.owned[legSkin] == true and store[p].vouchers.Legendary == 0)
+		check("redeem: an Epic voucher can't be spent on a Legendary skin", (function()
+			store[p].vouchers.Epic = 1
+			return select(2, Service.RedeemVoucher(p, "PedestalGilded")) == "noVoucher" and store[p].vouchers.Epic == 1
+		end)())
+		check("redeem: a player with no data is refused", (function()
+			store[p] = nil
+			return select(2, Service.RedeemVoucher(p, epicSkin)) == "noData"
+		end)())
+		fresh()
 
 		-- VIP choices
 		fresh()

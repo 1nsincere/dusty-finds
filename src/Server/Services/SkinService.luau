@@ -15,6 +15,7 @@ local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
 local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Hours = require(ReplicatedStorage.Shared.Hours)
 local Skins = require(ReplicatedStorage.Shared.Config.Skins)
 local StockConfig = require(ReplicatedStorage.Shared.Config.Stock)
 local Stock = require(ReplicatedStorage.Shared.Stock)
@@ -239,9 +240,16 @@ function SkinService.Buy(player: Player, skinId: any, now: number?): (boolean, s
 	if not Stock.isInStock(Stock.restockIndex(now or os.time()), skinId) then
 		return false, "notInStock"
 	end
-	local stall = workspace:FindFirstChild("SkinStall")
-	local counter = stall and stall:FindFirstChild("Counter")
-	if not (counter and Validate.withinDistance(player, counter, StockConfig.BuyMaxStuds)) then
+	-- the Skins Booth or the centre Shelves & Pedestals stall (both sell from the same stock)
+	local near = false
+	for _, stallName in { "SkinStall", "ShelfStall" } do
+		local stall = workspace:FindFirstChild(stallName)
+		local counter = stall and stall:FindFirstChild("Counter")
+		if counter and Validate.withinDistance(player, counter, StockConfig.BuyMaxStuds) then
+			near = true
+		end
+	end
+	if not near then
 		return false, "far"
 	end
 	if not EconomyService.Spend(player, skin.price, "Shop", skinId) then
@@ -402,6 +410,10 @@ end
 function SkinService.Start()
 	Remotes.RequestBuySkin.OnServerEvent:Connect(function(player, skinId)
 		if not Validate.rateLimit(player, "RequestBuySkin", 2) then
+			return
+		end
+		if not Hours.marketOpen() then
+			Remotes.Notify:FireClient(player, "Info", "The Warehouse Market is closed. It opens at " .. Hours.format(Hours.MARKET_OPEN) .. ".")
 			return
 		end
 		local ok, reason = SkinService.Buy(player, skinId)

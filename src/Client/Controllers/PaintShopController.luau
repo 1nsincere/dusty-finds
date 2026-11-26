@@ -1,5 +1,5 @@
 -- PaintShopController.luau (StarterPlayerScripts.Client.Controllers.PaintShopController)
--- Purpose: the Paint Bar window in the Warehouse Market (docs/12 Stage 2): tabs Walls / Floors (always in stock, Buy) and
+-- Purpose: the Paint Bar window in the Warehouse Market (docs/12 Stage 2): tabs Themes (one-tap looks), Walls, Floors, Trim, Accent (always in stock, Buy) and
 -- Owned (use a paint, or the original look). Opened from the Paint Bar prompt (Workspace.PaintCounter).
 -- Owner: Dev 1 (Ace). Depends on: Shared.Config.Paints, Shared.Remotes (RequestBuyPaint, RequestApplyPaint), ClientState
 -- (paints, cash), UiTheme, UiSkin + HudSkinController (look). The server checks every request; this only shows and asks.
@@ -13,6 +13,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Paints = require(Shared:WaitForChild("Config"):WaitForChild("Paints"))
 local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
+local Themes = require(Shared:WaitForChild("Config"):WaitForChild("Themes"))
+local Contrast = require(Shared:WaitForChild("Contrast"))
+local Monetization = require(Shared:WaitForChild("Config"):WaitForChild("Monetization"))
+local CollectorConfig = require(Shared:WaitForChild("Config"):WaitForChild("Collector"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
 
@@ -24,12 +28,18 @@ local others: { [string]: any } = {}
 local gui: ScreenGui? = nil
 local list: ScrollingFrame? = nil
 local tabButtons: { [string]: GuiObject } = {}
+local hintLabel: TextLabel? = nil
+local HINT = "Whole looks in one tap, or single colours. Always in stock."
 local TABS = {
+	{ key = "Theme", label = "Themes" },
 	{ key = "Wall", label = "Walls" },
 	{ key = "Floor", label = "Floors" },
+	{ key = "Trim", label = "Trim" },
+	{ key = "Accent", label = "Accent" },
+	{ key = "Premium", label = "Premium" },
 	{ key = "Owned", label = "Owned" },
 }
-local tab = "Wall"
+local tab = "Theme"
 
 local function log(...)
 	if DEBUG then
@@ -98,7 +108,7 @@ end
 
 local function state(): any
 	local paints = ClientState.Get("paints")
-	return if type(paints) == "table" then paints else { owned = {}, wall = "", floor = "" }
+	return if type(paints) == "table" then paints else { owned = {}, wall = "", floor = "", trim = "", accent = "" }
 end
 
 local function owned(id: string): boolean
@@ -118,7 +128,8 @@ local function swatch(parent: Instance, paint: any, kind: string)
 	base.AnchorPoint = Vector2.new(0.5, 0)
 	base.Position = UDim2.new(0.5, 0, 0, 8)
 	base.Size = UDim2.fromOffset(70, 34)
-	base.BackgroundColor3 = if paint then paint.color else (if kind == "Wall" then Color3.fromRGB(244, 240, 232) else Color3.fromRGB(176, 150, 112))
+	local ORIGINAL = { Wall = Color3.fromRGB(234, 227, 213), Floor = Color3.fromRGB(140, 102, 72), Trim = Color3.fromRGB(89, 62, 43), Accent = Color3.fromRGB(201, 138, 75) }
+	base.BackgroundColor3 = if paint then paint.color else (ORIGINAL[kind] or Color3.fromRGB(176, 150, 112))
 	base.BorderSizePixel = 0
 	Instance.new("UICorner", base).CornerRadius = UDim.new(0, 3)
 	local stroke = Instance.new("UIStroke")
@@ -145,7 +156,7 @@ local function card(paint: any, kind: string, order: number)
 	c.LayoutOrder = order
 	swatch(c, paint, kind)
 	text(c, "Name", if paint then paint.name else `Original {kind:lower()}`, UDim2.new(1, -10, 0, 18), UDim2.fromOffset(5, 48))
-	text(c, "Kind", if paint then (if kind == "Wall" then "Wall paint" else "Floor") else "No paint", UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 66), UiSkin.COLORS.textDim)
+	text(c, "Kind", if paint then (Paints.KIND_LABEL[kind] or kind) else "No paint", UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 66), UiSkin.COLORS.textDim)
 	local id = if paint then paint.id else ""
 	if tab ~= "Owned" then
 		if owned(id) then
@@ -181,6 +192,150 @@ local function card(paint: any, kind: string, order: number)
 	end
 end
 
+-- A theme card: four colour chips (wall, floor, trim, accent), the name, and what you can do with it.
+local THEME_DEFAULT_CHIPS = { Wall = "Wall", Floor = "Floor", Trim = "Trim", Accent = "Accent" }
+local function themeCard(theme: any, order: number)
+	local c = panel(list :: ScrollingFrame, "Theme_" .. theme.id, UDim2.new(), nil)
+	c.LayoutOrder = order
+	for i, slot in Themes.SLOTS do
+		local id = theme.looks[slot]
+		local paint = if id ~= "" then Paints.BY_ID[id] else Paints.DEFAULTS[slot]
+		local chip = Instance.new("Frame")
+		chip.Name = "Chip" .. slot
+		chip.Position = UDim2.new(0, 8 + (i - 1) * 31, 0, 8)
+		chip.Size = UDim2.fromOffset(28, 30)
+		chip.BackgroundColor3 = if paint then paint.color else Color3.fromRGB(200, 200, 200)
+		chip.BorderSizePixel = 0
+		Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 4)
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Transparency = 0.7
+		stroke.Parent = chip
+		chip.Parent = c
+	end
+	text(c, "Name", theme.name, UDim2.new(1, -10, 0, 18), UDim2.fromOffset(5, 44))
+	local tierText = ({ starter = "Your starter look", free = "Free", cash = "Bundle", pass = "Robux pass" })[theme.tier] or ""
+	text(c, "Tier", tierText, UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 62), UiSkin.COLORS.textDim)
+	local ownedMap = state().owned or {}
+	local ownsAll = Themes.ownsAll(theme, ownedMap)
+	local paintIds = Themes.paintIds(theme)
+	local function try()
+		local pv = others.PreviewController
+		if pv and #paintIds > 0 then
+			local ok = pv.TryTheme(theme.name, paintIds, {})
+			if ok then
+				PaintShopController.Close()
+			end
+		end
+	end
+	if Themes.isInUse(theme, state()) then
+		text(c, "State", "In use", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
+	elseif ownsAll then
+		button(c, "Use", "Use", UDim2.new(1, -16, 0, 30), UDim2.new(0, 8, 1, -36), function()
+			Remotes.RequestApplyTheme:FireServer(theme.id)
+			log("asked to use theme", theme.id)
+		end)
+	elseif theme.tier == "free" then
+		button(c, "Claim", "Free", UDim2.new(0.62, -10, 0, 30), UDim2.new(0.38, 4, 1, -36), function()
+			Remotes.RequestBuyTheme:FireServer(theme.id)
+		end, UiSkin.COLORS.good)
+		button(c, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), try)
+	elseif theme.tier == "cash" then
+		local price = Themes.price(theme, ownedMap) or 0
+		local cash = ClientState.Get("cash") or 0
+		button(c, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), try)
+		button(c, "Buy", UiTheme.formatCash(price), UDim2.new(0.62, -10, 0, 30), UDim2.new(0.38, 4, 1, -36), function()
+			Remotes.RequestBuyTheme:FireServer(theme.id)
+			log("asked to buy theme", theme.id)
+		end, if cash >= price then UiSkin.COLORS.money else UiSkin.COLORS.textDim)
+	else -- pass themes: try it here, buy the pass at the Collector's Corner
+		button(c, "Try", "Try", UDim2.new(0.5, -10, 0, 30), UDim2.new(0, 8, 1, -36), try)
+		text(c, "Pass", "At the Corner", UDim2.new(0.5, -10, 0, 22), UDim2.new(0.5, 2, 1, -32), UiSkin.COLORS.textDim)
+	end
+end
+
+-- ===== Premium tab (Robux; some paints can also be EARNED as a collector) =====
+
+local function robuxText(product: any): (string, Color3)
+	if product == nil or product.productId <= 0 then
+		return "Coming soon", UiSkin.COLORS.textDim
+	end
+	return `R$ {product.price}`, UiSkin.COLORS.accent
+end
+
+local function premiumCard(paint: any, order: number)
+	local c = panel(list :: ScrollingFrame, "Premium_" .. paint.id, UDim2.new(), nil)
+	c.LayoutOrder = order
+	swatch(c, paint, paint.kind)
+	text(c, "Name", paint.name, UDim2.new(1, -10, 0, 18), UDim2.fromOffset(5, 48))
+	local sub = if paint.earnTier then `Or earn: {(CollectorConfig.TIERS[paint.earnTier] or { name = "Collector" }).name}` else (Paints.KIND_LABEL[paint.kind] or paint.kind)
+	text(c, "Kind", sub, UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 66), UiSkin.COLORS.textDim)
+	if owned(paint.id) then
+		text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
+		return
+	end
+	button(c, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), function()
+		local pv = others.PreviewController
+		if pv then
+			local ok = pv.Try(paint.kind, paint.id)
+			if ok then
+				PaintShopController.Close()
+			end
+		end
+	end)
+	local product = Monetization.BY_PRODUCT[paint.product]
+	local label, color = robuxText(product)
+	button(c, "Buy", label, UDim2.new(0.62, -10, 0, 30), UDim2.new(0.38, 4, 1, -36), function()
+		if product and product.productId > 0 then
+			Remotes.RequestPurchaseProduct:FireServer(product.id)
+			log("asked to buy", product.id)
+		end
+	end, color)
+end
+
+local function setCard(product: any, order: number)
+	local c = panel(list :: ScrollingFrame, "Set_" .. product.id, UDim2.new(), nil)
+	c.LayoutOrder = order
+	for i, id in product.paints do
+		local paint = Paints.BY_ID[id]
+		local chip = Instance.new("Frame")
+		chip.Position = UDim2.new(0, 8 + (i - 1) * 31, 0, 8)
+		chip.Size = UDim2.fromOffset(28, 30)
+		chip.BackgroundColor3 = if paint then paint.color else Color3.fromRGB(200, 200, 200)
+		chip.BorderSizePixel = 0
+		Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 4)
+		chip.Parent = c
+	end
+	text(c, "Name", product.name, UDim2.new(1, -10, 0, 18), UDim2.fromOffset(5, 44))
+	text(c, "Kind", "Full set: 4 paints", UDim2.new(1, -10, 0, 14), UDim2.fromOffset(5, 62), UiSkin.COLORS.textDim)
+	local allOwned = true
+	for _, id in product.paints do
+		if not owned(id) then
+			allOwned = false
+		end
+	end
+	if allOwned then
+		text(c, "State", "Owned", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), UiSkin.COLORS.good, UiSkin.FONT_TITLE)
+		return
+	end
+	button(c, "Try", "Try", UDim2.new(0.38, -8, 0, 30), UDim2.new(0, 8, 1, -36), function()
+		local pv = others.PreviewController
+		if pv then
+			local ok = pv.TryTheme(product.name, product.paints, {})
+			if ok then
+				PaintShopController.Close()
+			end
+		end
+	end)
+	local label, color = robuxText(product)
+	button(c, "Buy", label, UDim2.new(0.62, -10, 0, 30), UDim2.new(0.38, 4, 1, -36), function()
+		if product.productId > 0 then
+			Remotes.RequestPurchaseProduct:FireServer(product.id)
+			log("asked to buy", product.id)
+		end
+	end, color)
+end
+
 local function paintTabs()
 	for name, b in tabButtons do
 		local stroke = b:FindFirstChildOfClass("UIStroke")
@@ -201,9 +356,35 @@ local function render()
 		end
 	end
 	local order = 0
-	if tab ~= "Owned" then
+	-- the contrast guard note: the trim you picked would blend into your wall, so the shop shows it a little lighter or darker
+	if hintLabel then
+		local s = state()
+		local wall = (if s.wall ~= "" then Paints.BY_ID[s.wall] else nil) or Paints.DEFAULTS.Wall
+		local trim = (if s.trim ~= "" then Paints.BY_ID[s.trim] else nil) or Paints.DEFAULTS.Trim
+		local _, changed = Contrast.fixTrim(wall.color, trim.color)
+		hintLabel.Text = if changed then "Your trim is adjusted a little so it stays visible on your wall." else HINT
+	end
+	if tab == "Theme" then
+		for _, theme in Themes.LIST do
+			order += 1
+			themeCard(theme, order)
+		end
+	elseif tab == "Premium" then
+		for _, product in Monetization.PRODUCTS do
+			if product.kind == "PaintSet" then
+				order += 1
+				setCard(product, order)
+			end
+		end
 		for _, paint in Paints.LIST do
-			if paint.kind == tab and paint.pass == nil then -- theme paints (Robux passes) never show in the shop; they are in Owned
+			if paint.premium then
+				order += 1
+				premiumCard(paint, order)
+			end
+		end
+	elseif tab ~= "Owned" then
+		for _, paint in Paints.LIST do
+			if paint.kind == tab and paint.pass == nil and not paint.premium then -- theme and premium paints (Robux passes) never show in the shop; they are in Owned
 				order += 1
 				card(paint, tab, order)
 			end
@@ -247,10 +428,10 @@ local function build()
 	limit.MaxSize = Vector2.new(660, 430)
 	limit.Parent = w
 	text(w, "Title", "PAINT BAR", UDim2.new(0.5, 0, 0, 30), UDim2.fromOffset(14, 8), UiSkin.COLORS.text, UiSkin.FONT_TITLE, Enum.TextXAlignment.Left)
-	text(w, "Hint", "Wall and floor colours for your shop. Always in stock.", UDim2.new(0.55, 0, 0, 18), UDim2.new(0.45, -50, 0, 16), UiSkin.COLORS.accent, UiSkin.FONT_TEXT, Enum.TextXAlignment.Right)
+	hintLabel = text(w, "Hint", HINT, UDim2.new(0.55, 0, 0, 18), UDim2.new(0.45, -50, 0, 16), UiSkin.COLORS.accent, UiSkin.FONT_TEXT, Enum.TextXAlignment.Right)
 	button(w, "Close", "X", UDim2.fromOffset(40, 40), UDim2.new(1, -48, 0, 6), PaintShopController.Close)
 	for i, t in TABS do
-		tabButtons[t.key] = button(w, "Tab" .. t.key, t.label, UDim2.fromOffset(120, 34), UDim2.fromOffset(14 + (i - 1) * 128, 46), function()
+		tabButtons[t.key] = button(w, "Tab" .. t.key, t.label, UDim2.fromOffset(98, 34), UDim2.fromOffset(14 + (i - 1) * 104, 46), function()
 			tab = t.key
 			render()
 		end)

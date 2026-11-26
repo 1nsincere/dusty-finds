@@ -5,6 +5,8 @@
 -- Walls = Plot.Walls children + everything in Facade.Shell.Shop_Walls; Floor = Facade.Shell.Shop_Floor.
 -- Pieces = shelves (Plot.Shelves) / pedestals (Plot.ExhibitSlots) that carry a PieceId (SkinService uses the same rule).
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local PlotTargets = {}
 
 local function addAll(list: { BasePart }, container: Instance?)
@@ -52,10 +54,62 @@ function PlotTargets.shownColor(part: BasePart): Color3
 	return if sa then sa.Color else part.Color
 end
 
-function PlotTargets.paintPart(part: BasePart, color: Color3, material: Enum.Material?)
+-- ===== Textures: the shell's meshes carry a SurfaceAppearance (plaster, wood grain, shingles). A premium FINISH (Config.Finishes) is another
+-- texture on the same part. Game scripts can NOT read or write a SurfaceAppearance's maps (Roblox security: ColorMap / NormalMap are plugin-only),
+-- so the finishes are READY-MADE: ReplicatedStorage.ShellTextures holds one tiny MeshPart per texture, named by key (plaster, woodgrain, shingle,
+-- pearl, velvet, brass, goldleaf, marblewall), each with its SurfaceAppearance. Painting a finish CLONES that SurfaceAppearance onto the part
+-- (the old one is destroyed); the part's attribute ShellTex remembers which one it wears (nil = its own original). =====
+
+-- Which of the three original textures a shell part wears, from its name; nil = not a textured shell part (the main floor overlay, props...).
+local function originalTexture(part: BasePart): string?
+	local name = part.Name
+	if not (string.match(name, "^Shop_.+_mesh$") or string.match(name, "^BackRoom_.+_mesh$")) then
+		return nil
+	end
+	if string.find(name, "Roof", 1, true) then
+		return "shingle"
+	elseif string.find(name, "Trim", 1, true) or string.find(name, "Accent", 1, true) then
+		return "woodgrain"
+	elseif string.find(name, "Walls", 1, true) or string.find(name, "BackCap_mesh", 1, true) then
+		return "plaster"
+	end
+	return nil
+end
+
+local function textureTemplate(key: string): SurfaceAppearance?
+	local folder = ReplicatedStorage:FindFirstChild("ShellTextures")
+	local holder = folder and folder:FindFirstChild(key)
+	return holder and holder:FindFirstChildWhichIsA("SurfaceAppearance")
+end
+
+-- Puts texture `key` (nil = the part's original) on the part if it is not already there. Returns the SurfaceAppearance that is on the part now.
+local function setTexture(part: BasePart, sa: SurfaceAppearance, key: string?): SurfaceAppearance
+	local original = originalTexture(part)
+	if original == nil then
+		return sa
+	end
+	local want = key or original
+	if (part:GetAttribute("ShellTex") or original) == want then
+		return sa
+	end
+	local template = textureTemplate(want)
+	if template == nil then
+		return sa -- finish textures not set up: keep what is there (the paint still tints it)
+	end
+	local new = template:Clone()
+	new.Color = sa.Color
+	sa:Destroy()
+	new.Parent = part
+	part:SetAttribute("ShellTex", if key then key else nil)
+	return new
+end
+
+-- finish (optional) = a key of Config.Finishes: the premium texture for a textured shell part.
+function PlotTargets.paintPart(part: BasePart, color: Color3, material: Enum.Material?, finish: string?)
 	local sa = surfaceOf(part)
 	if sa then
-		sa.Color = color -- textured: tint only
+		sa = setTexture(part, sa, finish)
+		sa.Color = color -- textured: tint (the premium finish, when there is one, is the texture itself)
 		if isFloorOverlay(part) then
 			part.Transparency = 1 -- the main floor: hide the texture, the painted slab underneath shows
 		end
@@ -70,6 +124,7 @@ end
 function PlotTargets.restorePart(part: BasePart, original: Look)
 	local sa = surfaceOf(part)
 	if sa then
+		sa = setTexture(part, sa, nil)
 		sa.Color = original.color
 		if isFloorOverlay(part) then
 			part.Transparency = original.transparency or 0
@@ -94,7 +149,7 @@ local function addNamed(list: { BasePart }, plot: Instance, expansion: string, g
 	end
 end
 
--- kind = "Wall" | "Floor". Covers the ground-floor shop AND the bought Back Room and Showroom (second floor), so a paint or a
+-- kind = "Wall" | "Floor" | "Trim" | "Accent". Covers the ground-floor shop AND the bought Back Room and Showroom (second floor), so a paint or a
 -- theme matches the whole shop.
 function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 	local list: { BasePart } = {}
@@ -113,14 +168,41 @@ function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 		-- the second storey's wall mesh and the Back Room's walls
 		local upper = facade and facade:FindFirstChild("Upper")
 		addAll(list, upper and upper:FindFirstChild("Shop_UpWalls"))
-		addNamed(list, plot, "Expansion_BackRoom", "Shell", { "BackWall", "OuterWall", "OuterWallR" })
-	else
+		addNamed(list, plot, "Expansion_BackRoom", "Shell", { "BackWall", "OuterWall", "OuterWallR", "Ceiling" })
+		-- the first floor's ceiling = a thin wall-coloured layer under the Showroom's upper floor (so the floor paint does not show from below)
+		addNamed(list, plot, "Expansion_Showroom", "UpperFloor", { "CeilingMain", "CeilingBack", "CeilingFront" })
+		-- the Back Room's universal shell meshes (ground and second-storey walls): models named BackRoom_Walls / BackRoom_UpWalls
+		local room = plot:FindFirstChild("Expansion_BackRoom")
+		if room then
+			addAll(list, room:FindFirstChild("BackRoom_Walls", true))
+			addAll(list, room:FindFirstChild("BackRoom_UpWalls", true))
+		end
+	elseif kind == "Floor" then
 		addNamed(list, plot, "Expansion_BackRoom", "Shell", { "Floor" })
-		addNamed(list, plot, "Expansion_Showroom", "UpperFloor", { "FloorMain" })
+		addNamed(list, plot, "Expansion_Showroom", "UpperFloor", { "FloorMain", "FloorBack", "FloorFront" }) -- the strips beside the stairwell too
+		addNamed(list, plot, "Expansion_UpperBackRoom", "Shell", { "AnnexFloor" }) -- the second floor above the Back Room
 		addAll(list, shell and shell:FindFirstChild("Shop_Floor"))
 		local base = plot:FindFirstChild("Floor") -- the plank slab under the floor mesh (shows at the edges)
 		if base and base:IsA("BasePart") then
 			table.insert(list, base)
+		end
+	elseif kind == "Trim" or kind == "Accent" then
+		-- the universal shell's trim / accent meshes: ground (Shell), second storey (Upper), the removable rear cap, the Back Room's,
+		-- and the stock decor's accent pieces (the blade sign)
+		local upper = facade and facade:FindFirstChild("Upper")
+		local decor = facade and facade:FindFirstChild("Decor")
+		local room = plot:FindFirstChild("Expansion_BackRoom")
+		if kind == "Trim" then
+			addAll(list, shell and shell:FindFirstChild("Shop_Trim"))
+			addAll(list, upper and upper:FindFirstChild("Shop_UpTrim"))
+			addAll(list, upper and upper:FindFirstChild("Shop_BackCapTrim"))
+			addAll(list, room and room:FindFirstChild("BackRoom_Trim", true))
+			addAll(list, room and room:FindFirstChild("BackRoom_UpTrim", true))
+		else
+			addAll(list, shell and shell:FindFirstChild("Shop_Accent"))
+			addAll(list, upper and upper:FindFirstChild("Shop_UpAccent"))
+			addAll(list, decor and decor:FindFirstChild("Shop_Accent"))
+			addAll(list, room and room:FindFirstChild("BackRoom_UpAccent", true))
 		end
 	end
 	return list

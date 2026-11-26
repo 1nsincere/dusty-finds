@@ -34,9 +34,12 @@ local CLIENT_TO_SERVER = {
 	"RequestApplySkin", -- skins: (kind "Shelf"|"Pedestal", skinId or "" for classic) use an owned skin in your shop
 	"RequestBuyPaint", -- paint bar: (paintId) buy a wall / floor paint (always in stock; server checks owned, cash, distance to Workspace.PaintCounter)
 	"RequestApplyPaint", -- paints: (kind "Wall"|"Floor", paintId or "" for the original look) use an owned paint in your shop
+	"RequestBuyTheme", -- paint bar: (themeId) buy a whole look (4 paints) at the bundle price; free themes cost $0; pass themes are refused (Robux pass); server checks distance, cash, owned paints
+	"RequestApplyTheme", -- paint bar: (themeId) use a theme you own (all 4 paints at once; "starter" resets to the default look)
 	"RequestSetWishlist", -- skins stall: (skinId, on) pin or unpin a skin you want; you get a toast when it is in stock (notify only, never changes the odds)
 	"RequestPurchasePass", -- Collector's Corner: (passKey) open Roblox's purchase window for a pass (the server checks the key, owned, comingSoon; saves only after Roblox confirms ownership)
 	"RequestPurchaseProduct", -- Collector's Corner tip jar: (productKey) open Roblox's purchase window for a tip
+	"RequestRedeemVoucher", -- skins stall: (skinId) spend one Epic / Legendary skin voucher on a skin of that rarity (server checks the voucher, the skin, owned)
 	"RequestSetVip", -- VIP: (field "title"|"pet"|"petColor"|"auraStyle", value) cosmetic choice; server checks VIP, the choice list, and filters a custom title
 	"RequestSaveLayoutSlot", -- edit mode: (slot 1-4) copy your SAVED shop layout into a layout slot (needs the Saved Layouts pass or VIP; LayoutService.SaveSlot)
 	"RequestLoadLayoutSlot", -- edit mode: (slot 1-4) put a saved layout slot on your shop; validated like a normal save, all or nothing (LayoutService.LoadSlot)

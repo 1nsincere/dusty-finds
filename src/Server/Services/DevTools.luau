@@ -229,6 +229,9 @@ local ALL_CHECKS = {
 	{ "MonetizationCheck", function() return script.Parent.Parent.Tests:FindFirstChild("MonetizationCheck") end }, -- Dev 1: Robux passes, tips, VIP choices (fake Marketplace)
 	{ "CollectorCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CollectorCheck") end }, -- Dev 1: collector score, tiers, CollectorService
 	{ "PaintCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PaintCheck") end }, -- Dev 1: paints (buy / apply / draw) + skin wishlist
+	{ "HoursCheck", function() return script.Parent.Parent.Tests:FindFirstChild("HoursCheck") end }, -- Dev 1: game clock, opening hours, shutters
+	{ "VipLoungeCheck", function() return script.Parent.Parent.Tests:FindFirstChild("VipLoungeCheck") end }, -- Dev 1: VIP Lounge gate (collision groups)
+	{ "SeasonCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SeasonCheck") end }, -- Dev 1: seasons (dates) + seasonal decor visibility
 	{ "DevToolsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DevToolsCheck") end, true },
 }
 

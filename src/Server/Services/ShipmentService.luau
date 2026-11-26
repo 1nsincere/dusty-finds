@@ -11,6 +11,7 @@ local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
 local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Hours = require(ReplicatedStorage.Shared.Hours)
 local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
@@ -376,6 +377,10 @@ function ShipmentService.Start()
 
 	Remotes.RequestBuyCrate.OnServerEvent:Connect(function(player, crateId)
 		if not Validate.rateLimit(player, "RequestBuyCrate", 3) or type(crateId) ~= "string" then
+			return
+		end
+		if not Hours.marketOpen() then
+			Remotes.Notify:FireClient(player, "Info", "The Warehouse Market is closed. It opens at " .. Hours.format(Hours.MARKET_OPEN) .. ".")
 			return
 		end
 		-- Crates are sold at the Supply Warehouse (Environment.Districts.Warehouse.SupplyCounter), not from anywhere:

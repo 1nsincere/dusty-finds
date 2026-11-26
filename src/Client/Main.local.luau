@@ -36,6 +36,7 @@ local ORDER = {
 	"VisitController", -- Sean: 👥 Visit window (RequestVisit)
 	"TutorialController",
 	"RoofController", -- Dev 1: hides the roof of the shop you are standing in (environment pass)
+	"CameraWallController", -- Dev 1: keeps the third-person camera inside the shop walls (no seeing through them)
 	"AdminController", -- Dev 1: Studio-only dev commands (/fly, /tp, /noclip ...); does nothing on the live game
 	"AdminPanelController", -- Dev 1: the /admin card (AdminPanel remote shows every command + what it does)
 	"RestorationMoreMinigamesController", -- Dev 1: Test, Scrape, Reassemble, Replace minigames (Dwayne registers Wipe/Polish in his own controller)

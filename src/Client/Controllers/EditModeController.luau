@@ -788,7 +788,15 @@ function EditModeController.Init(controllers)
 	others = controllers
 end
 
+-- The Edit button is removed (Ace, 2026-11-26): nothing creates the HUD / Menu "Edit Mode" button any more. Edit mode itself is
+-- still in this file (EditModeController.Enter), so setting SHOW_EDIT_BUTTON = true brings the button back.
+local SHOW_EDIT_BUTTON = false
+
 function EditModeController.Start()
+	if not SHOW_EDIT_BUTTON then
+		log("Edit button is turned off (SHOW_EDIT_BUTTON = false)")
+		return
+	end
 	task.spawn(function()
 		local skin = others.HudSkinController
 		local button = skin and skin.HudButton and skin.HudButton("EditShop", UiSkin.ICONS.Upgrades)

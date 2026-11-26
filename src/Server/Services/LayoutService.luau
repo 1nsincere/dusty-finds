@@ -391,6 +391,9 @@ function LayoutService.Start()
 	end
 
 	Remotes.RequestSaveLayout.OnServerEvent:Connect(function(player, raw)
+		if not Layout.ENABLED then
+			return -- Edit mode is paused (Shared/Layout.luau ENABLED = false): fixed shelf and pedestal spots only
+		end
 		if not Validate.rateLimit(player, "RequestSaveLayout", 2) then
 			return
 		end
@@ -410,6 +413,9 @@ function LayoutService.Start()
 	end)
 
 	Remotes.RequestSaveLayoutSlot.OnServerEvent:Connect(function(player, slot)
+		if not Layout.ENABLED then
+			return -- Edit mode is paused (Shared/Layout.luau ENABLED = false): fixed shelf and pedestal spots only
+		end
 		if not Validate.rateLimit(player, "RequestSaveLayoutSlot", 2) then
 			return
 		end
@@ -417,6 +423,9 @@ function LayoutService.Start()
 		Remotes.Notify:FireClient(player, "Info", if ok then `Layout saved in slot {slot}!` else (SLOT_TEXT[reason or ""] or "Couldn't save the layout slot."))
 	end)
 	Remotes.RequestLoadLayoutSlot.OnServerEvent:Connect(function(player, slot)
+		if not Layout.ENABLED then
+			return -- Edit mode is paused (Shared/Layout.luau ENABLED = false): fixed shelf and pedestal spots only
+		end
 		if not Validate.rateLimit(player, "RequestLoadLayoutSlot", 2) then
 			return
 		end
@@ -427,7 +436,9 @@ function LayoutService.Start()
 
 	-- the plot is assigned by PlotService's own OnPlayerLoaded callback (registered earlier), so it exists now
 	DataService.OnPlayerLoaded(function(player)
-		LayoutService.Apply(player)
+		if Layout.ENABLED then
+			LayoutService.Apply(player)
+		end
 	end)
 	DataService.OnPlayerReleasing(function(player)
 		local plot = PlotService.GetPlot(player)
@@ -437,7 +448,9 @@ function LayoutService.Start()
 	end)
 	-- PlotService re-places pedestals after every purchase: put the layout back on top of that
 	PlotService.SetRefreshHook(function(player)
-		LayoutService.Apply(player)
+		if Layout.ENABLED then
+			LayoutService.Apply(player)
+		end
 	end)
 	log.info("Start")
 end

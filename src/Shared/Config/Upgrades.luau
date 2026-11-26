@@ -127,16 +127,28 @@ local Upgrades = {
 		description = "A big room behind your shop for your exhibits",
 	},
 	Showroom = {
+		comingSoon = true, -- 2026-11-26 (Ace): not for sale until the decor shop exists (owners keep it); remove this line to sell it again
 		id = "Showroom", name = "Showroom", tab = "Expansions",
 		maxLevel = 1, costs = { 20000 }, requiredLevel = { 10 }, -- $20,000 (Sean, 2026-11-24)
 		effect = {
 			expansion = "Showroom",
 			ratingPoints = 8,
 			premiumDisplaySlots = 6,
-			exhibitPedestals = 6, -- 6 pedestals upstairs (5-10); pedestals 1-4 stay downstairs / in the Back Room
+			exhibitPedestals = 0, -- 2026-11-26 (Ace): NO pedestals upstairs any more, the floor is kept free for decor; was 6 (pedestals 5-10). Pedestals 1-4 stay downstairs / in the Back Room
 			maxCustomers = 5,
 		},
-		description = "A second floor gallery: 6 more exhibit pedestals and more customers",
+		description = "A second floor gallery: more customers and a higher shop rating (room for decor)",
+	},
+	-- Second floor above the Back Room (Ace, 2026-11-26): walk through from the Showroom gallery. The Showroom's arched gallery and its
+	-- six pedestals move into it, and it brings 4 NEW pedestals of its own (11-14). The 4 only count together with the Showroom
+	-- (PlotService.slotCounts). The price and rating points are a first guess, tune them with the economy sim.
+	UpperBackRoom = {
+		comingSoon = true, -- 2026-11-26 (Ace): same as the Showroom
+		id = "UpperBackRoom", name = "Upper Back Room", tab = "Expansions",
+		maxLevel = 1, costs = { 35000 }, requiredLevel = { 12 },
+		requires = "BackRoom", -- it is built over the Back Room (reach it from the Showroom upstairs)
+		effect = { expansion = "UpperBackRoom", ratingPoints = 6, exhibitPedestals = 0 }, -- 2026-11-26 (Ace): was 4 (pedestals 11-14); upstairs is kept free for decor
+		description = "A gallery above the Back Room: a higher shop rating (room for decor; needs the Showroom to reach it)",
 	},
 }
 

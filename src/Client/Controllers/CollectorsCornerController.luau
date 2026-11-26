@@ -233,7 +233,7 @@ local function render()
 	if tab == "Passes" then
 		local order = 0
 		for _, pass in Monetization.PASSES do
-			if pass.id ~= "VIP" then
+			if pass.id ~= "VIP" and pass.hidden ~= true then
 				order += 1
 				passCard(pass, order)
 			end

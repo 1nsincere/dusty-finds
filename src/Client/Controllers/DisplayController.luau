@@ -14,6 +14,9 @@ local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Items = require(Shared:WaitForChild("Config"):WaitForChild("Items"))
+local Skins = require(Shared:WaitForChild("Config"):WaitForChild("Skins"))
+local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
+local RunService = game:GetService("RunService")
 
 local DisplayController = {}
 local DEBUG = true
@@ -33,6 +36,8 @@ local player = Players.LocalPlayer
 local others = nil
 local visualsFolder: Folder? = nil
 local visuals: { [BasePart]: Instance } = {} -- [slot part] = the item drawn on it
+local bases: { [BasePart]: CFrame } = {} -- [slot] = where its item sits when not floating (see Floating items below)
+local floating: { [BasePart]: boolean } = {}
 local removeCooldownUntil: { [BasePart]: number } = {}
 
 local function log(...)
@@ -97,6 +102,75 @@ local function clearVisual(slot: BasePart)
 	if old then
 		old:Destroy()
 		visuals[slot] = nil
+		bases[slot] = nil
+		floating[slot] = nil
+	end
+end
+
+-- ===== Floating items (skins with look.floatItems, e.g. Sakura Starlight) =====
+-- On a shelf or pedestal whose skin has look.floatItems, the item lifts off its pad and hovers: a slow bob and a gentle sway. It is
+-- only how the item is DRAWN on this screen (the real slot, price and selling are unchanged). Off with Reduce effects.
+local FLOAT_LIFT = 0.6 -- studs above the pad
+local FLOAT_BOB = 0.16
+local plotFloats: { [Instance]: { at: number, Display: boolean, Exhibit: boolean } } = {}
+
+local function plotOfSlot(slot: Instance): Instance?
+	local plots = workspace:FindFirstChild("Plots")
+	local node: Instance? = slot.Parent
+	while node and node.Parent ~= plots do
+		node = node.Parent
+	end
+	return node
+end
+
+-- Does this plot's shelf / pedestal skin float its items? Rescanned every 2 s (skins change rarely).
+local function floatsOn(slot: BasePart): boolean
+	local plot = plotOfSlot(slot)
+	if plot == nil or slot.Parent == nil then
+		return false
+	end
+	local entry = plotFloats[plot]
+	local now = os.clock()
+	if entry == nil or now - entry.at > 2 then
+		entry = { at = now, Display = false, Exhibit = false }
+		for _, d in plot:GetDescendants() do
+			local id = d:GetAttribute("Skin") or d:GetAttribute("SkinId")
+			local skin = if type(id) == "string" then Skins.BY_ID[id] else nil
+			if skin and skin.look.floatItems then
+				if skin.kind == "Shelf" then
+					entry.Display = true
+				elseif skin.kind == "Pedestal" then
+					entry.Exhibit = true
+				end
+			end
+		end
+		plotFloats[plot] = entry
+	end
+	return if slot.Parent.Name == "DisplaySlots" then entry.Display elseif slot.Parent.Name == "ExhibitSlots" then entry.Exhibit else false
+end
+
+local function animateFloaters(now: number)
+	local reduce = ClientState.Get("settings.reduceEffects") == true
+	local cam = workspace.CurrentCamera
+	local camPos = if cam then cam.CFrame.Position else Vector3.zero
+	local body = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local bodyPos = if body and body:IsA("BasePart") then body.Position else camPos -- near me or near my camera (both are fine)
+	for slot, visual in visuals do
+		local base = bases[slot]
+		if base == nil or visual.Parent == nil then
+			continue
+		end
+		local near = (slot.Position - camPos).Magnitude < 70 or (slot.Position - bodyPos).Magnitude < 70
+		local on = not reduce and near and floatsOn(slot)
+		if on then
+			local seed = slot.Position.X * 0.7 + slot.Position.Z * 1.3
+			local lift = FLOAT_LIFT + FLOAT_BOB * math.sin(now * 1.15 + seed)
+			visual:PivotTo(base * CFrame.new(0, lift, 0) * CFrame.Angles(0, 0.22 * math.sin(now * 0.55 + seed), 0))
+			floating[slot] = true
+		elseif floating[slot] then
+			visual:PivotTo(base) -- back on the pad
+			floating[slot] = nil
+		end
 	end
 end
 
@@ -180,6 +254,8 @@ local function renderSlot(slot: BasePart)
 	visual.Name = "Item_" .. slot.Name
 	visual.Parent = visualsFolder
 	visuals[slot] = visual
+	bases[slot] = visual:GetPivot()
+	floating[slot] = nil
 end
 
 -- ===== Prompts (my plot only) =====
@@ -305,6 +381,9 @@ function DisplayController.Start()
 			hookPlot(plot)
 		end
 		plots.ChildAdded:Connect(hookPlot) -- a plot model that streams in later
+		RunService.Heartbeat:Connect(function()
+			animateFloaters(os.clock())
+		end)
 		log(`ready: {#plots:GetChildren()} plots hooked (slots hook as they stream in)`)
 	end)
 end

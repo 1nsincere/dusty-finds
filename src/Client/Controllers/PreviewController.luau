@@ -18,6 +18,8 @@ local PlotTargets = require(Shared:WaitForChild("PlotTargets"))
 local Paints = require(Shared:WaitForChild("Config"):WaitForChild("Paints"))
 local Skins = require(Shared:WaitForChild("Config"):WaitForChild("Skins"))
 local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
+local Contrast = require(Shared:WaitForChild("Contrast"))
+local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local PreviewController = {}
 local DEBUG = true
@@ -169,12 +171,13 @@ end
 
 -- What one thing looks like on the shop: the parts it covers + its colour / material. nil, reason if it can't be previewed.
 local function describe(plot: Instance, kind: string, id: string): (any?, string?)
-	if kind == "Wall" or kind == "Floor" then
+	if Paints.FIELD[kind] ~= nil then -- Wall, Floor, Trim, Accent
 		local paint = Paints.BY_ID[id]
 		if paint == nil or paint.kind ~= kind then
 			return nil, "Unknown paint."
 		end
-		return { label = paint.name, targets = PlotTargets.paint(plot, kind), color = paint.color, material = paint.material }, nil
+		return { kind = kind, label = paint.name, targets = PlotTargets.paint(plot, kind), color = paint.color, material = paint.material,
+			finish = paint.finish }, nil
 	elseif kind == "Shelf" or kind == "Pedestal" then
 		local skin = Skins.BY_ID[id]
 		if skin == nil or skin.kind ~= kind or skin.look == nil then
@@ -205,6 +208,29 @@ local function start(label: string, items: { { string } }): (boolean, string?)
 	if #parts == 0 then
 		return false, "Nothing to preview on your shop."
 	end
+	-- the trim contrast guard, like the real shop (PaintService.Effective): the trim in the preview is moved lighter or darker if it would
+	-- blend into the wall. If the preview changes the wall but not the trim, the trim you have now is re-checked against the new wall.
+	local saved = ClientState.Get("paints")
+	local function chosen(kind: string): any
+		local id = if type(saved) == "table" then saved[Paints.FIELD[kind]] else nil
+		return (if type(id) == "string" then Paints.BY_ID[id] else nil) or Paints.DEFAULTS[kind]
+	end
+	local wallColor, trimItem, wallItem = chosen("Wall").color, nil, nil
+	for _, what in parts do
+		if what.kind == "Wall" then
+			wallColor, wallItem = what.color, what
+		elseif what.kind == "Trim" then
+			trimItem = what
+		end
+	end
+	if trimItem == nil and wallItem ~= nil then
+		local current = chosen("Trim")
+		trimItem = { kind = "Trim", label = "Trim", targets = PlotTargets.paint(plot, "Trim"), color = current.color, material = current.material, finish = current.finish }
+		table.insert(parts, trimItem)
+	end
+	if trimItem ~= nil then
+		trimItem.color = Contrast.fixTrim(wallColor, trimItem.color)
+	end
 	-- one preview at a time: put the last one back first, but keep WHERE you came from (no trip back to the market in between)
 	local carry = if active then active.returnTo else nil
 	if active then
@@ -216,7 +242,7 @@ local function start(label: string, items: { { string } }): (boolean, string?)
 	for _, what in parts do
 		for _, part in what.targets do
 			remember(state, part, what.color)
-			PlotTargets.paintPart(part, what.color, what.material) -- textured parts are tinted (SurfaceAppearance), plain parts recoloured
+			PlotTargets.paintPart(part, what.color, what.material, what.finish) -- textured parts are tinted (SurfaceAppearance; a premium finish swaps its maps), plain parts recoloured
 		end
 	end
 	goToShop(state, plot)

@@ -37,6 +37,10 @@ function UpgradeService.BuyUpgrade(player: Player, upgradeId: string): (boolean,
 	if (Economy.ClosedUpgradeTabs or {})[def.tab] then
 		return false, "closed", nil
 	end
+	-- 1c. one upgrade switched off (comingSoon = true: the Showroom and Upper Back Room wait for the decor shop)
+	if def.comingSoon then
+		return false, "closed", nil
+	end
 	local data = DataService.Get(player)
 	if data == nil then
 		return false, "noData", nil

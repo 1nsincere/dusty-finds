@@ -12,7 +12,7 @@
 -- the Travel window (Warehouse / My Shop) so their old buttons are hidden, not deleted.
 -- Placeholders (no game logic yet): Passes button (toast), Invite "boost" text. Day = in-game days since I joined.
 -- Owner: Dev 1 (Ace). Depends on: HudKit, NotificationDock, AutoRunController, HudController (Notify), UiSkin, ClientState,
--- Shared.Config.DayNight, StarterGui.HUD (UI contract docs/03 section 8; new objects are listed there).
+-- Shared.Hours, StarterGui.HUD (UI contract docs/03 section 8; new objects are listed there).
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -28,7 +28,7 @@ local NotificationDock = require(script.Parent.Parent:WaitForChild("Notification
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Skin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
-local DayNight = require(Shared:WaitForChild("Config"):WaitForChild("DayNight"))
+local Hours = require(Shared:WaitForChild("Hours"))
 local Formulas = require(Shared:WaitForChild("Formulas"))
 
 local HudLayoutController = {}
@@ -62,7 +62,6 @@ local RAIL_GAP = 22 -- space between the player list and the first row ("a littl
 local CELLS = {
 	AutoRun = { slot = Vector2.new(0, 0), label = "Auto Run", art = "AutoRun", color = Color3.fromRGB(63, 167, 255), toggle = true },
 	Upgrades = { slot = Vector2.new(1, 0), label = "Upgrades", art = "Upgrades", color = Color3.fromRGB(255, 138, 61) },
-	EditShop = { slot = Vector2.new(2, 0), label = "Edit Mode", art = "EditMode", color = Color3.fromRGB(145, 104, 255) },
 	Collection = { slot = Vector2.new(0, 1), label = "Collection", art = "Collection", color = Color3.fromRGB(31, 194, 165) },
 	-- HUD.TopRight.Settings stays in TopRight (SettingsController hooks it there); it is only drawn as a Menu cell
 	Settings = { slot = Vector2.new(1, 1), label = "Settings", art = "Settings", color = Color3.fromRGB(134, 163, 181) },
@@ -276,25 +275,6 @@ end
 
 -- ===== top chips =====
 
-local function formatClock(clock: number): string
-	local hours = math.floor(clock) % 24
-	local minutes = math.floor((clock - math.floor(clock)) * 60)
-	local suffix = if hours >= 12 then "PM" else "AM"
-	local h12 = hours % 12
-	if h12 == 0 then
-		h12 = 12
-	end
-	return string.format("%d:%02d %s", h12, minutes, suffix)
-end
-
-local function cycleSeconds(): number
-	local total = 0
-	for _, segment in DayNight.SEGMENTS do
-		total += segment.seconds
-	end
-	return math.max(total, 1)
-end
-
 local function requestInvite()
 	local player = Players.LocalPlayer
 	local okCheck, canSend = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
@@ -328,13 +308,13 @@ local function buildChips(gui: ScreenGui)
 	inviteFrame.Activated:Connect(requestInvite)
 
 	task.spawn(function()
-		local cycle = cycleSeconds()
-		-- "Day N" = how many in-game days I have played since I joined (Ace, 2026-11-25): Day 1 on joining, +1 every time the
-		-- server clock passes a full day-night cycle. Per player, so a friend who joined later is on a lower day.
-		local joinDay = math.floor(workspace.DistributedGameTime / cycle)
+		-- "Day N" = how many game days I have played since I joined (Day 1 on joining, +1 each full day-night cycle). The time shown is the in-game
+		-- clock; the market and shops close at fixed game hours (Shared.Hours), so the chip says when the market is closed.
+		local joinDay = Hours.dayAt(workspace:GetServerTimeNow())
 		while gui.Parent do
-			local dayNumber = math.floor(workspace.DistributedGameTime / cycle) - joinDay + 1
-			day.SetTexts(`DAY {dayNumber}`, formatClock(Lighting.ClockTime))
+			local hour = Hours.now()
+			local dayNumber = Hours.dayAt(workspace:GetServerTimeNow()) - joinDay + 1
+			day.SetTexts(`DAY {dayNumber}`, Hours.format(hour) .. (if Hours.marketOpen(hour) then "" else " · CLOSED"))
 			task.wait(1)
 		end
 	end)

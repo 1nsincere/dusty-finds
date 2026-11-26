@@ -50,16 +50,20 @@ function PaintCheck.run()
 	check("config: every paint is a Wall or Floor paint", kindsOk)
 	check("config: every paint has a name, a price and a colour", valuesOk)
 	check("config: paint names are unique", uniqueNames)
-	check("config: both walls and floors have paints", (function()
-		local w, f = 0, 0
+	check("config: walls, floors, trim and accent all have paints", (function()
+		local n = { Wall = 0, Floor = 0, Trim = 0, Accent = 0 }
 		for _, p in Paints.LIST do
-			if p.kind == "Wall" then
-				w += 1
-			else
-				f += 1
+			n[p.kind] += 1
+		end
+		return n.Wall >= 6 and n.Floor >= 4 and n.Trim >= 6 and n.Accent >= 6
+	end)())
+	check("config: every kind has a default look, a save field and a label", (function()
+		for _, kind in Paints.KINDS do
+			if Paints.DEFAULTS[kind] == nil or Paints.FIELD[kind] == nil or Paints.KIND_LABEL[kind] == nil then
+				return false
 			end
 		end
-		return w >= 6 and f >= 4
+		return true
 	end)())
 
 	-- ===== services on copies with fakes =====
@@ -114,7 +118,7 @@ function PaintCheck.run()
 		local Paint = require(paintCopy)
 		Paint.Init({ DataService = fakeDS, EconomyService = fakeEconomy })
 		local p = { UserId = 888, Name = "PaintMock" }
-		store[p] = { paints = { owned = {}, wall = "", floor = "" }, skins = { owned = {} }, wishlist = {} }
+		store[p] = { paints = { owned = {}, wall = "", floor = "", trim = "", accent = "" }, skins = { owned = {} }, wishlist = {} }
 		local near = true
 		Paint.SetNearCheck(function()
 			return near
@@ -137,7 +141,7 @@ function PaintCheck.run()
 		check("buy: a failed save is refunded", saveOk == false and saveReason == "saveFailed" and cash == before and refunded == Paints.BY_ID.WallPandan.price)
 		store[p] = nil
 		check("buy: a player with no data is refused", select(2, Paint.Buy(p, "WallUbe")) == "noData")
-		store[p] = { paints = { owned = { WallUbe = true }, wall = "", floor = "" }, skins = { owned = {} }, wishlist = {} }
+		store[p] = { paints = { owned = { WallUbe = true }, wall = "", floor = "", trim = "", accent = "" }, skins = { owned = {} }, wishlist = {} }
 
 		-- apply
 		check("apply: bad kind refused", select(2, Paint.Apply(p, "Roof", "WallUbe")) == "badKind" and select(2, Paint.Apply(p, 3, "WallUbe")) == "badKind")
@@ -151,6 +155,10 @@ function PaintCheck.run()
 		failSet = false
 		check("grant: an admin gift is owned and can be put on", Paint.Grant(p, "FloorNarra", true) == true and store[p].paints.owned.FloorNarra == true and store[p].paints.floor == "FloorNarra")
 		check("grant: an unknown paint is refused", select(2, Paint.Grant(p, "Nope", false)) == "unknown")
+		check("trim/accent: a trim paint can be granted and used, but not as an accent", Paint.Grant(p, "TrimNarra", true) == true and store[p].paints.trim == "TrimNarra" and select(2, Paint.Apply(p, "Accent", "TrimNarra")) == "wrongKind")
+		check("trim/accent: an accent paint can be used and put back", Paint.Grant(p, "AccentTeal", true) == true and store[p].paints.accent == "AccentTeal" and Paint.Apply(p, "Accent", "") == true and store[p].paints.accent == "")
+		cash = 1000
+		check("trim/accent: they can be bought like any paint", Paint.Buy(p, "AccentBrick") == true and store[p].paints.owned.AccentBrick == true and select(2, Paint.Buy(p, "TrimKamagong")) ~= "unknown")
 
 		-- drawing on a copy of a plot
 		local plot = Instance.new("Folder")
@@ -283,7 +291,226 @@ function PaintCheck.run()
 		check("draw: the original wall look comes back exactly (also the texture tint)", back.Color == Color3.fromRGB(10, 20, 30) and wallPart.Color == Color3.fromRGB(1, 2, 3) and wallSA.Color == Color3.fromRGB(236, 246, 238))
 		Paint.DrawKind(plot, "Floor", "")
 		check("draw: the original floor colour and material come back", floorPart.Color == Color3.fromRGB(100, 100, 100) and floorPart.Material == Enum.Material.Wood)
+
+		-- trim and accent (2026-11-26): the universal shell's Trim / Accent meshes, the rear cap, the Back Room's and the decor's accent
+		local function model(parent: Instance, name: string, color: Color3): Part
+			local m = Instance.new("Model")
+			m.Name = name
+			m.Parent = parent
+			local part = Instance.new("Part")
+			part.Color = color
+			part.Material = Enum.Material.SmoothPlastic
+			part.Parent = m
+			return part
+		end
+		local upper = plot:FindFirstChild("Facade"):FindFirstChild("Upper")
+		local decorFolder = Instance.new("Folder")
+		decorFolder.Name = "Decor"
+		decorFolder.Parent = plot.Facade
+		local backRoomShell = plot:FindFirstChild("Expansion_BackRoom")
+		local trimGround = model(plot.Facade.Shell, "Shop_Trim", Color3.fromRGB(31, 31, 31))
+		local trimUpper = model(upper, "Shop_UpTrim", Color3.fromRGB(32, 32, 32))
+		local trimCap = model(upper, "Shop_BackCapTrim", Color3.fromRGB(33, 33, 33))
+		local trimBack = model(backRoomShell, "BackRoom_Trim", Color3.fromRGB(34, 34, 34))
+		local accentGround = model(plot.Facade.Shell, "Shop_Accent", Color3.fromRGB(41, 41, 41))
+		local accentUpper = model(upper, "Shop_UpAccent", Color3.fromRGB(42, 42, 42))
+		local accentDecor = model(decorFolder, "Shop_Accent", Color3.fromRGB(43, 43, 43))
+		local accentBack = model(backRoomShell, "BackRoom_UpAccent", Color3.fromRGB(44, 44, 44))
+		Paint.DrawKind(plot, "Trim", "TrimNarra")
+		local narra = Paints.BY_ID.TrimNarra.color
+		check("trim: a trim paint colours the ground, second-storey, rear-cap and Back Room trim", trimGround.Color == narra and trimUpper.Color == narra and trimCap.Color == narra and trimBack.Color == narra)
+		check("trim: a trim paint leaves accents, walls and floors alone", accentGround.Color == Color3.fromRGB(41, 41, 41) and accentBack.Color == Color3.fromRGB(44, 44, 44) and back.Color == Color3.fromRGB(10, 20, 30))
+		Paint.DrawKind(plot, "Accent", "AccentTeal")
+		local teal = Paints.BY_ID.AccentTeal.color
+		check("accent: an accent paint colours the shell, second-storey, decor and Back Room accents", accentGround.Color == teal and accentUpper.Color == teal and accentDecor.Color == teal and accentBack.Color == teal)
+		check("accent: an accent paint leaves the trim alone", trimGround.Color == narra)
+		Paint.DrawKind(plot, "Trim", "")
+		Paint.DrawKind(plot, "Accent", "")
+		check("trim/accent: the original look comes back exactly", trimGround.Color == Color3.fromRGB(31, 31, 31) and trimBack.Color == Color3.fromRGB(34, 34, 34) and accentGround.Color == Color3.fromRGB(41, 41, 41) and accentDecor.Color == Color3.fromRGB(43, 43, 43))
+		Paint.DrawDefault(plot, "Trim")
+		Paint.DrawDefault(plot, "Accent")
+		check("trim/accent: with no paint every trim and every accent gets the same default colour", trimGround.Color == Paints.DEFAULTS.Trim.color and trimUpper.Color == Paints.DEFAULTS.Trim.color and trimBack.Color == Paints.DEFAULTS.Trim.color
+			and accentGround.Color == Paints.DEFAULTS.Accent.color and accentUpper.Color == Paints.DEFAULTS.Accent.color and accentBack.Color == Paints.DEFAULTS.Accent.color)
+		-- premium finishes (2026-11-26): a premium paint puts a ready-made texture on a textured shell part and takes it off again.
+		-- (Game scripts can't read or write a SurfaceAppearance's maps, so the textures are cloned from ReplicatedStorage.ShellTextures.)
+		local shellTex = ReplicatedStorage:FindFirstChild("ShellTextures")
+		check("premium: ReplicatedStorage.ShellTextures has every finish and the three originals", (function()
+			if shellTex == nil then
+				return false
+			end
+			for _, key in { "plaster", "woodgrain", "shingle", "pearl", "velvet", "brass", "goldleaf", "marblewall" } do
+				local holder = shellTex:FindFirstChild(key)
+				if holder == nil or holder:FindFirstChildWhichIsA("SurfaceAppearance") == nil then
+					return false
+				end
+			end
+			return true
+		end)())
+		wallPart.Name = "Shop_Walls_mesh" -- the real name decides which original texture the part wears (plaster)
+		local function wallTexture(): SurfaceAppearance?
+			return wallPart:FindFirstChildWhichIsA("SurfaceAppearance")
+		end
+		Paint.DrawKind(plot, "Wall", "WallPremPearl")
+		check("premium: a finish paint tints the wall and puts the finish texture on it", wallTexture() ~= nil and wallTexture().Color == Paints.BY_ID.WallPremPearl.color and wallPart:GetAttribute("ShellTex") == "pearl")
+		Paint.DrawKind(plot, "Wall", "WallUbe")
+		check("premium: a plain paint puts the original texture back, with its own tint", wallPart:GetAttribute("ShellTex") == nil and wallTexture() ~= nil and wallTexture().Color == Paints.BY_ID.WallUbe.color)
+		Paint.DrawKind(plot, "Wall", "WallPremVelvet")
+		Paint.DrawKind(plot, "Wall", "WallPremMarble")
+		check("premium: finish to finish changes the texture each time and leaves exactly one SurfaceAppearance", wallPart:GetAttribute("ShellTex") == "marblewall" and #wallPart:GetChildren() == 1)
+		Paint.DrawKind(plot, "Wall", "")
+		check("premium: the original look brings back the original texture", wallPart:GetAttribute("ShellTex") == nil and wallTexture() ~= nil and #wallPart:GetChildren() == 1)
+		check("premium: a part that is not a textured shell part is only tinted (the floor overlay keeps its texture)", (function()
+			Paint.DrawKind(plot, "Floor", "FloorPremMarble")
+			return overlay:GetAttribute("ShellTex") == nil
+		end)())
+		Paint.DrawKind(plot, "Floor", "FloorPremMarble")
+		check("premium: a premium floor sets its colour and its material (Marble)", slab.Material == Enum.Material.Marble and slab.Color == Paints.BY_ID.FloorPremMarble.color)
+		Paint.DrawKind(plot, "Floor", "")
 		plot:Destroy()
+
+		-- premium buying and earning
+		store[p] = { paints = { owned = {}, wall = "", floor = "", trim = "", accent = "" }, skins = { owned = {} }, wishlist = {} }
+		cash = 100000
+		near = true
+		check("premium: a premium paint can't be bought with cash", select(2, Paint.Buy(p, "WallPremPearl")) == "robuxOnly" and store[p].paints.owned.WallPremPearl == nil)
+		check("premium: a premium paint can't be used before it is owned", select(2, Paint.Apply(p, "Wall", "WallPremPearl")) == "notOwned")
+		check("premium: below the earn tier nothing is given", #Paint.GrantEarned(p, 3) == 0 and store[p].paints.owned.TrimPremGold == nil)
+		local gotGold = Paint.GrantEarned(p, 4)
+		check("premium: reaching the Gilded tier (4) gives the gold-leaf trim for free, once", #gotGold == 1 and gotGold[1] == "TrimPremGold" and store[p].paints.owned.TrimPremGold == true and store[p].paints.owned.WallPremMarble == nil and #Paint.GrantEarned(p, 4) == 0)
+		check("premium: reaching the Radiant tier (5) gives the marble wall", #Paint.GrantEarned(p, 5) == 1 and store[p].paints.owned.WallPremMarble == true)
+		check("premium: an earned paint can be used", Paint.Apply(p, "Trim", "TrimPremGold") == true and store[p].paints.trim == "TrimPremGold")
+		check("premium: no data = nothing given", (function()
+			local nobody = { UserId = 777, Name = "NoData2" }
+			return #Paint.GrantEarned(nobody, 5) == 0
+		end)())
+
+		-- ===== themes (one-tap looks) and the trim contrast guard =====
+		local Themes = require(ReplicatedStorage.Shared.Config.Themes)
+		local Contrast = require(ReplicatedStorage.Shared.Contrast)
+		local Monetization = require(ReplicatedStorage.Shared.Config.Monetization)
+		check("themes: every look uses real paints of the right kind", (function()
+			for _, theme in Themes.LIST do
+				for _, slot in Themes.SLOTS do
+					local id = theme.looks[slot]
+					if id ~= "" then
+						local paint = Paints.BY_ID[id]
+						if paint == nil or paint.kind ~= slot then
+							return false
+						end
+					end
+				end
+			end
+			return true
+		end)())
+		check("themes: a pass theme's paints are given by that pass, a cash or free theme's paints are not pass-only", (function()
+			for _, theme in Themes.LIST do
+				local pass = if theme.pass then Monetization.BY_PASS[theme.pass] else nil
+				for _, id in Themes.paintIds(theme) do
+					local paint = Paints.BY_ID[id]
+					if theme.tier == "pass" then
+						if pass == nil or paint.pass ~= theme.pass or not table.find(pass.grants.paints, id) then
+							return false
+						end
+					elseif paint.pass ~= nil then
+						return false
+					end
+				end
+			end
+			return true
+		end)())
+		check("themes: ids are unique and indexed", (function()
+			local n = 0
+			for _, theme in Themes.LIST do
+				n += 1
+				if Themes.BY_ID[theme.id] ~= theme then
+					return false
+				end
+			end
+			return n >= 8
+		end)())
+
+		local ube = Themes.BY_ID.UbeHalaya
+		local ubeSum = Paints.BY_ID.WallUbe.price + Paints.BY_ID.FloorPine.price + Paints.BY_ID.TrimSampaguita.price + Paints.BY_ID.AccentUbe.price
+		check("themes: a cash theme costs 85% of its unowned paints, rounded up to $10", Themes.price(ube, {}) == math.ceil(ubeSum * 0.85 / 10) * 10 and Themes.price(ube, {}) < ubeSum)
+		check("themes: owned pieces are not charged again", Themes.price(ube, { WallUbe = true, AccentUbe = true }) == math.ceil((ubeSum - Paints.BY_ID.WallUbe.price - Paints.BY_ID.AccentUbe.price) * 0.85 / 10) * 10 and Themes.price(ube, (function()
+			local all = {}
+			for _, id in Themes.paintIds(ube) do
+				all[id] = true
+			end
+			return all
+		end)()) == 0)
+		check("themes: free and starter themes cost 0, a pass theme has no cash price", Themes.price(Themes.BY_ID.PandanLeaf, {}) == 0 and Themes.price(Themes.BY_ID.CapizCream, {}) == 0 and Themes.price(Themes.BY_ID.ParolPasko, {}) == nil)
+
+		store[p] = { paints = { owned = {}, wall = "", floor = "", trim = "", accent = "" }, skins = { owned = {} }, wishlist = {} }
+		cash, spent, refunded = 1000, 0, 0
+		near = false
+		check("theme buy: too far from the Paint Bar is refused, nothing taken", select(2, Paint.BuyTheme(p, "UbeHalaya")) == "far" and spent == 0)
+		near = true
+		check("theme buy: an unknown theme and a non-string are refused", select(2, Paint.BuyTheme(p, "Nope")) == "unknown" and select(2, Paint.BuyTheme(p, 7)) == "unknown")
+		check("theme buy: a pass theme can't be bought with cash", select(2, Paint.BuyTheme(p, "ParolPasko")) == "passOnly" and spent == 0)
+		local ubePrice = Themes.price(ube, {}) or 0
+		check("theme buy: the whole look is bought, the SERVER's price is charged, all four paints are owned", (function()
+			local okBuy, _, paid = Paint.BuyTheme(p, "UbeHalaya")
+			return okBuy == true and paid == ubePrice and spent == ubePrice and Themes.ownsAll(ube, store[p].paints.owned)
+		end)())
+		check("theme buy: buying it again is refused, no extra cash", select(2, Paint.BuyTheme(p, "UbeHalaya")) == "owned" and spent == ubePrice)
+		cash = 5
+		check("theme buy: not enough cash is refused and nothing is owned", select(2, Paint.BuyTheme(p, "BarakoRoast")) == "cash" and store[p].paints.owned.WallTsokolate == nil)
+		cash = 1000
+		failSet = true
+		local beforeCash = cash
+		local failedOk, failedReason = Paint.BuyTheme(p, "SantanSunset")
+		failSet = false
+		check("theme buy: a failed save is refunded", failedOk == false and failedReason == "saveFailed" and cash == beforeCash)
+		check("theme buy: a free theme costs nothing and gives its paints", (function()
+			local before2 = spent
+			local okFree, _, paid = Paint.BuyTheme(p, "PandanLeaf")
+			return okFree == true and paid == 0 and spent == before2 and store[p].paints.owned.WallPandan == true and store[p].paints.owned.AccentHoney == true
+		end)())
+		check("theme buy: a player with no data is refused", (function()
+			local other = { UserId = 889, Name = "NoData" }
+			return select(2, Paint.BuyTheme(other, "UbeHalaya")) == "noData"
+		end)())
+		check("theme apply: a look you do not own is refused and nothing changes", select(2, Paint.ApplyTheme(p, "BarakoRoast")) == "notOwned" and store[p].paints.wall == "")
+		check("theme apply: an owned look sets all four paints at once", Paint.ApplyTheme(p, "UbeHalaya") == true and store[p].paints.wall == "WallUbe" and store[p].paints.floor == "FloorPine"
+			and store[p].paints.trim == "TrimSampaguita" and store[p].paints.accent == "AccentUbe" and Themes.isInUse(ube, store[p].paints))
+		check("theme apply: the starter look puts the default back on every slot", Paint.ApplyTheme(p, "CapizCream") == true and store[p].paints.wall == "" and store[p].paints.floor == "" and store[p].paints.trim == "" and store[p].paints.accent == "")
+		check("theme apply: an unknown theme is refused", select(2, Paint.ApplyTheme(p, "Nope")) == "unknown")
+
+		-- the contrast guard
+		local dark, light = Color3.fromRGB(54, 57, 64), Color3.fromRGB(234, 227, 213)
+		local darkTrim = Color3.fromRGB(54, 51, 48)
+		local fixedDark, changedDark = Contrast.fixTrim(dark, darkTrim)
+		check("contrast: a dark trim on a dark wall is moved lighter, by at least the minimum gap", changedDark == true and Contrast.lightness(fixedDark) - Contrast.lightness(dark) >= Contrast.MIN_GAP - 0.01)
+		local fixedLight, changedLight = Contrast.fixTrim(light, Color3.fromRGB(245, 241, 235))
+		check("contrast: a light trim on a light wall is moved darker", changedLight == true and Contrast.lightness(light) - Contrast.lightness(fixedLight) >= Contrast.MIN_GAP - 0.01)
+		local sameTrim, changedSame = Contrast.fixTrim(light, Color3.fromRGB(89, 62, 43))
+		check("contrast: a trim that already stands out is left exactly as it is", changedSame == false and sameTrim == Color3.fromRGB(89, 62, 43))
+		local h1 = Color3.fromRGB(143, 45, 43):ToHSV()
+		local h2 = (Contrast.fixTrim(Color3.fromRGB(150, 50, 48), Color3.fromRGB(143, 45, 43))):ToHSV()
+		check("contrast: the trim keeps its hue when it is adjusted", math.abs(h1 - h2) < 0.03)
+		check("contrast: no wall and trim pair of any theme or paint ends up too close after the guard", (function()
+			for _, w in Paints.LIST do
+				if w.kind == "Wall" then
+					for _, t in Paints.LIST do
+						if t.kind == "Trim" then
+							local shown = Contrast.fixTrim(w.color, t.color)
+							if math.abs(Contrast.lightness(shown) - Contrast.lightness(w.color)) < Contrast.MIN_GAP - 0.01 then
+								return false
+							end
+						end
+					end
+				end
+			end
+			return true
+		end)())
+		check("contrast: PaintService shows the adjusted trim, a plain accent and wall are untouched", (function()
+			local wallPaint = { color = dark }
+			local trimPaint = { color = darkTrim, material = Enum.Material.SmoothPlastic }
+			local shownTrim = Paint.Effective("Trim", trimPaint, wallPaint)
+			return shownTrim ~= trimPaint and shownTrim.color ~= darkTrim and shownTrim.material == Enum.Material.SmoothPlastic
+				and Paint.Effective("Accent", trimPaint, wallPaint) == trimPaint and Paint.Effective("Wall", wallPaint, wallPaint) == wallPaint
+		end)())
 
 		-- wishlist (SkinService on a copy)
 		local Skin = require(skinCopy)

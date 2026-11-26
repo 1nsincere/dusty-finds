@@ -55,7 +55,7 @@ Skins.LIST = {
 	-- aura = a rose-pink mist round the base (all off with Reduce effects)
 	{ id = "ShelfSakura", name = "Sakura Starlight", kind = "Shelf", rarity = "Mythic", price = 35000,
 		look = { model = "ShelfSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
-			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160), petals = true, floatItems = true,
 			aura = rgb(215, 70, 150) } },
 
 	-- ===== Pedestal skins (all exhibit pedestals in the shop) =====
@@ -85,7 +85,7 @@ Skins.LIST = {
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
 	{ id = "PedestalSakura", name = "Sakura Starlight", kind = "Pedestal", rarity = "Mythic", price = 25000,
 		look = { model = "PedestalSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
-			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160), petals = true, floatItems = true,
 			aura = rgb(215, 70, 150) } },
 
 	-- ===== Cashier skins (the shop's cash counter; model skins only) =====
@@ -123,7 +123,7 @@ Skins.LIST = {
 			swirl = { rgb(176, 71, 159), rgb(110, 70, 200), rgb(50, 160, 210) } } },
 	{ id = "CashierSakura", name = "Sakura Starlight", kind = "Cashier", rarity = "Mythic", price = 50000,
 		look = { model = "CashierSakura", color = rgb(248, 232, 238), material = M.Marble, light = rgb(255, 150, 200),
-			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160),
+			sparkle = rgb(255, 209, 230), starDust = rgb(255, 170, 210), pulse = true, gems = rgb(255, 70, 160), petals = true, floatItems = true,
 			aura = rgb(215, 70, 150) } },
 }
 

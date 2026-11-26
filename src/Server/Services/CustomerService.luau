@@ -28,6 +28,7 @@ local CustomerTypes = require(ReplicatedStorage.Shared.Config.Customers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local Formulas = require(ReplicatedStorage.Shared.Formulas)
+local Hours = require(ReplicatedStorage.Shared.Hours)
 
 local CustomerService = {}
 local DEBUG = true
@@ -442,7 +443,8 @@ function CustomerService.Start()
 			if spawnHandler then
 				for _, player in Players:GetPlayers() do
 					if Validate.isPlayer(player) and DataService.IsLoaded(player) then
-						local ok, err = pcall(CustomerService.Tick, player)
+						-- closing time: nobody new arrives (Shared.Hours.SHOP_CLOSE..SHOP_OPEN); customers already inside finish or time out
+						local ok, err = pcall(if Hours.shopOpen() then CustomerService.Tick else CustomerService.Sweep, player)
 						if not ok then
 							log.warn("tick failed:", tostring(err))
 						end

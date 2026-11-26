@@ -14,8 +14,11 @@ local Log = require(script.Parent.Parent.Lib.Log)
 local Validate = require(script.Parent.Parent.Lib.Validate)
 local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Hours = require(ReplicatedStorage.Shared.Hours)
 local Paints = require(ReplicatedStorage.Shared.Config.Paints)
 local PlotTargets = require(ReplicatedStorage.Shared.PlotTargets)
+local Contrast = require(ReplicatedStorage.Shared.Contrast)
+local Themes = require(ReplicatedStorage.Shared.Config.Themes)
 
 local PaintService = {}
 local DEBUG = true
@@ -72,14 +75,28 @@ local function drawPart(part: BasePart, paint: any)
 		})
 		return
 	end
-	PlotTargets.paintPart(part, paint.color, paint.material)
+	PlotTargets.paintPart(part, paint.color, paint.material, paint.finish)
+end
+
+-- Draws a plot with its owner's paints (or the original look when nobody owns it).
+-- The paint to SHOW for a kind. Trim goes through the contrast guard (Shared.Contrast): a trim too close to the wall in lightness is
+-- moved lighter or darker so the building's edges never vanish. What the player chose stays saved as it is. Pure, used by DrawPlot and the tests.
+function PaintService.Effective(kind: string, paint: any, wallPaint: any): any
+	if kind == "Trim" and paint ~= nil and wallPaint ~= nil then
+		local color, changed = Contrast.fixTrim(wallPaint.color, paint.color)
+		if changed then
+			return { color = color, material = paint.material, finish = paint.finish }
+		end
+	end
+	return paint
 end
 
 -- Draws a plot with its owner's paints (or the original look when nobody owns it).
 function PaintService.DrawPlot(plot: Instance)
+	local wallPaint = paintFor(plot, "Wall") or Paints.DEFAULTS.Wall
 	for _, kind in Paints.KINDS do
 		-- no paint chosen (or nobody owns the shop): every room gets the same default look (Paints.DEFAULTS)
-		local paint = paintFor(plot, kind) or Paints.DEFAULTS[kind]
+		local paint = PaintService.Effective(kind, paintFor(plot, kind) or Paints.DEFAULTS[kind], wallPaint)
 		for _, part in targetsOf(plot, kind) do
 			drawPart(part, paint)
 		end
@@ -121,6 +138,9 @@ function PaintService.Buy(player: Player, paintId: any): (boolean, string?)
 	end
 	if paint.pass ~= nil then
 		return false, "passOnly" -- theme paints come with a Robux pass (MonetizationService), never for cash
+	end
+	if paint.premium then
+		return false, "robuxOnly" -- Premium paints are bought with Robux (MonetizationService) or earned as a collector, never for cash
 	end
 	local data = DataService.Get(player)
 	if data == nil or type(data.paints) ~= "table" or type(data.paints.owned) ~= "table" then
@@ -199,8 +219,105 @@ function PaintService.Grant(player: Player, paintId: string, use: boolean?): (bo
 	return true, nil
 end
 
+-- ===== Themes: four paints in one tap =====
+
+local function ownedTable(data: any): { [string]: boolean }
+	return if data and type(data.paints) == "table" and type(data.paints.owned) == "table" then data.paints.owned else {}
+end
+
+-- Buys (or claims, for free themes) a whole look. The price is worked out HERE from what the player does not own yet: the client's
+-- number is never used. Returns ok, reason ("unknown", "passOnly", "noData", "owned", "far", "cash", "saveFailed"), price paid.
+function PaintService.BuyTheme(player: Player, themeId: any): (boolean, string?, number?)
+	local theme = type(themeId) == "string" and Themes.BY_ID[themeId] or nil
+	if theme == nil then
+		return false, "unknown", nil
+	end
+	if theme.tier == "pass" then
+		return false, "passOnly", nil
+	end
+	local data = DataService.Get(player)
+	if data == nil or type(data.paints) ~= "table" or type(data.paints.owned) ~= "table" then
+		return false, "noData", nil
+	end
+	local owned = ownedTable(data)
+	if Themes.ownsAll(theme, owned) then
+		return false, "owned", nil
+	end
+	if not nearCounter(player) then
+		return false, "far", nil
+	end
+	local price = Themes.price(theme, owned) or 0
+	if price > 0 and not EconomyService.Spend(player, price, "Shop", theme.id) then
+		return false, "cash", nil
+	end
+	for _, id in Themes.paintIds(theme) do
+		if not owned[id] and not DataService.Set(player, "paints.owned." .. id, true) then
+			if price > 0 then
+				EconomyService.AddCash(player, price, "Refund")
+			end
+			return false, "saveFailed", nil
+		end
+	end
+	Analytics.Event(player, "ThemeBought", price, theme.tier, theme.id)
+	log.info(`{player.Name} got theme {theme.id} for ${price}`)
+	return true, nil, price
+end
+
+-- Uses a theme the player owns: all four paints at once (one save each, one redraw). "starter" puts the default look back.
+-- Returns ok, reason ("unknown", "noData", "notOwned", "saveFailed").
+function PaintService.ApplyTheme(player: Player, themeId: any): (boolean, string?)
+	local theme = type(themeId) == "string" and Themes.BY_ID[themeId] or nil
+	if theme == nil then
+		return false, "unknown"
+	end
+	local data = DataService.Get(player)
+	if data == nil or type(data.paints) ~= "table" or type(data.paints.owned) ~= "table" then
+		return false, "noData"
+	end
+	if not Themes.ownsAll(theme, ownedTable(data)) then
+		return false, "notOwned"
+	end
+	for _, slot in Themes.SLOTS do
+		if not DataService.Set(player, "paints." .. Paints.FIELD[slot], theme.looks[slot]) then
+			return false, "saveFailed"
+		end
+	end
+	local plot = plotOf(player)
+	if plot then
+		PaintService.DrawPlot(plot)
+	end
+	return true, nil
+end
+
+-- Premium paints that can be EARNED: given for free once the player's Collector tier reaches paint.earnTier (1 Dusty .. 5 Radiant).
+-- Safe to call any time (already owned = nothing happens). Returns the ids newly given.
+function PaintService.GrantEarned(player: any, tier: number): { string }
+	local given = {}
+	local data = DataService.Get(player)
+	if data == nil or type(data.paints) ~= "table" or type(data.paints.owned) ~= "table" then
+		return given
+	end
+	for _, paint in Paints.LIST do
+		if paint.premium and type(paint.earnTier) == "number" and tier >= paint.earnTier and not data.paints.owned[paint.id] then
+			if DataService.Set(player, "paints.owned." .. paint.id, true) then
+				table.insert(given, paint.id)
+			end
+		end
+	end
+	if #given > 0 then
+		local names = {}
+		for _, id in given do
+			table.insert(names, Paints.BY_ID[id].name)
+		end
+		notify(player, `Collector reward! You earned: {table.concat(names, ", ")}. Find it in the Paint Bar (Owned).`)
+		Analytics.Event(player, "PaintEarned", #given, tostring(tier))
+	end
+	return given
+end
+
 local REASON_TEXT = {
-	passOnly = "That paint comes with a theme pass at the Collector's Corner.",
+	robuxOnly = "That one is a Premium paint: buy it in the Premium tab, or earn it as a collector.",
+	passOnly = "That look comes with a theme pass at the Collector's Corner.",
 	owned = "You already own that paint.",
 	far = "Buy paints at the Paint Bar upstairs in the market.",
 	cash = "Not enough cash for that paint.",
@@ -217,6 +334,10 @@ end
 function PaintService.Start()
 	Remotes.RequestBuyPaint.OnServerEvent:Connect(function(player, paintId)
 		if not Validate.rateLimit(player, "RequestBuyPaint", 2) then
+			return
+		end
+		if not Hours.marketOpen() then
+			Remotes.Notify:FireClient(player, "Info", "The Warehouse Market is closed. It opens at " .. Hours.format(Hours.MARKET_OPEN) .. ".")
 			return
 		end
 		local ok, reason = PaintService.Buy(player, paintId)
@@ -236,6 +357,57 @@ function PaintService.Start()
 			notify(player, REASON_TEXT[reason])
 		end
 	end)
+	Remotes.RequestBuyTheme.OnServerEvent:Connect(function(player, themeId)
+		if not Validate.rateLimit(player, "RequestBuyTheme", 2) then
+			return
+		end
+		if not Hours.marketOpen() then
+			Remotes.Notify:FireClient(player, "Info", "The Warehouse Market is closed. It opens at " .. Hours.format(Hours.MARKET_OPEN) .. ".")
+			return
+		end
+		local ok, reason = PaintService.BuyTheme(player, themeId)
+		if ok then
+			notify(player, `You got {Themes.BY_ID[themeId].name}! Use it in the Paint Bar window.`)
+		elseif reason == "owned" then
+			notify(player, "You already own every paint of that look.")
+		elseif reason and REASON_TEXT[reason] then
+			notify(player, REASON_TEXT[reason])
+		end
+	end)
+	Remotes.RequestApplyTheme.OnServerEvent:Connect(function(player, themeId)
+		if not Validate.rateLimit(player, "RequestApplyTheme", 3) then
+			return
+		end
+		local _, reason = PaintService.ApplyTheme(player, themeId)
+		if reason and REASON_TEXT[reason] then
+			notify(player, REASON_TEXT[reason])
+		end
+	end)
+
+	-- collector rewards: a premium paint with an earnTier is given when the player's Collector tier (CollectorService sets the player
+	-- attribute DF_CollectorTier) reaches it, now and later. The profile may still be loading when the tier first appears, so retry briefly.
+	local function watchTier(player: Player)
+		local function check()
+			local tier = player:GetAttribute("DF_CollectorTier")
+			if type(tier) == "number" then
+				for _ = 1, 20 do
+					if DataService.Get(player) ~= nil then
+						PaintService.GrantEarned(player, tier)
+						return
+					end
+					task.wait(0.5)
+				end
+			end
+		end
+		player:GetAttributeChangedSignal("DF_CollectorTier"):Connect(function()
+			task.spawn(check)
+		end)
+		task.spawn(check)
+	end
+	Players.PlayerAdded:Connect(watchTier)
+	for _, player in Players:GetPlayers() do
+		watchTier(player)
+	end
 
 	-- redraw a shop whenever it changes hands (owner joins: their paints; owner leaves: the original look)
 	local plots = workspace:WaitForChild("Plots", 30)

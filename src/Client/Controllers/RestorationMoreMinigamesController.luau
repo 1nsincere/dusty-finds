@@ -78,6 +78,7 @@ local TEST_CELLS = 28
 local function runTest(ctx)
 	local step = table.clone(ctx.step)
 	step.rarity = rarityOf(ctx.uid)
+	step.center = 0.5 -- the green zone is always in the middle of the meter (Ace, 2026-11-26); the recipe's own `center` is ignored
 	local closed = false
 	local pendingScore: number? = nil
 	local game_
@@ -175,7 +176,7 @@ local function runTest(ctx)
 	marker.AnchorPoint = Vector2.new(0.5, 1)
 	marker.BackgroundTransparency = 1
 	marker.Size = UDim2.fromOffset(24, 16)
-	marker.Position = UDim2.new(0, 20, 0, 50)
+	marker.Position = UDim2.new(0, 32, 0, 50)
 	marker.FontFace = Skin.FONT_TITLE
 	marker.TextSize = 16
 	marker.TextColor3 = C.accent
@@ -341,8 +342,10 @@ local function runTest(ctx)
 				local glow = math.max(0, 1 - math.abs(i - index) / 3) -- a lit head with a soft trail either side
 				cell.BackgroundTransparency = 0.8 - 0.8 * glow
 			end
+			-- the marker sits exactly over the lit cell and stops with it when you tap (it used to keep sweeping after the tap, so it
+			-- drifted far away from the frozen light). The cells span x 32..568 inside the card (window at 20 + 12 padding).
+			marker.Position = UDim2.fromOffset(32 + 536 * ((index - 0.5) / TEST_CELLS), 50)
 		end
-		marker.Position = UDim2.fromOffset(20 + 560 * needle, 50)
 	end)
 	return function()
 		closed = true

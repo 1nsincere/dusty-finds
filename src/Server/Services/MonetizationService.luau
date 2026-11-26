@@ -20,6 +20,9 @@ local Validate = require(script.Parent.Parent.Lib.Validate)
 local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Config = require(ReplicatedStorage.Shared.Config.Monetization)
+local Skins = require(ReplicatedStorage.Shared.Config.Skins)
+
+local DEVELOPER_TITLE_USER_ID = 2515374038
 
 local MonetizationService = {}
 local DEBUG = true
@@ -74,6 +77,7 @@ function MonetizationService.PublishCosmetics(player: any)
 		end
 	end
 	set("DF_VIP", if vip then true else nil)
+	set("DF_OneOfOne", if player.UserId == DEVELOPER_TITLE_USER_ID then true else nil)
 	set("DF_Pet", pet)
 	set("DF_PetColor", if pet and vipData.petColor ~= "" then vipData.petColor else nil)
 	set("DF_Title", if vip and vipData.title ~= "" then vipData.title else nil)
@@ -164,6 +168,97 @@ function MonetizationService.PromptPass(player: any, key: any): (boolean, string
 	return true, nil
 end
 
+-- ===== Skin vouchers =====
+
+local SEEN_KEEP = 20 -- how many recent receipt ids are remembered
+
+local function voucherState(player: any): { Epic: number, Legendary: number, seen: { string } }?
+	local v = DataService.GetValue(player, "vouchers")
+	if type(v) ~= "table" then
+		return nil
+	end
+	local seen = {}
+	if type(v.seen) == "table" then
+		for _, id in v.seen do
+			if type(id) == "string" then
+				table.insert(seen, id)
+			end
+		end
+	end
+	return { Epic = math.max(0, math.floor(tonumber(v.Epic) or 0)), Legendary = math.max(0, math.floor(tonumber(v.Legendary) or 0)), seen = seen }
+end
+
+-- A voucher receipt: +1 voucher of the product's tier, saved BEFORE the purchase is confirmed; the receipt id is remembered so a repeat
+-- (Roblox may send one twice) never gives a second voucher. Returns true when the voucher is saved (a repeat counts as saved).
+local function grantVoucher(player: any, product: any, purchaseId: any): boolean
+	local state = voucherState(player)
+	if state == nil or (product.tier ~= "Epic" and product.tier ~= "Legendary") then
+		return false
+	end
+	local pid = tostring(purchaseId)
+	if table.find(state.seen, pid) then
+		return true
+	end
+	state[product.tier] += 1
+	table.insert(state.seen, pid)
+	while #state.seen > SEEN_KEEP do
+		table.remove(state.seen, 1)
+	end
+	return DataService.Set(player, "vouchers", state)
+end
+
+-- Spends one voucher on a skin of that rarity. Returns ok, reason ("unknown", "notRedeemable", "owned", "noVoucher", "noData", "saveFailed").
+function MonetizationService.RedeemVoucher(player: any, skinId: any): (boolean, string?)
+	local skin = type(skinId) == "string" and Skins.BY_ID[skinId] or nil
+	if skin == nil then
+		return false, "unknown"
+	end
+	if skin.pass ~= nil or (skin.rarity ~= "Epic" and skin.rarity ~= "Legendary") then
+		return false, "notRedeemable" -- theme / pass skins and the other rarities are not sold with vouchers
+	end
+	local state = voucherState(player)
+	if state == nil or DataService.GetValue(player, "skins.owned") == nil then
+		return false, "noData"
+	end
+	if DataService.GetValue(player, "skins.owned." .. skinId) == true then
+		return false, "owned"
+	end
+	if state[skin.rarity] < 1 then
+		return false, "noVoucher"
+	end
+	state[skin.rarity] -= 1
+	if not DataService.Set(player, "vouchers", state) then
+		return false, "saveFailed"
+	end
+	if not DataService.Set(player, "skins.owned." .. skinId, true) then
+		state[skin.rarity] += 1 -- give the voucher back
+		DataService.Set(player, "vouchers", state)
+		return false, "saveFailed"
+	end
+	Analytics.Event(player, "VoucherRedeemed", 1, skin.rarity, skinId)
+	log.info(`{if Validate.isPlayer(player) then player.Name else "?"} redeemed a {skin.rarity} voucher for {skinId}`)
+	return true, nil
+end
+
+-- Gives a premium paint product's paints for good. Returns true when every paint is saved as owned (already owned counts).
+local function grantPaints(player: any, product: any): boolean
+	for _, id in product.paints or {} do
+		if DataService.GetValue(player, "paints.owned." .. id) ~= true and not DataService.Set(player, "paints.owned." .. id, true) then
+			return false
+		end
+	end
+	return true
+end
+
+local function ownsAllPaints(player: any, product: any): boolean
+	for _, id in product.paints or {} do
+		if DataService.GetValue(player, "paints.owned." .. id) ~= true then
+			return false
+		end
+	end
+	return true
+end
+
 function MonetizationService.PromptProduct(player: any, key: any): (boolean, string?)
 	local product = type(key) == "string" and Config.BY_PRODUCT[key] or nil
 	if product == nil then
@@ -171,6 +266,9 @@ function MonetizationService.PromptProduct(player: any, key: any): (boolean, str
 	end
 	if product.productId <= 0 then
 		return false, "comingSoon"
+	end
+	if product.paints ~= nil and ownsAllPaints(player, product) then
+		return false, "owned" -- never charge for paints you already have
 	end
 	market:PromptProductPurchase(player, product.productId)
 	return true, nil
@@ -202,6 +300,26 @@ function MonetizationService.HandleReceipt(info: any): Enum.ProductPurchaseDecis
 	end
 	for _, product in Config.PRODUCTS do
 		if product.productId > 0 and product.productId == info.ProductId then
+			if product.kind == "Voucher" then
+				if not grantVoucher(player, product, info.PurchaseId) then
+					return Enum.ProductPurchaseDecision.NotProcessedYet -- not saved: Roblox retries
+				end
+				Analytics.Event(player, "VoucherBought", product.price, product.id)
+				notify(player, `Thank you! {product.name}: pick any {product.tier} skin at the skins stall (Vouchers tab).`)
+				return Enum.ProductPurchaseDecision.PurchaseGranted
+			end
+			if product.paints ~= nil then
+				-- a premium paint or set: save the paints BEFORE confirming (if saving fails Roblox retries); granting twice is harmless
+				if not grantPaints(player, product) then
+					return Enum.ProductPurchaseDecision.NotProcessedYet
+				end
+				if not thanked[info.PurchaseId] then
+					thanked[info.PurchaseId] = true
+					Analytics.Event(player, "PremiumPaint", product.price, product.id)
+					notify(player, `Thank you! {product.name} is yours. Find it in the Paint Bar (Owned).`)
+				end
+				return Enum.ProductPurchaseDecision.PurchaseGranted
+			end
 			if not thanked[info.PurchaseId] then
 				thanked[info.PurchaseId] = true
 				Analytics.Event(player, "TipJar", product.price, product.id)
@@ -323,6 +441,21 @@ function MonetizationService.Start()
 		end
 		local _, reason = MonetizationService.PromptProduct(player, key)
 		if reason and REASON_TEXT[reason] then
+			notify(player, REASON_TEXT[reason])
+		end
+	end)
+	Remotes.RequestRedeemVoucher.OnServerEvent:Connect(function(player, skinId)
+		if not Validate.rateLimit(player, "RequestRedeemVoucher", 2) then
+			return
+		end
+		local ok, reason = MonetizationService.RedeemVoucher(player, skinId)
+		if ok then
+			notify(player, `{Skins.BY_ID[skinId].name} is yours! Find it in the Owned tab.`)
+		elseif reason == "noVoucher" then
+			notify(player, "You don't have a voucher for that rarity.")
+		elseif reason == "notRedeemable" then
+			notify(player, "Vouchers work for Epic and Legendary skins only.")
+		elseif reason and REASON_TEXT[reason] then
 			notify(player, REASON_TEXT[reason])
 		end
 	end)
