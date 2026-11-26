@@ -15,10 +15,10 @@ local DayNight = {}
 
 -- The cycle, in order. Each segment moves the clock from `from` to `to` (hours, may pass 24) in `seconds`.
 DayNight.SEGMENTS = {
-	{ name = "Dawn", from = 5.0, to = 7.5, seconds = 100 },
-	{ name = "Day", from = 7.5, to = 15.5, seconds = 500 },
-	{ name = "GoldenHour", from = 15.5, to = 18.5, seconds = 250 },
-	{ name = "Night", from = 18.5, to = 29.0, seconds = 350 }, -- 29 = 5:00 next morning
+	{ name = "Dawn", from = 5.0, to = 7.5, seconds = 120 },
+	{ name = "Day", from = 7.5, to = 15.5, seconds = 930 },
+	{ name = "GoldenHour", from = 15.5, to = 18.5, seconds = 300 },
+	{ name = "Night", from = 18.5, to = 29.0, seconds = 450 }, -- 29 = 5:00 next morning
 }
 
 -- Lamp/window night tint and the shop ceiling light switch on when the keyframe `lights` value is above this.

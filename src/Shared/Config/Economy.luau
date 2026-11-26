@@ -98,7 +98,7 @@ local Economy = {
 	-- Upgrade tabs switched off (Sean + Ace, 2026-11-24): decor will be sold in a decor shop once the edit mode exists.
 	-- A closed tab is hidden in the Upgrades window, refused by UpgradeService, and its decor models stay hidden.
 	-- Levels already bought stay saved and keep their rating points. Remove the entry to switch the tab back on.
-	ClosedUpgradeTabs = { Decor = true },
+	ClosedUpgradeTabs = {}, -- Decor opened 2026-11-26 (the Cozy Living set); the old greybox decor items are comingSoon in Config/Upgrades
 
 	-- §7 XP and levels
 	MaxLevel = 50, -- was 15 (2026-11-20)

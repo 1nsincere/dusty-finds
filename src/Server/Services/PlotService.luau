@@ -220,6 +220,8 @@ end
 -- Parts that move with an expansion (Sean, 2026-11-24: pedestal 1 stands downstairs, and upstairs in the gallery once the
 -- Showroom is owned): attribute MoveWithExpansion = <expansion name>, with plot-local CFrame attributes HomeCFrame and
 -- ExpansionCFrame (relative to the plot Floor). The item on it is the same; only where it stands changes.
+-- Also works on a MODEL (Ace, 2026-11-26: the Cozy decor pieces re-arrange themselves when the Back Room is bought, so the shop
+-- always looks arranged): the CFrame is where the model's pivot goes.
 local function applyMovedParts(plot: Model, ownedRooms: { [string]: boolean })
 	local floor = plot:FindFirstChild("Floor")
 	if floor == nil or not floor:IsA("BasePart") then
@@ -227,11 +229,16 @@ local function applyMovedParts(plot: Model, ownedRooms: { [string]: boolean })
 	end
 	for _, part in plot:GetDescendants() do
 		local room = part:GetAttribute("MoveWithExpansion")
-		if type(room) == "string" and part:IsA("BasePart") then
+		if type(room) == "string" and (part:IsA("BasePart") or part:IsA("Model")) then
 			local target = part:GetAttribute(if ownedRooms[room] then "ExpansionCFrame" else "HomeCFrame")
 			if typeof(target) == "CFrame" then
 				local cf = floor.CFrame * target
-				if part.CFrame ~= cf then
+				if part:IsA("Model") then
+					local pivot = part:GetPivot()
+					if (pivot.Position - cf.Position).Magnitude > 0.05 or pivot.LookVector:Dot(cf.LookVector) < 0.999 then
+						part:PivotTo(cf)
+					end
+				elseif part.CFrame ~= cf then
 					part.CFrame = cf
 				end
 			end

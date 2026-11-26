@@ -12,7 +12,25 @@ local Analytics = require(script.Parent.Parent.Lib.Analytics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Upgrades = require(ReplicatedStorage.Shared.Config.Upgrades)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+local DecorStock = require(ReplicatedStorage.Shared.DecorStock)
+local DecorRooms = require(ReplicatedStorage.Shared.Config.DecorRooms)
+local Hours = require(ReplicatedStorage.Shared.Hours)
+local CollectionService = game:GetService("CollectionService")
 
+
+-- Decor is bought at its room's counter in the Warehouse Market (parts tagged DecorStall, attribute Room), while the market is open.
+local function isNearDecorStall(player: Player, room: any): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		return false
+	end
+	for _, part in CollectionService:GetTagged(DecorRooms.TAG) do
+		if part:IsA("BasePart") and part:GetAttribute("Room") == room and (part.Position - root.Position).Magnitude <= DecorRooms.BuyMaxStuds then
+			return true
+		end
+	end
+	return false
+end
 local UpgradeService = {}
 local DEBUG = true
 local log = Log.new("UpgradeService", DEBUG)
@@ -25,7 +43,7 @@ local function notify(player: any, kind: string, text: string)
 	end
 end
 
--- Returns ok, reason ("unknown", "closed", "maxed", "level", "requires", "cash", "saveFailed"), newLevel.
+-- Returns ok, reason ("unknown", "closed", "outOfStock", "maxed", "level", "requires", "cash", "saveFailed"), newLevel.
 function UpgradeService.BuyUpgrade(player: Player, upgradeId: string): (boolean, string?, number?)
 	-- 1. exists in Config
 	if not Validate.isConfigId(upgradeId, Upgrades) then
@@ -40,6 +58,10 @@ function UpgradeService.BuyUpgrade(player: Player, upgradeId: string): (boolean,
 	-- 1c. one upgrade switched off (comingSoon = true: the Showroom and Upper Back Room wait for the decor shop)
 	if def.comingSoon then
 		return false, "closed", nil
+	end
+	-- 1d. a decor piece is only sold while it is in the decor stock (the nicer the piece, the rarer: Shared/DecorStock)
+	if DecorStock.isStocked(def) and not DecorStock.inStock(DecorStock.restockIndex(os.time()), upgradeId) then
+		return false, "outOfStock", nil
 	end
 	local data = DataService.Get(player)
 	if data == nil then
@@ -97,7 +119,22 @@ function UpgradeService.Start()
 		if type(upgradeId) ~= "string" then
 			return
 		end
-		UpgradeService.BuyUpgrade(player, upgradeId)
+		-- decor is only sold at its room's counter in the market (and only while the market is open): the Decor tab is not in the normal window
+		local def = Upgrades[upgradeId]
+		if def and def.tab == DecorRooms.TAB then
+			if not Hours.marketOpen() then
+				Remotes.Notify:FireClient(player, "Info", "The Warehouse Market is closed. It opens at " .. Hours.format(Hours.MARKET_OPEN) .. ".")
+				return
+			end
+			if not isNearDecorStall(player, def.room) then
+				Remotes.Notify:FireClient(player, "Info", "Buy decor at its room's counter in the Warehouse Market, upstairs.")
+				return
+			end
+		end
+		local _, reason = UpgradeService.BuyUpgrade(player, upgradeId)
+		if reason == "outOfStock" then
+			Remotes.Notify:FireClient(player, "Info", "That decor is out of stock right now. New stock arrives every few minutes.")
+		end
 	end)
 	log.info("Start")
 end

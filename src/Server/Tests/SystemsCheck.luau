@@ -365,9 +365,31 @@ function SystemsCheck.run()
 			return Upgrade.BuyUpgrade(u, "FishTank") and cash(u) == before2 - 3000
 		end)())
 		local poor = newPlayer() -- $100, level 1
-		check("Upgrade: not enough cash refused, cash unchanged", select(2, Upgrade.BuyUpgrade(poor, "Rug")) == "cash" and cash(poor) == 100 and fakeDS.GetValue(poor, "upgrades.Rug") == nil)
-		check("Upgrade: affordable decor works ($80 plant)", Upgrade.BuyUpgrade(poor, "PottedPlants") and cash(poor) == 20 and fakeDS.GetValue(poor, "upgrades.PottedPlants") == 1)
-		check("Upgrade: no data refused", select(2, Upgrade.BuyUpgrade({ UserId = 1, Name = "ghost" }, "Rug")) == "noData")
+		check("Upgrade: not enough cash refused, cash unchanged", select(2, Upgrade.BuyUpgrade(poor, "CozyPlant")) == "cash" and cash(poor) == 100 and fakeDS.GetValue(poor, "upgrades.CozyPlant") == nil)
+		fakeDS.Set(poor, "cash", 300)
+		check("Upgrade: affordable decor works ($300 Common plant, always in stock)", Upgrade.BuyUpgrade(poor, "CozyPlant") and cash(poor) == 0 and fakeDS.GetValue(poor, "upgrades.CozyPlant") == 1)
+		check("Upgrade: no data refused", select(2, Upgrade.BuyUpgrade({ UserId = 1, Name = "ghost" }, "CozyPlant")) == "noData")
+		-- a switched-off upgrade (comingSoon) is refused whatever the level and cash (the Upper Back Room waits for its decor spots)
+		fakeDS.Set(u, "level", 50)
+		fakeDS.Set(u, "cash", 1000000)
+		check("Upgrade: Upper Back Room is comingSoon (refused as closed)", select(2, Upgrade.BuyUpgrade(u, "UpperBackRoom")) == "closed" and fakeDS.GetValue(u, "upgrades.UpperBackRoom") == nil)
+		-- decor stock (Shared/DecorStock): Common always in stock; nicer = rarer
+		do
+			local DS = require(game:GetService("ReplicatedStorage").Shared.DecorStock)
+			local counts = { CozyPlant = 0, CozyLamp = 0, CozyChair = 0, CozyLoveseat = 0 }
+			local N = 600
+			for index = 1, N do
+				for id in counts do
+					if DS.inStock(index, id) then
+						counts[id] += 1
+					end
+				end
+			end
+			check("Decor stock: a Common piece is always in stock", counts.CozyPlant == N, counts.CozyPlant)
+			check("Decor stock: the nicer the piece, the lower its chance (Common > Uncommon > Rare > Epic)", counts.CozyPlant > counts.CozyLamp and counts.CozyLamp > counts.CozyChair and counts.CozyChair > counts.CozyLoveseat, `{counts.CozyLamp}/{counts.CozyChair}/{counts.CozyLoveseat}`)
+			check("Decor stock: an Epic piece is in stock about 18% of restocks (10-27%)", counts.CozyLoveseat > N * 0.10 and counts.CozyLoveseat < N * 0.27, counts.CozyLoveseat)
+			check("Decor stock: the roll is the same every time (pure function of the restock number)", DS.inStock(777, "CozyChair") == DS.inStock(777, "CozyChair"))
+		end
 		-- the decor switch (2026-11-24): a closed tab is refused by the server even if a client asks for it
 		EconomyConfig.ClosedUpgradeTabs = { Decor = true }
 		check("Upgrade: Decor tab closed -> Rug refused, cash unchanged", (function()

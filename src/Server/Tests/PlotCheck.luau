@@ -333,7 +333,11 @@ function PlotCheck.run()
 			do
 				local e11 = p4.ExhibitSlots:FindFirstChild("Exhibit11")
 				local lp11 = e11 and p4.Floor.CFrame:PointToObjectSpace(e11.Position)
-				check("Upper Back Room + Showroom: 14 exhibit pedestals, the 4 new ones (11-14) are shown, solid and stand in the Upper Back Room", slotsOn(4, "ExhibitSlots") == 14 and e11 ~= nil and e11:GetAttribute("Enabled") == true and e11.Transparency == 0 and e11.CanCollide == true and lp11 ~= nil and lp11.Z > 20 * k4 and lp11.Z < 44 * k4, slotsOn(4, "ExhibitSlots"))
+				-- the Upper Back Room's pedestal count comes from Config (0 since 2026-11-26: it is the decor floor); the old 11-14 are only shown when it gives some
+				local UpgradesCfg = require(game:GetService("ReplicatedStorage").Shared.Config.Upgrades)
+				local ubrPedestals = UpgradesCfg.UpperBackRoom.effect.exhibitPedestals
+				local wantTotal = 4 + UpgradesCfg.Showroom.effect.exhibitPedestals + ubrPedestals
+				check("Upper Back Room + Showroom: exhibit pedestals follow Config (" .. wantTotal .. "); 11-14 shown only if the Upper Back Room gives pedestals", slotsOn(4, "ExhibitSlots") == wantTotal and e11 ~= nil and (e11:GetAttribute("Enabled") == true) == (ubrPedestals > 0) and (ubrPedestals == 0 or (e11.Transparency == 0 and e11.CanCollide == true and lp11 ~= nil and lp11.Z > 20 * k4 and lp11.Z < 44 * k4)), slotsOn(4, "ExhibitSlots"))
 				upgradesById[P[4]] = { BackRoom = 1, UpperBackRoom = 1 }
 				PlotService.RefreshSlots(P[4])
 				check("Upper Back Room without the Showroom: no extra pedestals (they are reached from the Showroom), 11-14 stay hidden", slotsOn(4, "ExhibitSlots") == 4 and p4.ExhibitSlots.Exhibit11:GetAttribute("Enabled") == false and p4.ExhibitSlots.Exhibit11.Transparency == 1 and p4.ExhibitSlots.Exhibit11.CanCollide == false)

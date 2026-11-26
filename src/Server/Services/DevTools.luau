@@ -42,6 +42,26 @@ function commands.giveCash(player: Player, amount: any)
 	return S.EconomyService.AddCash(player, amount, "Dev"), nil
 end
 
+-- takeCash(player, amount): removes cash from a TEST profile (never below 0), to undo a giveCash
+function commands.takeCash(player: Player, amount: any)
+	if not Validate.isInteger(amount, 0, 1e9) then
+		return false, "amount must be a whole number 0 - 1,000,000,000"
+	end
+	local cash = S.DataService.GetValue(player, "cash") or 0
+	return S.DataService.Set(player, "cash", math.max(0, cash - amount)), nil
+end
+
+-- setUpgrade(player, upgradeId, level): sets one upgrade level on a TEST profile (0 = not owned), e.g. to undo a test purchase
+function commands.setUpgrade(player: Player, upgradeId: any, level: any)
+	local def = Upgrades[upgradeId]
+	if def == nil or not Validate.isInteger(level, 0, def.maxLevel) then
+		return false, "unknown upgrade or level out of range"
+	end
+	S.DataService.Set(player, "upgrades." .. upgradeId, level)
+	S.PlotService.RefreshSlots(player)
+	return true, nil
+end
+
 -- givePass(player, passId, on): grants (on = true, default) or takes back (false) a Robux pass for testing the perks without paying
 function commands.givePass(player: Player, passId: any, on: any)
 	if type(passId) ~= "string" then

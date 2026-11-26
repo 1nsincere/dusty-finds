@@ -25,6 +25,8 @@ local Crates = require(Shared:WaitForChild("Config"):WaitForChild("Crates"))
 local Rarities = require(Shared:WaitForChild("Config"):WaitForChild("Rarities"))
 local Upgrades = require(Shared:WaitForChild("Config"):WaitForChild("Upgrades"))
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
+local DecorStock = require(Shared:WaitForChild("DecorStock"))
+local DecorRooms = require(Shared:WaitForChild("Config"):WaitForChild("DecorRooms"))
 local UiSkin = require(Shared:WaitForChild("Config"):WaitForChild("UiSkin"))
 
 local ShopController = {}
@@ -69,6 +71,9 @@ local UPGRADE_ICONS = {
 	DisplayShelves = "🗄️", StorageRacks = "📦", ShopSign = "📢",
 	PottedPlants = "🌿", Rug = "🟫", WallPosters = "🖼️", PendantLamps = "💡", NeonSign = "🌟",
 	FishTank = "🐠", Fountain = "⛲",
+	-- Cozy Living and Kitchen Nook decor (older emoji only: newer ones draw as empty squares)
+	CozyRug = "🟫", CozyPlant = "🌿", CozyLamp = "💡", CozyTeaTable = "🍵", CozyTable = "🎋", CozyChair = "🐈", CozyBookcase = "📚", CozyLoveseat = "🛋️",
+	KitchenFruit = "🍎", KitchenBanga = "🏺", KitchenJarShelf = "🍯", KitchenPotRack = "🍳", KitchenStove = "🔥", KitchenAparador = "🗄️", KitchenDining = "🍽️", KitchenCart = "🍞",
 	BackRoom = "🚪", Showroom = "🏛️",
 }
 
@@ -81,6 +86,8 @@ local crateSpins: { (number) -> () } = {} -- turns each crate model a little eve
 local spinAngle = 0.6
 local upgradesGui: ScreenGui? = nil
 local currentUpgradeTab = "Tools"
+local currentDecorRoom: string? = nil -- set while the window is open at a decor room counter: only that room's pieces show (Config/DecorRooms)
+local stallMode = false -- true = opened at a decor counter (only the Decor tab); false = the normal Upgrades window (no Decor tab)
 local buyingUpgrade: { [string]: boolean } = {}
 
 local function log(...)
@@ -533,6 +540,9 @@ local function upgradeButtonState(def, owned: number): (string, boolean, boolean
 	if def.comingSoon then
 		return "Coming soon", false, false -- one upgrade switched off (Config/Upgrades comingSoon = true), whatever the player's level
 	end
+	if DecorStock.isStocked(def) and not DecorStock.inStock(DecorStock.restockIndex(workspace:GetServerTimeNow()), def.id) then
+		return "Out of stock", false, false -- decor is sold from the rotating stock: the nicer the piece, the rarer (Shared/DecorStock)
+	end
 	local nextLevel = owned + 1
 	local level = ClientState.Get("level") or 1
 	if level < def.requiredLevel[nextLevel] then
@@ -553,12 +563,19 @@ end
 local function upgradesInTab(tab: string)
 	local list = {}
 	for _, def in Upgrades do
-		if def.tab == tab then
+		if def.tab == tab and (tab ~= DecorRooms.TAB or currentDecorRoom == nil or def.room == currentDecorRoom) then
 			table.insert(list, def)
 		end
 	end
 	-- Cheapest first-level cost first, so the list reads as a path from easy to big goals.
+	-- (decor from the stock: pieces that are in stock now come first)
+	local stockIndex = DecorStock.restockIndex(workspace:GetServerTimeNow())
 	table.sort(list, function(a, b)
+		local sa = if DecorStock.isStocked(a) and DecorStock.inStock(stockIndex, a.id) then 0 else 1
+		local sb = if DecorStock.isStocked(b) and DecorStock.inStock(stockIndex, b.id) then 0 else 1
+		if tab == "Decor" and sa ~= sb then
+			return sa < sb
+		end
 		if a.costs[1] ~= b.costs[1] then
 			return a.costs[1] < b.costs[1]
 		end
@@ -593,6 +610,11 @@ local function renderUpgrades()
 		card.Icon.Text = UPGRADE_ICONS[def.id] or "⭐"
 		card.Title.Text = def.name
 		card.Effect.Text = effectText(def, owned)
+		if DecorStock.isStocked(def) and owned < def.maxLevel then
+			-- the rarity tells how often it comes into stock; out of stock pieces come back with a later restock
+			local inStock = DecorStock.inStock(DecorStock.restockIndex(workspace:GetServerTimeNow()), def.id)
+			card.Effect.Text = `{def.rarity} · {if inStock then "in stock" else "out of stock"} · {card.Effect.Text}`
+		end
 
 		-- One dot per level; filled = owned. Hide the dots this upgrade doesn't have (decor has 1 or 2).
 		for i = 1, 3 do
@@ -642,10 +664,38 @@ function ShopController.IsUpgradesOpen(): boolean
 	return upgradesGui ~= nil and upgradesGui.Window.Visible
 end
 
+-- Which tab buttons show: at a decor counter only the Decor tab, in the normal Upgrades window every tab except Decor.
+local function applyTabMode()
+	if upgradesGui == nil then
+		return
+	end
+	for _, tabName in UPGRADE_TABS do
+		local tab = upgradesGui.Window.Tabs:FindFirstChild(tabName)
+		if tab and tab:IsA("GuiObject") then
+			if (Economy.ClosedUpgradeTabs or {})[tabName] then
+				tab.Visible = false
+			elseif stallMode then
+				tab.Visible = tabName == DecorRooms.TAB
+			else
+				tab.Visible = tabName ~= DecorRooms.TAB
+			end
+		end
+	end
+end
+
+function ShopController.IsDecorStallOpen(): boolean
+	return stallMode and ShopController.IsUpgradesOpen()
+end
+
 function ShopController.OpenUpgrades()
 	if upgradesGui == nil then
 		return
 	end
+	stallMode, currentDecorRoom = false, nil
+	if currentUpgradeTab == DecorRooms.TAB then
+		currentUpgradeTab = "Tools"
+	end
+	applyTabMode()
 	local discovery = others and others.DiscoveryController
 	if discovery and discovery.IsOpen and discovery.IsOpen() then
 		return
@@ -658,6 +708,27 @@ function ShopController.OpenUpgrades()
 	renderUpgrades()
 	upgradesGui.Window.Visible = true
 	log("Upgrades opened on", currentUpgradeTab)
+end
+
+-- Opens the window at a decor room's counter: only the Decor tab, only that room's pieces (DecorStallController calls this).
+function ShopController.OpenDecorStall(room: string)
+	if upgradesGui == nil then
+		return
+	end
+	local discovery = others and others.DiscoveryController
+	if discovery and discovery.IsOpen and discovery.IsOpen() then
+		return
+	end
+	local inventory = others and others.InventoryController
+	if inventory and inventory.Close then
+		inventory.Close()
+	end
+	ShopController.CloseSupply()
+	stallMode, currentDecorRoom, currentUpgradeTab = true, room, DecorRooms.TAB
+	applyTabMode()
+	renderUpgrades()
+	upgradesGui.Window.Visible = true
+	log("Decor counter opened:", room)
 end
 
 function ShopController.CloseUpgrades()
@@ -680,6 +751,7 @@ local function setUpUpgrades(playerGui: Instance, hud: Instance?)
 	end
 	local window = upgradesGui.Window
 	window.CloseButton.Activated:Connect(ShopController.CloseUpgrades)
+	applyTabMode() -- the normal window has no Decor tab (decor is bought at the counters in the market)
 	for _, tabName in UPGRADE_TABS do
 		local tab = window.Tabs:FindFirstChild(tabName)
 		if tab and tab:IsA("GuiObject") and (Economy.ClosedUpgradeTabs or {})[tabName] then
@@ -783,6 +855,21 @@ function ShopController.Start()
 		end
 
 		setUpUpgrades(playerGui, hud)
+
+		-- New decor stock arrives every few minutes (Config/Stock.RestockSeconds): refresh the Decor tab when that happens while it is open
+		task.spawn(function()
+			local lastIndex = DecorStock.restockIndex(workspace:GetServerTimeNow())
+			while true do
+				task.wait(2)
+				local index = DecorStock.restockIndex(workspace:GetServerTimeNow())
+				if index ~= lastIndex then
+					lastIndex = index
+					if ShopController.IsUpgradesOpen() and currentUpgradeTab == "Decor" then
+						renderUpgrades()
+					end
+				end
+			end
+		end)
 
 		-- Walking away from the Warehouse counter closes the Supply window (a little slack so it doesn't flicker).
 		task.spawn(function()

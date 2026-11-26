@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Patience = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("CustomerPatience"))
 local Items = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Items"))
 local UiTheme = require(script.Parent.Parent:WaitForChild("UiTheme"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
@@ -70,6 +71,9 @@ local function bubbleText(model: Model): string
 		end
 		return MOOD_TEXT[mood]
 	end
+	if paid == nil and mood == nil and model:GetAttribute("PatienceStage") == "Irritated" then
+		return Patience.Complaints[model:GetAttribute("CustomerType")] or Patience.DefaultComplaint
+	end
 	local itemId = model:GetAttribute("ItemId")
 	local item = itemId and Items[itemId]
 	if item then
@@ -82,7 +86,7 @@ local function bubbleText(model: Model): string
 	return "💭 ..."
 end
 
-local function buildBubble(head: BasePart): (BillboardGui, TextLabel, UIScale)
+local function buildBubble(head: BasePart): (BillboardGui, TextLabel, UIScale, UIStroke)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "WishBubble"
 	gui.Adornee = head
@@ -121,7 +125,7 @@ local function buildBubble(head: BasePart): (BillboardGui, TextLabel, UIScale)
 	label.TextColor3 = Color3.fromRGB(40, 40, 40)
 	label.Parent = frame
 
-	return gui, label, scale
+	return gui, label, scale, stroke
 end
 
 local function pop(scale: UIScale)
@@ -155,20 +159,30 @@ local function addBubble(model: Instance)
 		return
 	end
 
-	local gui, label, scale = buildBubble(head)
+	local gui, label, scale, stroke = buildBubble(head)
 	label.Text = bubbleText(model)
 	-- In PlayerGui (not inside the NPC) so it never replicates and dies cleanly when the model is removed.
 	gui.Parent = LOCAL_PLAYER:WaitForChild("PlayerGui")
 	pop(scale)
 
 	local connections = {}
+	local previousStage
 	local function refresh()
+		local stage = model:GetAttribute("PatienceStage")
+		local fidget = stage == "Fidgeting" and previousStage ~= stage
+		previousStage = stage
+		stroke.Color = if stage == "Irritated" then UiTheme.Coral
+			elseif stage == "Fidgeting" then UiTheme.Golden else UiTheme.Teal
 		local text = bubbleText(model)
 		if label.Text ~= text then
 			label.Text = text
 			pop(scale)
+		elseif fidget then
+			pop(scale)
 		end
 	end
+	refresh()
+	table.insert(connections, model:GetAttributeChangedSignal("PatienceStage"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("Wish"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("ItemId"):Connect(refresh))
 	table.insert(connections, model:GetAttributeChangedSignal("Mood"):Connect(refresh))

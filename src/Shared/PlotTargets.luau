@@ -115,7 +115,7 @@ function PlotTargets.paintPart(part: BasePart, color: Color3, material: Enum.Mat
 		end
 	else
 		part.Color = color
-		if material then
+		if material and part:GetAttribute("DecorSlot") == nil then -- decor pieces keep their own material (colour only)
 			part.Material = material
 		end
 	end
@@ -203,6 +203,18 @@ function PlotTargets.paint(plot: Instance, kind: string): { BasePart }
 			addAll(list, upper and upper:FindFirstChild("Shop_UpAccent"))
 			addAll(list, decor and decor:FindFirstChild("Shop_Accent"))
 			addAll(list, room and room:FindFirstChild("BackRoom_UpAccent", true))
+		end
+	end
+	if kind == "Trim" or kind == "Accent" then
+		-- decor pieces (Plot.DecorSlots models, e.g. the Cozy Living set) take the shop's paint too: their parts named Trim / Accent
+		-- (attribute DecorSlot) change colour only, so cushions and wood always match the shop (the part's material is kept)
+		local decorSlots = plot:FindFirstChild("DecorSlots")
+		if decorSlots then
+			for _, d in decorSlots:GetDescendants() do
+				if d:IsA("BasePart") and d:GetAttribute("DecorSlot") == kind then
+					table.insert(list, d)
+				end
+			end
 		end
 	end
 	return list

@@ -1,5 +1,5 @@
 -- Hours.luau (ReplicatedStorage.Shared.Hours)
--- Purpose: the IN-GAME clock and opening hours. The game day is a short cycle shared by every player through server time (about 20
+-- Purpose: the IN-GAME clock and opening hours. The game day is a short cycle shared by every player through server time (about 30
 -- minutes, paced by Config.DayNight.SEGMENTS: sunset 3:30-6:30 pm game time, night flies by). It is NOT real time and not tied to any
 -- country, so a player anywhere sees the same sunset and the same closing time. This module says what game hour it is and when the
 -- Warehouse Market and each player's shop are open. Pure functions: tests pass `hour` / `unixSeconds` in.

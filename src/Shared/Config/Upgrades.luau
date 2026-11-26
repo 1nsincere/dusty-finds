@@ -64,6 +64,7 @@ local Upgrades = {
 
 	-- ===== Decor (one-time purchases in fixed slots; ratingPoints add to the shop rating) =====
 	PottedPlants = { -- two plants, $80 each, 1 point each; level 1 = first plant, level 2 = second
+		comingSoon = true, -- 2026-11-26: the old greybox decor waits for its real models
 		id = "PottedPlants", name = "Potted Plants", tab = "Decor",
 		maxLevel = 2,
 		costs = { 80, 80 },
@@ -73,6 +74,7 @@ local Upgrades = {
 		description = "A little green for the shop",
 	},
 	Rug = {
+		comingSoon = true, -- 2026-11-26: the old greybox decor waits for its real models (the Cozy Living set replaces the rug and plants)
 		id = "Rug", name = "Rug", tab = "Decor",
 		maxLevel = 1, costs = { 150 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 2 } },
@@ -80,6 +82,7 @@ local Upgrades = {
 		description = "Cozy floor rug",
 	},
 	WallPosters = {
+		comingSoon = true, -- 2026-11-26: the old greybox decor waits for its real models (the Cozy Living set replaces the rug and plants)
 		id = "WallPosters", name = "Wall Posters", tab = "Decor",
 		maxLevel = 1, costs = { 200 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 2 } },
@@ -87,6 +90,7 @@ local Upgrades = {
 		description = "Posters for the walls",
 	},
 	PendantLamps = {
+		comingSoon = true, -- 2026-11-26: the old greybox decor waits for its real models (the Cozy Living set replaces the rug and plants)
 		id = "PendantLamps", name = "Pendant Lamps", tab = "Decor",
 		maxLevel = 1, costs = { 400 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 3 } },
@@ -94,6 +98,7 @@ local Upgrades = {
 		description = "Warm hanging lights",
 	},
 	NeonSign = { -- the doc's "Neon RE:STORE Sign"; the in-game sign text is Dev 3's call
+		comingSoon = true,
 		id = "NeonSign", name = "Neon Sign", tab = "Decor",
 		maxLevel = 1, costs = { 1500 }, requiredLevel = { 1 },
 		effect = { ratingPoints = { 5 } },
@@ -117,6 +122,94 @@ local Upgrades = {
 		description = "A fountain for the Showroom",
 	},
 
+	-- ===== Cozy Living decor (2026-11-26, Ace + Claude): the first real decor set. SOLD THROUGH THE DECOR STOCK: `rarity` decides how often a piece is in stock (Shared/DecorStock, Config/Stock.RarityChance): the nicer, the rarer. One-time purchases, each shows a model in a FIXED spot of
+	-- the shop (Plot.DecorSlots.<slot>, built from ReplicatedStorage.Assets.Decor.<template>); parts named Accent / Trim take the shop's paint
+	-- (PlotTargets). Cosmetic only: ratingPoints add to the shop rating like the older decor. Models: tools/blender/decor_cozy_v2.py.
+	CozyRug = {
+		id = "CozyRug", name = "Banig Rug", tab = "Decor", rarity = "Common", room = "CozyLiving",
+		maxLevel = 1, costs = { 400 }, requiredLevel = { 1 }, effect = { ratingPoints = { 2 } },
+		decorSlots = { "CozyRug" }, description = "A woven banig mat in your shop's colours",
+	},
+	CozyPlant = {
+		id = "CozyPlant", name = "Basket Plant", tab = "Decor", rarity = "Common", room = "CozyLiving",
+		maxLevel = 1, costs = { 300 }, requiredLevel = { 1 }, effect = { ratingPoints = { 1 } },
+		decorSlots = { "CozyPlant" }, description = "A tall leafy plant in a woven basket",
+	},
+	CozyLamp = {
+		id = "CozyLamp", name = "Capiz Lamp", tab = "Decor", rarity = "Uncommon", room = "CozyLiving",
+		maxLevel = 1, costs = { 600 }, requiredLevel = { 1 }, effect = { ratingPoints = { 2 } },
+		decorSlots = { "CozyLamp" }, description = "A floor lamp with a shade of capiz shell tiles",
+	},
+	CozyTeaTable = {
+		id = "CozyTeaTable", name = "Tea Table", tab = "Decor", rarity = "Uncommon", room = "CozyLiving",
+		maxLevel = 1, costs = { 500 }, requiredLevel = { 1 }, effect = { ratingPoints = { 1 } },
+		decorSlots = { "CozyTeaTable" }, description = "A turned side table with a kettle and two cups",
+	},
+	CozyTable = {
+		id = "CozyTable", name = "Tinikling Table", tab = "Decor", rarity = "Rare", room = "CozyLiving",
+		maxLevel = 1, costs = { 900 }, requiredLevel = { 1 }, effect = { ratingPoints = { 2 } },
+		decorSlots = { "CozyTable" }, description = "A low table on crossed bamboo poles, for the tinikling dance",
+	},
+	CozyChair = {
+		id = "CozyChair", name = "Peacock Chair", tab = "Decor", rarity = "Rare", room = "CozyLiving",
+		maxLevel = 1, costs = { 1200 }, requiredLevel = { 1 }, effect = { ratingPoints = { 3 } },
+		decorSlots = { "CozyChair" }, description = "A rattan peacock chair with a sleepy cat",
+	},
+	CozyBookcase = {
+		id = "CozyBookcase", name = "Arch Bookcase", tab = "Decor", rarity = "Epic", room = "CozyLiving",
+		maxLevel = 1, costs = { 1500 }, requiredLevel = { 1 }, effect = { ratingPoints = { 3 } },
+		decorSlots = { "CozyBookcase" }, description = "Books, a globe, a ladder and a jar of fireflies",
+	},
+	CozyLoveseat = {
+		id = "CozyLoveseat", name = "Peacock Loveseat", tab = "Decor", rarity = "Epic", room = "CozyLiving",
+		maxLevel = 1, costs = { 1800 }, requiredLevel = { 1 }, effect = { ratingPoints = { 4 } },
+		decorSlots = { "CozyLoveseat" }, description = "A rattan loveseat with a big fan back",
+	},
+
+	-- ===== Kitchen Nook decor (2026-11-26, Ace + Claude): the second set, sold at the Kitchen Nook counter in the market (Config/DecorRooms).
+	-- Same rules as Cozy Living: stock rarity, parts named Accent / Trim follow the shop's paint, placed in fixed spots (Plot.DecorSlots.<slot>).
+	-- Models: tools/blender/decor_kitchen.py (asset 79976025172957).
+	KitchenFruit = {
+		id = "KitchenFruit", name = "Fruit Stand", tab = "Decor", rarity = "Common", room = "KitchenNook",
+		maxLevel = 1, costs = { 350 }, requiredLevel = { 1 }, effect = { ratingPoints = { 1 } },
+		decorSlots = { "KitchenFruit" }, description = "A basket of mangoes, kalamansi and bananas",
+	},
+	KitchenBanga = {
+		id = "KitchenBanga", name = "Banga Water Jar", tab = "Decor", rarity = "Common", room = "KitchenNook",
+		maxLevel = 1, costs = { 400 }, requiredLevel = { 1 }, effect = { ratingPoints = { 1 } },
+		decorSlots = { "KitchenBanga" }, description = "A clay water jar with a coconut dipper",
+	},
+	KitchenJarShelf = {
+		id = "KitchenJarShelf", name = "Jar Shelf", tab = "Decor", rarity = "Uncommon", room = "KitchenNook",
+		maxLevel = 1, costs = { 700 }, requiredLevel = { 1 }, effect = { ratingPoints = { 2 } },
+		decorSlots = { "KitchenJarShelf" }, description = "Candy and preserves, and a jar of fireflies",
+	},
+	KitchenPotRack = {
+		id = "KitchenPotRack", name = "Pot Rack", tab = "Decor", rarity = "Uncommon", room = "KitchenNook",
+		maxLevel = 1, costs = { 600 }, requiredLevel = { 1 }, effect = { ratingPoints = { 2 } },
+		decorSlots = { "KitchenPotRack" }, description = "Pots, a kawali, garlic and dried chillies",
+	},
+	KitchenStove = {
+		id = "KitchenStove", name = "Clay Stove", tab = "Decor", rarity = "Rare", room = "KitchenNook",
+		maxLevel = 1, costs = { 1100 }, requiredLevel = { 1 }, effect = { ratingPoints = { 3 } },
+		decorSlots = { "KitchenStove" }, description = "A kalan with glowing embers and a clay pot",
+	},
+	KitchenAparador = {
+		id = "KitchenAparador", name = "Aparador", tab = "Decor", rarity = "Rare", room = "KitchenNook",
+		maxLevel = 1, costs = { 1400 }, requiredLevel = { 1 }, effect = { ratingPoints = { 3 } },
+		decorSlots = { "KitchenAparador" }, description = "A louvered cabinet with a capiz transom",
+	},
+	KitchenDining = {
+		id = "KitchenDining", name = "Dining Set", tab = "Decor", rarity = "Epic", room = "KitchenNook",
+		maxLevel = 1, costs = { 1900 }, requiredLevel = { 1 }, effect = { ratingPoints = { 4 } },
+		decorSlots = { "KitchenDining" }, description = "A narra table with a banig runner and woven stools",
+	},
+	KitchenCart = {
+		id = "KitchenCart", name = "Pandesal Cart", tab = "Decor", rarity = "Epic", room = "KitchenNook",
+		maxLevel = 1, costs = { 2200 }, requiredLevel = { 1 }, effect = { ratingPoints = { 4 } },
+		decorSlots = { "KitchenCart" }, description = "A little bakery cart with a striped awning",
+	},
+
 	-- ===== Expansions =====
 	-- Order (Sean, 2026-11-24): the Back Room is the first expansion (pedestals 1-4 move into it), the second floor
 	-- (Showroom) comes later with 6 pedestals of its own.
@@ -127,23 +220,22 @@ local Upgrades = {
 		description = "A big room behind your shop for your exhibits",
 	},
 	Showroom = {
-		comingSoon = true, -- 2026-11-26 (Ace): not for sale until the decor shop exists (owners keep it); remove this line to sell it again
 		id = "Showroom", name = "Showroom", tab = "Expansions",
 		maxLevel = 1, costs = { 20000 }, requiredLevel = { 10 }, -- $20,000 (Sean, 2026-11-24)
 		effect = {
 			expansion = "Showroom",
 			ratingPoints = 8,
 			premiumDisplaySlots = 6,
-			exhibitPedestals = 0, -- 2026-11-26 (Ace): NO pedestals upstairs any more, the floor is kept free for decor; was 6 (pedestals 5-10). Pedestals 1-4 stay downstairs / in the Back Room
+			exhibitPedestals = 6, -- 6 pedestals upstairs (5-10); pedestals 1-4 stay downstairs / in the Back Room. (Removed and put back on 2026-11-26: the ground floor is tight, so the second floor holds exhibits.)
 			maxCustomers = 5,
 		},
-		description = "A second floor gallery: more customers and a higher shop rating (room for decor)",
+		description = "A second floor gallery: 6 more exhibit pedestals and more customers",
 	},
 	-- Second floor above the Back Room (Ace, 2026-11-26): walk through from the Showroom gallery. The Showroom's arched gallery and its
 	-- six pedestals move into it, and it brings 4 NEW pedestals of its own (11-14). The 4 only count together with the Showroom
 	-- (PlotService.slotCounts). The price and rating points are a first guess, tune them with the economy sim.
 	UpperBackRoom = {
-		comingSoon = true, -- 2026-11-26 (Ace): same as the Showroom
+		comingSoon = true, -- 2026-11-26 (Ace): waits for the decor spots upstairs (it becomes the decor floor); remove this line to sell it
 		id = "UpperBackRoom", name = "Upper Back Room", tab = "Expansions",
 		maxLevel = 1, costs = { 35000 }, requiredLevel = { 12 },
 		requires = "BackRoom", -- it is built over the Back Room (reach it from the Showroom upstairs)

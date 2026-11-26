@@ -47,19 +47,25 @@ function VipLoungeCheck.run()
 	check("apply: a player who is no longer VIP goes back to the normal group", root.CollisionGroup == "Default" and handle.CollisionGroup == "Default")
 	character:Destroy()
 
+	-- The VIP Lounge room was removed from the place on purpose (Ace, 2026-11-26), so its Studio-only checks run only when a lounge exists.
+	-- The collision groups above stay tested: shop owners use them too (HoursService shutters).
 	local lounge = Workspace:FindFirstChild("VIPLounge")
-	local gate = lounge and lounge:FindFirstChild("Gate")
-	check("studio: the VIP Lounge has a gate part tagged VipGate (Studio-only model)", gate ~= nil and CollectionService:HasTag(gate, "VipGate"))
-	check("studio: the gate blocks (solid) and is invisible", gate ~= nil and (gate :: BasePart).CanCollide == true and (gate :: BasePart).Transparency == 1)
-	local holder = lounge and lounge:FindFirstChild("GatePrompt")
-	check("studio: the gate has a friendly prompt tagged VipGatePrompt", holder ~= nil and CollectionService:HasTag(holder, "VipGatePrompt") and holder:FindFirstChildWhichIsA("ProximityPrompt") ~= nil)
-	local seats = 0
-	for _, d in if lounge then lounge:GetDescendants() else {} do
-		if d:IsA("Seat") then
-			seats += 1
+	if lounge then
+		local gate = lounge:FindFirstChild("Gate")
+		check("studio: the VIP Lounge has a gate part tagged VipGate (Studio-only model)", gate ~= nil and CollectionService:HasTag(gate, "VipGate"))
+		check("studio: the gate blocks (solid) and is invisible", gate ~= nil and (gate :: BasePart).CanCollide == true and (gate :: BasePart).Transparency == 1)
+		local holder = lounge:FindFirstChild("GatePrompt")
+		check("studio: the gate has a friendly prompt tagged VipGatePrompt", holder ~= nil and CollectionService:HasTag(holder, "VipGatePrompt") and holder:FindFirstChildWhichIsA("ProximityPrompt") ~= nil)
+		local seats = 0
+		for _, d in lounge:GetDescendants() do
+			if d:IsA("Seat") then
+				seats += 1
+			end
 		end
+		check("studio: the lounge has seats to sit on", seats >= 3, seats)
+	else
+		check("studio: no VIP Lounge in the place (removed on purpose), so its room checks are skipped", true)
 	end
-	check("studio: the lounge has seats to sit on", seats >= 3, seats)
 
 	for _, line in lines do
 		if string.sub(line, 1, 4) == "FAIL" then

@@ -35,7 +35,7 @@ Monetization.PASSES = {
 	{ id = "BigStorage", kind = "Convenience", name = "Big Storage Room", price = 149, passId = 0, storageSlots = 16,
 		blurb = "+16 inventory slots. (You can also grow your storage with Storage Racks in the game.)" },
 	{ id = "VIP", kind = "VIP", name = "VIP", price = 349, passId = 0,
-		blurb = "Choose a pet, a title, an aura style and a nameplate colour, plus the VIP corner. Looks only: never cash, XP, speed or odds." },
+		blurb = "Choose a pet, a title, an aura style and a nameplate colour. Looks only: never cash, XP, speed or odds." },
 }
 
 -- The tip jar (developer products, can be bought again and again): a thank-you toast, never a gameplay effect.
