@@ -20,6 +20,7 @@ local TweenService = game:GetService("TweenService")
 local Log = require(script.Parent.Parent.Lib.Log)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Customers = require(ReplicatedStorage.Shared.Config.Customers)
+local Patience = require(ReplicatedStorage.Shared.Config.CustomerPatience)
 local Lines = require(ReplicatedStorage.Shared.Config.CustomerLines)
 
 local CustomerNpcService = {}
@@ -29,7 +30,8 @@ local log = Log.new("CustomerNpcService", DEBUG)
 local CustomerService, PlotService = nil, nil
 local CashierService = nil -- Ace: the till (counter tap opens it; auto-checkout waits while it's open)
 
-local WALK_TIMEOUT = 6 -- seconds per waypoint; after that the NPC is placed there so it can never get stuck
+local WALK_TIMEOUT = 6 -- seconds per waypoint
+local WALK_ATTEMPTS = 2 -- recompute once from the rig's current position
 local BROWSE_PAUSE = 1.5 -- looks around at each browse point
 local SHELF_PAUSE = 2 -- looks at the item it picked
 local QUEUE_GAP = 2.5 -- studs between customers waiting at the counter
@@ -47,6 +49,12 @@ type Npc = {
 	humanoid: Humanoid,
 	gone: boolean, -- CustomerService removed it (paid, left, timeout...): stop the visit, walk out
 	leaving: boolean, -- the walk out has started (only once)
+	customerFolder: Folder,
+	tillSampleAt: number?,
+	beingServed: boolean?,
+	waitedForService: number?,
+	patienceStage: string?,
+	patienceExpired: boolean?,
 	atCounter: boolean, -- front of the queue and standing at the counter: Checkout prompt is on
 	haggle: number?, -- the discount (fraction) this customer asks for at the till, if it haggles
 	haggleOpen: boolean?, -- asked, waiting for the owner's Accept / Decline: the Checkout prompt is replaced by those two
@@ -137,6 +145,12 @@ end
 -- One straight MoveTo with a timeout. Returns reached, cancelled.
 local function moveStep(npc: Npc, target: Vector3, isExit: boolean?): (boolean, boolean)
 	local humanoid = npc.humanoid
+	if npc.gone and not isExit then
+		return false, true
+	end
+	if humanoid.Parent == nil or humanoid.Health <= 0 then
+		return false, false
+	end
 	local finished, success = false, false
 	local connection = humanoid.MoveToFinished:Connect(function(ok)
 		finished, success = true, ok
@@ -154,20 +168,32 @@ local function moveStep(npc: Npc, target: Vector3, isExit: boolean?): (boolean, 
 end
 
 -- Walks around furniture with the Roblox pathfinder (shelves can stand anywhere since edit mode, upstairs too). Returns
--- "reached", "cancelled" or "failed" (no path / blocked): the caller then falls back to the straight walk.
+-- "reached", "cancelled" or "failed" (no path / blocked).
 local function followPath(npc: Npc, target: Vector3, isExit: boolean?): string
 	local root = npc.model.PrimaryPart
-	if root == nil then
+	if npc.gone and not isExit then
+		return "cancelled"
+	end
+	if root == nil or npc.humanoid.Parent == nil or npc.humanoid.Health <= 0 then
 		return "failed"
 	end
 	local path = PathfindingService:CreatePath({ AgentRadius = 1.8, AgentHeight = 5, AgentCanJump = false, WaypointSpacing = 6 })
 	local ok = pcall(function()
 		path:ComputeAsync(root.Position, target)
 	end)
+	if npc.gone and not isExit then
+		return "cancelled"
+	end
 	if not ok or path.Status ~= Enum.PathStatus.Success then
 		return "failed"
 	end
 	local waypoints = path:GetWaypoints()
+	if #waypoints < 2 then
+		-- A degenerate path only counts if the rig is already at the marker.
+		local delta = root.Position - target
+		return if Vector2.new(delta.X, delta.Z).Magnitude <= 1 and math.abs(delta.Y - LIFT.Y) <= 2
+			then "reached" else "failed"
+	end
 	for i = 2, #waypoints do
 		local reached, cancelled = moveStep(npc, waypoints[i].Position, isExit)
 		if cancelled then
@@ -180,25 +206,27 @@ local function followPath(npc: Npc, target: Vector3, isExit: boolean?): string
 	return "reached"
 end
 
--- Walks to a point. Returns false if the visit was cancelled on the way (unless this IS the walk out).
-local function walkTo(npc: Npc, target: Vector3, isExit: boolean?): boolean
-	local humanoid = npc.humanoid
-	if humanoid.Parent == nil or humanoid.Health <= 0 then
-		return false
+-- A blocked visit leaves through CustomerService and releases its reservation.
+-- A blocked exit ends in place because its customer record is already gone.
+local function walkTo(npc: Npc, target: Vector3, isExit: boolean?, attemptPath): boolean
+	local route = attemptPath or followPath
+	for _ = 1, WALK_ATTEMPTS do
+		if npc.gone and not isExit then
+			return false
+		end
+		local result = route(npc, target, isExit)
+		if (npc.gone and not isExit) or result == "cancelled" then
+			return false
+		end
+		if result == "reached" then
+			return true
+		end
 	end
-	local pathResult = followPath(npc, target, isExit)
-	if pathResult == "reached" then
-		return true
-	elseif pathResult == "cancelled" then
-		return false
+	log.info(npc.id, "route blocked after", WALK_ATTEMPTS, "attempts", if isExit then "(exit)" else "(visit)")
+	if not isExit then
+		CustomerService.Leave(npc.player, npc.id, "pathBlocked")
 	end
-	-- no path (or it got stuck): the old straight walk, and as a last resort the customer is placed at the point
-	local reached, cancelled = moveStep(npc, target, isExit)
-	if not reached and not cancelled and npc.model.Parent then
-		npc.model:PivotTo(CFrame.new(target + LIFT))
-		log.info(npc.id, "was placed at a waypoint it couldn't reach")
-	end
-	return not cancelled
+	return false
 end
 
 local function waitWhileHere(npc: Npc, seconds: number): boolean
@@ -213,6 +241,15 @@ local function waitWhileHere(npc: Npc, seconds: number): boolean
 end
 
 -- ===== Checkout prompt (one per plot, on the counter) =====
+
+local function joinQueue(npc: Npc)
+	queues[npc.player] = queues[npc.player] or {}
+	table.insert(queues[npc.player], npc.id)
+end
+
+local function queueIndex(npc: Npc): number?
+	return table.find(queues[npc.player] or {}, npc.id)
+end
 
 local function frontNpc(player: Player): Npc?
 	local queue = queues[player]
@@ -290,6 +327,9 @@ local function hookCheckoutPrompt(plot: Instance)
 		if front == nil or not front.atCounter or front.gone then
 			return
 		end
+		if not CustomerNpcService._tickTill(front, os.clock()) then
+			return
+		end
 		-- Cashier (Ace): open the till; the sale happens when the owner gives the right change (CashierService).
 		-- Without the CashierService the old instant checkout still works.
 		if CashierService then
@@ -325,7 +365,7 @@ local function fade(model: Model, visible: boolean)
 	end
 end
 
-local function walkOut(npc: Npc)
+local function walkOut(npc: Npc, fadeInPlace: boolean?)
 	if npc.leaving then
 		return
 	end
@@ -334,15 +374,23 @@ local function walkOut(npc: Npc)
 	refreshPrompt(npc.player)
 	local plot = PlotService.GetPlot(npc.player)
 	local exit = plot and pathPoint(plot, "Exit")
-	if exit and npc.model.Parent then
-		walkTo(npc, exit, true)
+	if not fadeInPlace and exit and npc.model.Parent then
+		fadeInPlace = not walkTo(npc, exit, true)
 	end
-	-- back out to the street the way they came, then fade away
+	-- An unreachable leg ends the walk instead of skipping to a later marker.
 	local approach = plot and pathPoint(plot, "Approach")
 	local street = plot and pathPoint(plot, "StreetEntry")
-	if approach and street and npc.model.Parent then
-		walkTo(npc, approach, true)
-		walkTo(npc, street, true)
+	if not fadeInPlace and approach and street and npc.model.Parent then
+		if walkTo(npc, approach, true) then
+			walkTo(npc, street, true)
+		end
+		fadeInPlace = true
+	end
+	if fadeInPlace and npc.model.Parent then
+		local root = npc.model.PrimaryPart
+		if root and npc.humanoid.Parent then
+			npc.humanoid:MoveTo(root.Position)
+		end
 		fade(npc.model, false)
 		task.wait(FADE_TIME)
 	end
@@ -487,6 +535,57 @@ local function shopForItem(npc: Npc, plot: Instance, returning: boolean): boolea
 	return false
 end
 
+-- One cumulative budget per visit. Call only for completed waiting intervals.
+function CustomerNpcService._updatePatience(npc: Npc, seconds: number, waiting: boolean): boolean
+	if npc.gone or npc.patienceExpired or not CustomerService.GetCustomers(npc.player)[npc.id] then
+		return false
+	end
+	if npc.model.Parent ~= npc.customerFolder then
+		npc.patienceExpired = true
+		npc.atCounter = false
+		refreshPrompt(npc.player)
+		CustomerService.Leave(npc.player, npc.id, "rigMissing")
+		return false
+	end
+	local limit = Patience.Seconds[npc.typeId] or Patience.DefaultSeconds
+	local elapsed = (npc.waitedForService or 0) + (if waiting then seconds else 0)
+	npc.waitedForService = elapsed
+	if elapsed >= limit then
+		npc.patienceExpired = true
+		npc.atCounter = false
+		npc.model:SetAttribute("AtCounter", nil)
+		npc.model:SetAttribute("PatienceStage", nil)
+		refreshPrompt(npc.player)
+		log.info(npc.id, "gave up waiting for service")
+		CustomerService.Leave(npc.player, npc.id, "impatient")
+		return false
+	end
+	local stage = if elapsed >= limit * Patience.IrritatedAt then "Irritated"
+		elseif elapsed >= limit * Patience.FidgetingAt then "Fidgeting" else "Calm"
+	if npc.patienceStage ~= stage then
+		npc.patienceStage = stage
+		npc.model:SetAttribute("PatienceStage", stage)
+	end
+	return true
+end
+
+-- Charge the old state up to the transition, even when a till opens and closes between polls.
+local function settleTill(npc: Npc, now: number)
+	local previous = npc.tillSampleAt
+	if previous and not npc.beingServed then
+		npc.waitedForService = (npc.waitedForService or 0) + (now - previous)
+	end
+	npc.tillSampleAt = now
+end
+
+function CustomerNpcService._tickTill(npc: Npc, now: number): boolean
+	if npc.gone or npc.patienceExpired then
+		return false
+	end
+	settleTill(npc, now)
+	return CustomerNpcService._updatePatience(npc, 0, false)
+end
+
 local function runVisit(npc: Npc, plot: Instance)
 	-- Walk in from the street (only if this plot has the street markers).
 	local approach = pathPoint(plot, "Approach")
@@ -502,25 +601,32 @@ local function runVisit(npc: Npc, plot: Instance)
 	end
 
 	-- Queue at the counter, moving up as the people in front are served.
-	queues[npc.player] = queues[npc.player] or {}
-	table.insert(queues[npc.player], npc.id)
+	joinQueue(npc)
 	local walkedToIndex = nil
 	while not npc.gone do
-		local index = table.find(queues[npc.player] or {}, npc.id)
+		local index = queueIndex(npc)
 		if index == nil then
 			return
 		end
 		if index ~= walkedToIndex then
 			local spot = queuePoint(plot, index)
-			if spot and not walkTo(npc, spot) then
+			if not spot then
+				CustomerService.Leave(npc.player, npc.id, "pathBlocked")
+				return
+			end
+			if not walkTo(npc, spot) then
 				return
 			end
 			walkedToIndex = index
+			log.info(npc.id, "reached queue position", index)
 		end
 		if index == 1 then
 			break
 		end
-		task.wait(0.25)
+		local waited = task.wait(Patience.PollSeconds)
+		if not CustomerNpcService._updatePatience(npc, waited, true) then
+			return
+		end
 	end
 	if npc.gone then
 		return
@@ -536,7 +642,10 @@ local function runVisit(npc: Npc, plot: Instance)
 	end
 	refreshPrompt(npc.player)
 	local waited, nextHello = 0, randomIn(Economy.QueueHelloSeconds)
-	local patience = (Economy.QueuePatienceSeconds or 90) * ((Customers[npc.typeId] or {}).patienceMult or 1)
+	if not CustomerNpcService._updatePatience(npc, 0, true) then
+		return
+	end
+	npc.tillSampleAt = os.clock()
 	local nextAsk = 0.5 -- a haggler asks right away, then repeats until answered
 	local function ask()
 		local pct = math.floor((npc.haggle or 0) * 100 + 0.5)
@@ -544,18 +653,15 @@ local function runVisit(npc: Npc, plot: Instance)
 		say(npc, { string.format(template, pct) }, 4)
 	end
 	while not npc.gone do
-		if CashierService ~= nil and CashierService.IsOpenFor(npc.player, npc.id) then
-			waited = 0 -- the owner is on it
+		local serving = CashierService ~= nil and CashierService.IsOpenFor(npc.player, npc.id)
+		if not CustomerNpcService._tickTill(npc, os.clock()) then
+			return
+		end
+		if serving then
+			waited = 0 -- preserve the existing greeting cadence when the owner opens the till
 		else
 			waited += 0.25
-			if waited >= patience then
-				say(npc, Lines.gone, 2.5)
-				npc.atCounter = false
-				refreshPrompt(npc.player)
-				log.info(npc.id, "gave up waiting at the till")
-				CustomerService.Leave(npc.player, npc.id, "impatient")
-				return
-			elseif npc.haggleOpen then
+			if npc.haggleOpen then
 				if waited >= nextAsk then
 					ask()
 					nextAsk = waited + randomIn(Economy.HaggleRepeatSeconds)
@@ -565,7 +671,7 @@ local function runVisit(npc: Npc, plot: Instance)
 				nextHello = waited + randomIn(Economy.QueueHelloSeconds)
 			end
 		end
-		task.wait(0.25)
+		task.wait(Patience.PollSeconds)
 	end
 end
 
@@ -658,6 +764,7 @@ local function onSpawn(player: Player, customer)
 		player = player,
 		typeId = customer.typeId,
 		model = model,
+		customerFolder = folder,
 		humanoid = humanoid,
 		gone = false,
 		leaving = false,
@@ -669,35 +776,52 @@ local function onSpawn(player: Player, customer)
 end
 
 -- CustomerService calls this (own thread) whenever a customer is gone, with the reason (see its header).
-local function onRemoved(_player: Player, customerId: string, reason: string)
-	local npc = npcs[customerId]
-	if npc == nil then
+local function removeNpc(npc: Npc, reason: string)
+	if npc.gone then
 		return
 	end
 	npc.gone = true
-	log.info(customerId, "removed:", reason)
-	if reason == "playerLeft" or reason == "spawnFailed" then
+	npc.model:SetAttribute("PatienceStage", nil)
+	npc.model:SetAttribute("AtCounter", nil)
+	log.info(npc.id, "removed:", reason)
+	if reason == "playerLeft" or reason == "spawnFailed" or reason == "rigMissing" then
 		removeFromQueue(npc)
-		npcs[customerId] = nil
+		refreshPrompt(npc.player)
+		npcs[npc.id] = nil
 		if npc.model.Parent then
 			npc.model:Destroy()
 		end
 		return
 	end
-	walkOut(npc)
+	walkOut(npc, reason == "pathBlocked")
+end
+
+local function onRemoved(_player: Player, customerId: string, reason: string)
+	local npc = npcs[customerId]
+	if npc then
+		removeNpc(npc, reason)
+	end
 end
 
 -- ===== Cash register bubbles (called by CashierService) =====
 -- Attributes on the NPC model, shown by CustomerUIController for everyone: CashierPaid = what the customer handed over
 -- while the till is open (nil = closed), Mood = "Delighted" | "Happy" | "Upset" | "Angry" (kept while they walk out).
-function CustomerNpcService.SetCashierState(customerId: string, paid: number?, mood: string?)
-	local npc = npcs[customerId]
-	if npc == nil or npc.model.Parent == nil then
-		return
+local function setCashierState(npc: Npc, paid: number?, mood: string?, now: number)
+	local serving = paid ~= nil
+	if npc.tillSampleAt and not npc.gone and not npc.patienceExpired and serving ~= (npc.beingServed == true) then
+		settleTill(npc, now)
+		npc.beingServed = serving
 	end
 	npc.model:SetAttribute("CashierPaid", paid)
 	if mood ~= nil then
 		npc.model:SetAttribute("Mood", mood)
+	end
+end
+
+function CustomerNpcService.SetCashierState(customerId: string, paid: number?, mood: string?)
+	local npc = npcs[customerId]
+	if npc and npc.model.Parent == npc.customerFolder then
+		setCashierState(npc, paid, mood, os.clock())
 	end
 end
 
@@ -731,5 +855,14 @@ function CustomerNpcService.Start()
 	CustomerService.SetRemovedHandler(onRemoved)
 	log.info("Start: customers can walk in")
 end
+
+-- The in-memory check supplies path outcomes without starting live NPCs.
+CustomerNpcService._walkTo = walkTo
+CustomerNpcService._queuePoint = queuePoint
+CustomerNpcService._joinQueue = joinQueue
+CustomerNpcService._queueIndex = queueIndex
+CustomerNpcService._removeNpc = removeNpc
+CustomerNpcService._setCashierState = setCashierState
+CustomerNpcService._startAnimations = startAnimations -- RobberService gives its NPC the same walk / idle animations
 
 return CustomerNpcService

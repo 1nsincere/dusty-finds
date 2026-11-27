@@ -39,6 +39,7 @@ local ORDER = {
 	"VipLoungeService", -- Dev 1: the VIP Lounge gate in the market: only VIP owners walk through (collision groups); looks only
 	"SeasonService", -- Dev 1: seasonal shop decor (Pasko): shown in season, the special pieces only for owners of the pass
 	"CashierService", -- Dev 1: the till at the counter (count out the change; RequestGiveChange / CashierUpdate)
+	"RobberService", -- Dev 2 / Dev 1: the night robber (WP8/9): sneaky visitors at a few shops every other night, shoo prompt, Tanod post to reclaim
 	"TravelService", -- Dev 1: Travel menu teleports (RequestTravel; places in Config.Travel)
 	"AdminService", -- Dev 1: live admin chat commands (/admin), only for Config.Admins user ids
 	"LeaderboardService", -- Dev 1: keeps the two Park boards (top earners / most valuable item) updated with avatar headshots

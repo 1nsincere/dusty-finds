@@ -15,6 +15,9 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Townsfolk = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Townsfolk"))
+local TownPoints = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("TownPoints"))
+local Hours = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Hours"))
+local TownGraph = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TownGraph"))
 local ClientState = require(script.Parent.Parent:WaitForChild("ClientState"))
 
 local TownsfolkController = {}
@@ -27,7 +30,16 @@ local FAR_UPDATE = 0.3 -- seconds between position updates for walkers outside A
 local SEED_BASE = 20261124 -- change this (on purpose) to reshuffle everyone; must be the same on every client
 
 -- One stretch of a walker's day: walk from `from` to `to` in `walk` seconds, then stand still for `pause` seconds.
-type Leg = { from: Vector3, to: Vector3, walk: number, pause: number }
+-- `face` / `say` are set on legs that end at a town point (cart, bench): the walker turns to `face` and shows `say` while it waits.
+type Leg = { from: Vector3, to: Vector3, walk: number, pause: number, face: Vector3?, say: string?, stopId: string? }
+
+-- A place a walker may stop: a spot on a graph edge, what to look at, how long to wait, what to say (WP5 step B).
+type TownStop = { id: string, point: Vector3, stand: Vector3, target: Vector3, kind: string, dwell: { number }, vendorPos: Vector3? }
+
+local BUBBLE_RANGE = 50 -- studs from the camera: only close walkers show a speech bubble
+
+-- A cart vendor (WP6): a townsfolk body that stands behind the cart during market hours, calls out, and serves walkers that stop.
+type Vendor = { id: string, walker: Walker, pos: Vector3, phase: number, servedAt: number }
 
 type Walker = {
 	model: Model,
@@ -40,11 +52,15 @@ type Walker = {
 	walkTrack: AnimationTrack?,
 	idleTrack: AnimationTrack?,
 	animating: boolean,
+	bubble: BillboardGui?,
 	lastUpdate: number,
 	shown: boolean,
 }
 
 local walkers: { Walker } = {}
+local bubblesEnabled = false
+local vendors: { Vendor } = {} -- WP6: cosmetic cart vendors, only at carts a walker can stop at
+local vendorsById: { [string]: Vendor } = {}
 local folder: Folder? = nil
 
 local function log(...)
@@ -153,19 +169,55 @@ local function setAnimating(walker: Walker, on: boolean, paused: boolean)
 end
 
 -- The fixed "day" of walker i: same seed on every client = same route, look, speed, pauses and starting point.
-local function planWalker(i: number, routes: { { Vector3 } }, templateCount: number)
+-- Is point p (flat) within 0.6 studs of the segment a-b, at about the same height?
+local function onSegment(p: Vector3, a: Vector3, b: Vector3): boolean
+	local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+	local len2 = ab:Dot(ab)
+	local ap = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
+	local t = if len2 == 0 then 0 else math.clamp(ap:Dot(ab) / len2, 0, 1)
+	local nearest = a:Lerp(b, t)
+	return Vector3.new(p.X - nearest.X, 0, p.Z - nearest.Z).Magnitude < 0.6 and math.abs(p.Y - nearest.Y) < 2
+end
+
+local function planWalker(i: number, routes: { { Vector3 } }, templateCount: number, graph: TownGraph.Graph, stops: { TownStop })
 	local rng = Random.new(SEED_BASE + i * 7919)
-	local route = routes[(i - 1) % #routes + 1] -- spread evenly: every route gets someone before any gets two
+	local routeIndex = (i - 1) % #routes + 1 -- spread evenly: every route gets someone before any gets two
+	local route = routes[routeIndex]
+	local startNode = graph.routeStart[routeIndex]
+	if startNode then
+		-- WP5: start where this route starts, then wander the graph (switching routes at shared corners)
+		route = TownGraph.walk(graph, startNode, rng, Townsfolk.GraphLegs[1], Townsfolk.GraphLegs[2])
+		if #route < 2 then
+			route = routes[routeIndex]
+		end
+	end
 	local look = rng:NextInteger(1, templateCount)
 	local speed = rng:NextNumber(Townsfolk.WalkSpeed[1], Townsfolk.WalkSpeed[2])
 	local side = rng:NextNumber(-1.2, 1.2)
 	local legs: { Leg } = {}
 	local cycle = 0
-	local function addLeg(a: Vector3, b: Vector3)
+	local function push(a: Vector3, b: Vector3, pause: number, face: Vector3?, say: string?, stopId: string?)
 		local walk = (b - a).Magnitude / speed
-		local pause = if rng:NextNumber() < Townsfolk.PauseChance then rng:NextNumber(Townsfolk.PauseSeconds[1], Townsfolk.PauseSeconds[2]) else 0
-		table.insert(legs, { from = a, to = b, walk = walk, pause = pause })
+		table.insert(legs, { from = a, to = b, walk = walk, pause = pause, face = face, say = say, stopId = stopId })
 		cycle += walk + pause
+	end
+	local function addLeg(a: Vector3, b: Vector3)
+		-- a town point lying on this leg: maybe stop there (split the leg), facing the cart / bench
+		local stop: TownStop? = nil
+		for _, s in stops do
+			if onSegment(s.point, a, b) and rng:NextNumber() < TownPoints.Chance then
+				stop = s
+				break
+			end
+		end
+		if stop then
+			local lines = TownPoints.Lines[stop.kind]
+			local say = if lines then lines[rng:NextInteger(1, #lines)] else nil
+			push(a, stop.stand, rng:NextNumber(stop.dwell[1], stop.dwell[2]), stop.target, say, stop.id)
+			push(stop.stand, b, 0)
+			return
+		end
+		push(a, b, if rng:NextNumber() < Townsfolk.PauseChance then rng:NextNumber(Townsfolk.PauseSeconds[1], Townsfolk.PauseSeconds[2]) else 0)
 	end
 	for k = 1, #route - 1 do -- there...
 		addLeg(route[k], route[k + 1])
@@ -177,34 +229,77 @@ local function planWalker(i: number, routes: { { Vector3 } }, templateCount: num
 end
 
 -- Where walker w is at server time t (pure: no state). Returns ground point, facing direction, paused?
-local function positionAt(walker: Walker, t: number): (Vector3, Vector3, boolean)
+local function positionAt(walker: Walker, t: number): (Vector3, Vector3, boolean, string?, string?)
 	local tt = (t + walker.offset) % walker.cycle
 	for _, leg in walker.legs do
 		local dir = leg.to - leg.from
 		if tt < leg.walk then
-			return leg.from + dir * (tt / leg.walk), dir, false
+			return leg.from + dir * (tt / leg.walk), dir, false, nil, nil
 		end
 		tt -= leg.walk
 		if tt < leg.pause then
-			return leg.to, dir, true
+			-- waiting at a cart / bench: turn toward it
+			return leg.to, if leg.face then leg.face - leg.to else dir, true, leg.say, leg.stopId
 		end
 		tt -= leg.pause
 	end
 	local last = walker.legs[#walker.legs]
-	return last.to, last.to - last.from, true
+	return last.to, last.to - last.from, true, nil, nil
 end
 
-local function place(walker: Walker, t: number): boolean
-	local ground, dir, paused = positionAt(walker, t)
+-- Moves the walker to where it is at time t. Returns paused?, the bubble line, and the town point it waits at (both nil unless
+-- it is waiting at a cart / bench).
+local function place(walker: Walker, t: number): (boolean, string?, string?)
+	local ground, dir, paused, say, stopId = positionAt(walker, t)
 	local flat = Vector3.new(dir.X, 0, dir.Z)
 	if flat.Magnitude < 0.01 then
-		return paused
+		return paused, say, stopId
 	end
 	local unit = flat.Unit
 	local p = ground + unit:Cross(Vector3.yAxis) * walker.side
 	local at = Vector3.new(p.X, p.Y + walker.rootOffset, p.Z)
 	walker.model:PivotTo(CFrame.lookAt(at, at + unit))
-	return paused
+	return paused, say, stopId
+end
+
+-- A small speech bubble over the head, made on first use and only for close walkers (see BUBBLE_RANGE). nil text hides it.
+local function setBubble(walker: Walker, text: string?)
+	local gui = walker.bubble
+	if text == nil then
+		if gui and gui.Enabled then
+			gui.Enabled = false
+		end
+		return
+	end
+	if gui == nil then
+		local head = walker.model:FindFirstChild("Head")
+		if not (head and head:IsA("BasePart")) then
+			return
+		end
+		gui = Instance.new("BillboardGui")
+		gui.Name = "TownBubble"
+		gui.Adornee = head
+		gui.Size = UDim2.fromOffset(150, 30)
+		gui.StudsOffset = Vector3.new(0, 2.6, 0)
+		gui.MaxDistance = BUBBLE_RANGE + 10
+		gui.LightInfluence = 0
+		local label = Instance.new("TextLabel")
+		label.Name = "Text"
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundColor3 = Color3.fromRGB(255, 250, 238)
+		label.BackgroundTransparency = 0.1
+		label.TextColor3 = Color3.fromRGB(70, 50, 40)
+		label.Font = Enum.Font.GothamMedium
+		label.TextScaled = true
+		label.Parent = gui
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 8)
+		corner.Parent = label
+		gui.Parent = head
+		walker.bubble = gui
+	end
+	gui.Text.Text = text
+	gui.Enabled = true
 end
 
 local function reducedCount(): boolean
@@ -238,6 +333,29 @@ local function spawnWalkers()
 	if #routes == 0 then
 		return
 	end
+	local excluded = {}
+	for _, n in Townsfolk.GraphExcluded do
+		excluded[n] = true
+	end
+	local graph = TownGraph.build(routes, excluded)
+	-- WP5 step B: the carts and benches that sit near a scanned walking line become stops on that line
+	local targets = {}
+	for _, p in TownPoints.Points do
+		table.insert(targets, p.pos)
+	end
+	local stops: { TownStop } = {}
+	for _, s in TownGraph.stopsFor(graph, targets, TownPoints.Reach) do
+		local p = TownPoints.Points[s.index]
+		-- a walking line can run right through a cart: wait a few studs off it, on the line's side of the cart
+		local away = Vector3.new(s.point.X - p.pos.X, 0, s.point.Z - p.pos.Z)
+		local stand = s.point
+		if away.Magnitude < TownPoints.CustomerClearance then
+			local dir = if away.Magnitude > 0.1 then away.Unit else Vector3.zAxis
+			stand = Vector3.new(p.pos.X, s.point.Y, p.pos.Z) + dir * TownPoints.CustomerClearance
+		end
+		table.insert(stops, { id = p.id, point = s.point, stand = stand, target = p.pos, kind = p.kind, dwell = p.dwell, vendorPos = p.vendorPos })
+	end
+	local bubblesOn = not reducedCount() -- phones / Reduce effects: no bubbles, the walkers still stop
 	folder = Instance.new("Folder")
 	folder.Name = "Townsfolk"
 	folder.Parent = workspace
@@ -245,7 +363,7 @@ local function spawnWalkers()
 	local count = if reducedCount() then Townsfolk.CountReduced else Townsfolk.Count
 	local now = workspace:GetServerTimeNow()
 	for i = 1, count do
-		local look, speed, side, legs, cycle, offset = planWalker(i, routes, #templates)
+		local look, speed, side, legs, cycle, offset = planWalker(i, routes, #templates, graph, stops)
 		local model, rootOffset = makeBody(templates[look])
 		if model and cycle > 0 then
 			model.Name = "Townsperson" .. i
@@ -260,6 +378,7 @@ local function spawnWalkers()
 				walkTrack = nil,
 				idleTrack = nil,
 				animating = false,
+				bubble = nil,
 				lastUpdate = 0,
 				shown = true,
 			}
@@ -269,7 +388,33 @@ local function spawnWalkers()
 			table.insert(walkers, walker)
 		end
 	end
-	log(`{#walkers} townsfolk on {#routes} routes ({#templates} looks), shared clock`)
+	bubblesEnabled = bubblesOn
+
+	-- WP6: one vendor per cart that has a stop (the vendor stands on the far side from where customers stop, facing them).
+	-- Same on every client: look, spot and phase come from the cart's position in the list, not from chance.
+	for _, s in stops do
+		if s.kind == "vendor" and vendorsById[s.id] == nil then
+			local toCart = Vector3.new(s.target.X - s.stand.X, 0, s.target.Z - s.stand.Z)
+			local model, rootOffset = makeBody(templates[(#vendors) % #templates + 1])
+			if model and toCart.Magnitude > 0.1 then
+				local spot = s.vendorPos or (s.target + toCart.Unit * TownPoints.VendorStandOff)
+				local at = Vector3.new(spot.X, s.target.Y + rootOffset, spot.Z)
+				model.Name = "Vendor_" .. s.id
+				model:PivotTo(CFrame.lookAt(at, Vector3.new(s.stand.X, at.Y, s.stand.Z)))
+				local walker: Walker = {
+					model = model, legs = {}, cycle = 1, offset = 0, speed = 0, side = 0, rootOffset = rootOffset,
+					walkTrack = nil, idleTrack = nil, animating = false, bubble = nil, lastUpdate = 0, shown = false,
+				}
+				startAnimations(walker)
+				local vendor: Vendor = {
+					id = s.id, walker = walker, pos = spot, phase = (#vendors + 1) * 5.3, servedAt = -100,
+				}
+				table.insert(vendors, vendor)
+				vendorsById[s.id] = vendor
+			end
+		end
+	end
+	log(`{#walkers} townsfolk on {#routes} routes, graph of {#graph.nodes} corners, {#stops} stops, {#vendors} vendors ({#templates} looks), shared clock`)
 end
 
 local function update()
@@ -282,6 +427,7 @@ local function update()
 	local t = workspace:GetServerTimeNow()
 	local near2 = Townsfolk.AnimateWithin ^ 2
 	local hide2 = Townsfolk.HideBeyond ^ 2
+	local marketOpen = Hours.marketOpen() -- vendors set up in the morning and pack up at night
 	for _, walker in walkers do
 		-- distance from where the walker IS now (cheap: no need to move a hidden model to know where it is)
 		local ground = positionAt(walker, t)
@@ -290,6 +436,7 @@ local function update()
 			if walker.shown then
 				walker.shown = false
 				setAnimating(walker, false, false)
+				setBubble(walker, nil)
 				walker.model.Parent = nil
 			end
 		else
@@ -299,16 +446,60 @@ local function update()
 				walker.lastUpdate = 0 -- place it right away
 			end
 			if d2 <= near2 then
-				local paused = place(walker, t)
+				local paused, say, stopId = place(walker, t)
 				walker.lastUpdate = now
+				local vendor = if stopId then vendorsById[stopId] else nil
+				if vendor then
+					if marketOpen then
+						vendor.servedAt = now -- a customer is at the cart: the vendor serves
+					else
+						say = nil -- a closed cart: the walker just waits quietly
+					end
+				end
 				setAnimating(walker, true, paused)
+				setBubble(walker, if bubblesEnabled and say and d2 <= BUBBLE_RANGE ^ 2 then say else nil)
 			elseif now - walker.lastUpdate >= FAR_UPDATE then
 				place(walker, t)
 				walker.lastUpdate = now
 				if walker.animating then
 					setAnimating(walker, false, false)
+					setBubble(walker, nil)
 				end
 			end
+		end
+	end
+
+	-- WP6: cart vendors. Present during market hours, idle when close, call out every VendorCallEvery seconds, serve walkers.
+	local calls, serves = TownPoints.Lines.vendorCall, TownPoints.Lines.vendorServe
+	for _, vendor in vendors do
+		local w = vendor.walker
+		local d2 = (vendor.pos.X - eye.X) ^ 2 + (vendor.pos.Z - eye.Z) ^ 2
+		local visible = marketOpen and d2 <= hide2
+		if visible ~= w.shown then
+			w.shown = visible
+			w.model.Parent = if visible then folder else nil
+			if not visible then
+				setAnimating(w, false, true)
+				setBubble(w, nil)
+			end
+		end
+		if visible then
+			local near = d2 <= near2
+			if near ~= w.animating then
+				setAnimating(w, near, true) -- a vendor only ever idles
+			end
+			local text = nil
+			if bubblesEnabled and d2 <= BUBBLE_RANGE ^ 2 then
+				if now - vendor.servedAt < TownPoints.VendorServeFor then
+					text = serves[math.floor(vendor.servedAt) % #serves + 1]
+				else
+					local cycle = (t + vendor.phase) / TownPoints.VendorCallEvery
+					if (cycle % 1) * TownPoints.VendorCallEvery < TownPoints.VendorCallFor then
+						text = calls[math.floor(cycle) % #calls + 1]
+					end
+				end
+			end
+			setBubble(w, text)
 		end
 	end
 end

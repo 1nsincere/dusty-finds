@@ -17,6 +17,7 @@ local Upgrades = require(ReplicatedStorage.Shared.Config.Upgrades)
 local Formulas = require(ReplicatedStorage.Shared.Formulas)
 
 local InventoryService = {}
+local StolenItems = require(script.Parent.Parent.Lib.StolenItems) -- WP8: a stolen item cannot be sold
 local DEBUG = true
 local log = Log.new("InventoryService", DEBUG)
 
@@ -196,6 +197,9 @@ function InventoryService.QuickSell(player: Player, uid: string): (boolean, stri
 	end
 	if item.state ~= "Restored" or type(item.stars) ~= "number" then
 		return false, "notRestored", nil
+	end
+	if StolenItems.Is(player, uid) then
+		return false, "stolen", nil -- a robber has it: reclaim it first (RobberService)
 	end
 	local amount = Formulas.quickSellPrice(item.itemId, item.stars, item.golden)
 	if amount <= 0 then

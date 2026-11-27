@@ -237,6 +237,43 @@ COMMANDS.maxupgrades = { usage = "/maxupgrades <who>", run = function(admin, a)
 	tell(admin, string.format("Max upgrades for %d player(s)", n))
 end }
 
+-- WP8 testing: /robber [night|day]  (stocks your shelves if fewer than 2 items are out, then sends one robber to YOUR shop now)
+-- "night" also sets the clock to 20:00 (shutter closes, the robber breaches it); "day" puts the real clock back.
+COMMANDS.robber = { usage = "/robber [night|day]  (a test robber visits your shop; stocks shelves if empty)", run = function(admin, a)
+	local mode = string.lower(a[1] or "")
+	if mode == "day" then
+		workspace:SetAttribute("PHHourOverride", nil)
+		return tell(admin, "Clock back to normal.")
+	end
+	if mode == "night" then
+		workspace:SetAttribute("PHHourOverride", 20)
+		tell(admin, "It's 8 PM now: shops are closed. Type /robber day to undo.")
+	end
+	local out = 0
+	for _, item in S.DataService.GetValue(admin, "inventory") or {} do
+		if item.state == "Displayed" or item.state == "Exhibited" then
+			out += 1
+		end
+	end
+	if out < 2 then
+		local ids = { "RubberDuck", "Teacup", "ToyCar", "AlarmClock" }
+		for i, itemId in ids do
+			local uid = S.InventoryService.Add(admin, itemId, { state = "Restored" })
+			if uid then
+				S.InventoryService.Update(admin, uid, { stars = 3 })
+				if i <= 3 then S.DisplayService.PlaceDisplay(admin, uid, i) else S.DisplayService.PlaceExhibit(admin, uid, 1) end
+			end
+		end
+		tell(admin, "Put 4 items on your shelves for the robber to find.")
+	end
+	local visit, reason = S.RobberService.DebugSpawn(admin)
+	if visit == nil then
+		tell(admin, "No robber: " .. tostring(reason))
+	else
+		tell(admin, "A robber is coming in about 12 seconds. Go to your shop and tap Shoo!")
+	end
+end }
+
 COMMANDS["goto"] = { usage = "/goto <who>  (you go to them)", run = function(admin, a)
 	local target = targets(admin, a[1])[1]
 	local root = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")

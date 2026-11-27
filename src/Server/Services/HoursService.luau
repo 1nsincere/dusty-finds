@@ -298,6 +298,41 @@ function HoursService.Refresh(hour: number?)
 	end
 end
 
+-- ===== Breach (WP9, docs/14): the night robber's way in =====
+-- The shutter stays SOLID for everyone (visitors still cannot enter, only the owner passes; HoursCheck rules unchanged). Breach only
+-- LIFTS the slab a few studs for a moment (a visible gap + the warning the owner sees) while the robber, who is put in the owner's
+-- collision group by RobberService, walks through. It never touches CanCollide, never opens the shop, and puts itself back.
+local BREACH_LIFT = 3 -- studs the shutter slab is raised
+local breached: { [Model]: boolean } = {}
+
+function HoursService.IsBreached(plot: Model): boolean
+	return breached[plot] == true
+end
+
+-- Raises this shop's closed shutter for `seconds`. Returns false if the shop has no shutter, is open (nothing to breach) or already breached.
+function HoursService.Breach(plot: Model, seconds: number): boolean
+	local info = shutters[plot]
+	if info == nil or breached[plot] or Workspace:GetAttribute(info.openAttr) == true then
+		return false
+	end
+	breached[plot] = true
+	local part = info.part
+	TweenService:Create(part, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = shutterCFrame(info, info.height) + Vector3.new(0, BREACH_LIFT, 0),
+	}):Play()
+	log.info(plot.Name, "shutter breached for", seconds, "s")
+	task.delay(seconds, function()
+		breached[plot] = nil
+		-- the morning may have opened it meanwhile: then setShutter already placed it, leave it alone
+		if part.Parent and Workspace:GetAttribute(info.openAttr) ~= true then
+			TweenService:Create(part, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+				CFrame = shutterCFrame(info, info.height),
+			}):Play()
+		end
+	end)
+	return true
+end
+
 function HoursService.Init(_services)
 	log.info("Init")
 end

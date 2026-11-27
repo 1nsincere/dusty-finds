@@ -237,6 +237,9 @@ local ALL_CHECKS = {
 	{ "PlotCheck", function() return script.Parent.Parent.Tests:FindFirstChild("PlotCheck") end, true },
 	{ "DisplayCheck", function() return script.Parent.Parent.Tests:FindFirstChild("DisplayCheck") end },
 	{ "CustomerCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CustomerCheck") end },
+	{ "CustomerQueueCheck", function() return script.Parent.Parent.Tests:FindFirstChild("CustomerQueueCheck") end },
+	{ "TownGraphCheck", function() return script.Parent.Parent.Tests:FindFirstChild("TownGraphCheck") end },
+	{ "RobberCheck", function() return script.Parent.Parent.Tests:FindFirstChild("RobberCheck") end },
 	{ "RestorationCheck", function() return script.Parent.Parent.Tests:FindFirstChild("RestorationCheck") end },
 	{ "SettingsCheck", function() return script.Parent.Parent.Tests:FindFirstChild("SettingsCheck") end },
 	{ "TutorialCheck", function() return script.Parent.Parent.Tests:FindFirstChild("TutorialCheck") end },
@@ -315,6 +318,37 @@ function commands.testAll(player: Player, withE2E: any)
 end
 
 -- maxUpgrades(player): every upgrade to its max level for free (also shows decor and slots)
+-- Testing: gives 3 restored items and puts them on shelf slots 1-3, plus one on pedestal 1 (whatever slots are unlocked). Returns how many were placed.
+-- Run: game.ServerStorage.DevTools:Invoke("stockShelves", player)
+function commands.stockShelves(player: Player)
+	local placed = 0
+	local itemIds = { "RubberDuck", "Teacup", "ToyCar", "AlarmClock" }
+	for i, itemId in itemIds do
+		local uid = S.InventoryService.Add(player, itemId, { state = "Restored" })
+		if uid then
+			S.InventoryService.Update(player, uid, { stars = 3 })
+			local ok
+			if i <= 3 then
+				ok = S.DisplayService.PlaceDisplay(player, uid, i)
+			else
+				ok = S.DisplayService.PlaceExhibit(player, uid, 1)
+			end
+			if ok then
+				placed += 1
+			end
+		end
+	end
+	return true, `{placed} item(s) placed`
+end
+
+-- WP8: sends one night robber to the player's shop right now (any time of day, any level). Needs 2+ items on shelves / pedestals to steal.
+-- Run: game.ServerStorage.DevTools:Invoke("robber") from the command bar while playing (uses the first player).
+function commands.robber(player: Player)
+	local RobberService = require(script.Parent.RobberService)
+	local visit, reason = RobberService.DebugSpawn(player)
+	return visit ~= nil, reason or "a robber is on the way"
+end
+
 function commands.maxUpgrades(player: Player)
 	for id, def in Upgrades do
 		S.DataService.Set(player, "upgrades." .. id, def.maxLevel)

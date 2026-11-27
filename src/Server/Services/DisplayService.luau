@@ -17,6 +17,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 
 local DisplayService = {}
+local StolenItems = require(script.Parent.Parent.Lib.StolenItems) -- WP8: a stolen item cannot go back on display
 local DEBUG = true
 local log = Log.new("DisplayService", DEBUG)
 
@@ -130,6 +131,9 @@ local function place(player: any, kind: string, uid: any, slotIndex: any): (bool
 	if item.state ~= "Restored" then
 		return false, "notRestored"
 	end
+	if StolenItems.Is(player, uid) then
+		return false, "stolen" -- taken by a robber: reclaim it at the Tanod post first (RobberService)
+	end
 	if occupant(player, kind, slotIndex) ~= nil then
 		return false, "slotTaken"
 	end
@@ -230,6 +234,7 @@ end
 
 local MESSAGES = {
 	notRestored = "Only restored items can go on display.",
+	stolen = "That item was taken. Get it back at the Tanod post in the plaza.",
 	slotTaken = "That spot is already used.",
 	slotLocked = "That spot isn't unlocked yet. Buy more shelves in the shop.",
 	reserved = "A customer is looking at that item right now.",

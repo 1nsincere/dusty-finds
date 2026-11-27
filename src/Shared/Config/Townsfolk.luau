@@ -18,6 +18,13 @@ local Townsfolk = {
 	PauseSeconds = { 1.5, 4 },
 	AnimateWithin = 160, -- studs from the camera: closer walkers animate every frame, further ones update rarely
 	HideBeyond = 420, -- studs from the camera: further walkers are hidden (parented out)
+	-- WP5 (docs/13): walkers follow Shared/TownGraph, a graph built from these routes (shared corners = junctions).
+	GraphLegs = { 10, 400 }, -- a graph walk stops after this many legs or this many studs, then walks back
+	-- Routes not used as graph edges (they keep their old there-and-back line). Dwayne's scan flagged 4, 5, 7, 9, 18, 27, 29,
+	-- 30, 31; a raycast re-check in Studio on 2026-11-27 (ground within 1.2 studs every 2 studs, nothing solid at knee and
+	-- chest height) passed all but route 4, which has one sample at (30,-158) where a ray hit something at y 14.4 (overhead?).
+	-- Numbers are positions in Routes below.
+	GraphExcluded = { 4 },
 	-- Looks: models in ReplicatedStorage.Assets.Townsfolk (any R15 model with a Humanoid). Missing folder = no walkers.
 
 	Routes = {
